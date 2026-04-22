@@ -38,8 +38,10 @@ type stubUserStore struct {
 }
 
 type stubSubmissionStore struct {
+	submissions []submissions.Summary
 	submission  submissions.Summary
 	createErr   error
+	listErr     error
 	getErr      error
 	createInput submissions.CreateInput
 }
@@ -63,6 +65,10 @@ func (store stubUserStore) GetOrCreateBySubject(context.Context, string) (users.
 func (store *stubSubmissionStore) CreateSubmission(_ context.Context, input submissions.CreateInput) (submissions.Summary, error) {
 	store.createInput = input
 	return store.submission, store.createErr
+}
+
+func (store *stubSubmissionStore) ListSubmissions(context.Context, string) ([]submissions.Summary, error) {
+	return store.submissions, store.listErr
 }
 
 func (store *stubSubmissionStore) GetSubmissionByID(context.Context, string, string) (submissions.Summary, error) {
@@ -300,6 +306,46 @@ func TestCreateSubmissionRejectsMissingToken(t *testing.T) {
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("POST /v1/submissions without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestListSubmissionsRejectsMissingToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/submissions", nil)
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("GET /v1/submissions without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestListSubmissionsReturnsOwnerHistory(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/submissions", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	store := &stubSubmissionStore{submissions: []submissions.Summary{
+		{ID: "submission-2", ProblemSlug: "two-sum", Language: "python", Status: "accepted"},
+		{ID: "submission-1", ProblemSlug: "a-plus-b", Language: "cpp17", Status: "wrong_answer"},
+	}}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, store).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/submissions status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	var response struct {
+		Submissions []submissions.Summary `json:"submissions"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(response.Submissions) != 2 {
+		t.Fatalf("GET /v1/submissions returned %d submissions, want 2", len(response.Submissions))
+	}
+	if response.Submissions[0].ID != "submission-2" {
+		t.Fatalf("GET /v1/submissions returned unexpected first item: %#v", response.Submissions[0])
 	}
 }
 

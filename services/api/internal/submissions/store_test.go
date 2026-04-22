@@ -119,3 +119,35 @@ func TestGetSubmissionByIDReturnsNotFoundForUnknownID(t *testing.T) {
 		t.Fatalf("GetSubmissionByID() error = %v, want %v", err, ErrSubmissionNotFound)
 	}
 }
+
+func TestListSubmissionsReturnsOwnerHistoryNewestFirst(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	newest := time.Now().UTC()
+	older := newest.Add(-time.Hour)
+	rows := pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at"}).
+		AddRow("submission-2", "two-sum", "python", "accepted", newest).
+		AddRow("submission-1", "a-plus-b", "cpp17", "wrong_answer", older)
+	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at(.|\n)*WHERE s.user_id = \$1::uuid(.|\n)*ORDER BY s.queued_at DESC, s.id DESC`).
+		WithArgs("00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	submissions, err := store.ListSubmissions(context.Background(), "00000000-0000-0000-0000-000000000001")
+	if err != nil {
+		t.Fatalf("ListSubmissions() error = %v", err)
+	}
+	if len(submissions) != 2 {
+		t.Fatalf("ListSubmissions() returned %d rows, want 2", len(submissions))
+	}
+	if submissions[0].ID != "submission-2" || submissions[1].ID != "submission-1" {
+		t.Fatalf("ListSubmissions() returned unexpected ordering: %#v", submissions)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}

@@ -33,12 +33,14 @@ type CreateInput struct {
 
 type Store interface {
 	CreateSubmission(context.Context, CreateInput) (Summary, error)
+	ListSubmissions(context.Context, string) ([]Summary, error)
 	GetSubmissionByID(context.Context, string, string) (Summary, error)
 }
 
 type DisabledStore struct{}
 
 type rowQueryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
@@ -75,6 +77,15 @@ JOIN problem_versions pv ON pv.id = s.problem_version_id
 JOIN problems p ON p.id = pv.problem_id
 WHERE s.id = $1::uuid AND s.user_id = $2::uuid
 LIMIT 1
+`
+
+const listSubmissionsSQL = `
+SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at
+FROM submissions s
+JOIN problem_versions pv ON pv.id = s.problem_version_id
+JOIN problems p ON p.id = pv.problem_id
+WHERE s.user_id = $1::uuid
+ORDER BY s.queued_at DESC, s.id DESC
 `
 
 func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
@@ -126,6 +137,30 @@ func (store *PostgresStore) GetSubmissionByID(ctx context.Context, submissionID 
 	return submission, err
 }
 
+func (store *PostgresStore) ListSubmissions(ctx context.Context, userID string) ([]Summary, error) {
+	rows, err := store.db.Query(ctx, listSubmissionsSQL, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	submissions := make([]Summary, 0)
+	for rows.Next() {
+		var submission Summary
+		if err := rows.Scan(&submission.ID, &submission.ProblemSlug, &submission.Language, &submission.Status, &submission.QueuedAt); err != nil {
+			return nil, err
+		}
+
+		submissions = append(submissions, submission)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return submissions, nil
+}
+
 func (store *PostgresStore) Close() {
 	if store.pool != nil {
 		store.pool.Close()
@@ -134,6 +169,10 @@ func (store *PostgresStore) Close() {
 
 func (DisabledStore) CreateSubmission(context.Context, CreateInput) (Summary, error) {
 	return Summary{}, ErrStoreNotConfigured
+}
+
+func (DisabledStore) ListSubmissions(context.Context, string) ([]Summary, error) {
+	return nil, ErrStoreNotConfigured
 }
 
 func (DisabledStore) GetSubmissionByID(context.Context, string, string) (Summary, error) {

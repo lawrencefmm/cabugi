@@ -13,6 +13,7 @@
 - The API now has Clerk-style JWT middleware and a protected `GET /v1/me` bootstrap route.
 - The API now bootstraps DB-backed app users from authenticated Clerk subjects.
 - The API now includes published problem read endpoints backed by PostgreSQL.
+- The API now includes submission history and detail endpoints backed by PostgreSQL.
 - The API now includes authenticated submission create and read routes backed by PostgreSQL.
 - The judge worker now claims queued submissions from PostgreSQL and persists final verdicts plus `submission_results`.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.

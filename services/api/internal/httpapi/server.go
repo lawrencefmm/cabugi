@@ -28,6 +28,7 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
+	mux.Handle("GET /v1/submissions", auth.RequireAuth(verifier, listSubmissionsHandler(userStore, submissionStore)))
 	mux.Handle("POST /v1/submissions", auth.RequireAuth(verifier, createSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/submissions/{id}", auth.RequireAuth(verifier, getSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/me", auth.RequireAuth(verifier, currentUserHandler(userStore)))
@@ -97,6 +98,30 @@ func getPublishedProblemHandler(problemStore problems.Store) http.HandlerFunc {
 
 		writeJSON(writer, http.StatusOK, problem)
 	}
+}
+
+func listSubmissionsHandler(userStore users.Store, submissionStore submissions.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		principal, ok := auth.PrincipalFromContext(request.Context())
+		if !ok {
+			writeError(writer, http.StatusInternalServerError, "missing_principal")
+			return
+		}
+
+		user, err := userStore.GetOrCreateBySubject(request.Context(), principal.Subject)
+		if err != nil {
+			writeUserStoreError(writer, err)
+			return
+		}
+
+		items, err := submissionStore.ListSubmissions(request.Context(), user.ID)
+		if err != nil {
+			writeSubmissionStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, map[string]any{"submissions": items})
+	})
 }
 
 func createSubmissionHandler(userStore users.Store, submissionStore submissions.Store) http.Handler {
