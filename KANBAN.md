@@ -21,25 +21,6 @@
 
 ## Ready
 
-### WEB-02 - Add authenticated solve and submission UX
-Description: Add Clerk-based frontend auth integration, a solve page editor and language picker, submission creation from the browser, and polling until a final verdict is reached.
-
-Expected Result: A signed-in user can submit `C++17` or `Python` code from the browser and see queued, running, and final verdict states.
-
-Acceptance Tests:
-- The web app can obtain a Clerk session token and send it to the API.
-- The problem detail page includes a language picker for `C++17` and `Python`.
-- The solve page includes a code editor area.
-- Submitting from the page calls `POST /v1/submissions`.
-- After submission creation, the UI polls `GET /v1/submissions/{id}` until a terminal status is reached.
-- The UI displays at least `queued`, `running`, `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded`.
-- Unauthenticated submission attempts prompt sign-in or block submission clearly.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Not started.
-
 ## Backlog
 
 ### SUB-API-02 - Add submission history endpoint
@@ -240,6 +221,28 @@ Notes:
 - Not started.
 
 ## Done
+
+### WEB-02 - Add authenticated solve and submission UX
+Description: Add Clerk-based frontend auth integration, a solve page editor and language picker, submission creation from the browser, and polling until a final verdict is reached.
+
+Expected Result: A signed-in user can submit `C++17` or `Python` code from the browser and see queued, running, and final verdict states.
+
+Acceptance Tests:
+- The web app can obtain a Clerk session token and send it to the API.
+- The problem detail page includes a language picker for `C++17` and `Python`.
+- The solve page includes a code editor area.
+- Submitting from the page calls `POST /v1/submissions`.
+- After submission creation, the UI polls `GET /v1/submissions/{id}` until a terminal status is reached.
+- The UI displays at least `queued`, `running`, `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded`.
+- Unauthenticated submission attempts prompt sign-in or block submission clearly.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by adding a Clerk-aware solve workspace on the problem detail page, including language selection, Monaco editor integration, authenticated submission creation, and verdict polling through React Query.
+- Added frontend submission helpers plus starter code templates for `C++17` and `Python`, and documented the required `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` environment variable.
+- The solve workspace now blocks clearly when auth is unavailable, prompts sign-in when the user is signed out, and shows live `queued`, `running`, and terminal verdict states after submission.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
 
 ### WEB-01 - Build published problem browsing UI
 Description: Replace the placeholder web page with a real app shell, a published problem list screen, and a problem detail page powered by the existing API.

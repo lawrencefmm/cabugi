@@ -8,5 +8,5 @@ type ProblemPageProps = {
 
 export default async function ProblemPage({ params }: ProblemPageProps) {
   const { slug } = await params;
-  return <ProblemDetailPage slug={slug} />;
+  return <ProblemDetailPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} slug={slug} />;
 }

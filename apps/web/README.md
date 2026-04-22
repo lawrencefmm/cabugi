@@ -8,6 +8,7 @@ This workspace now contains the published problem browsing UI and the frontend t
 
 ## Environment
 - `NEXT_PUBLIC_API_BASE_URL`: browser-visible base URL for the Go API. Defaults to `http://127.0.0.1:8080`.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used for frontend authentication and token retrieval.
 
 ## Verification
 - `pnpm --filter web typecheck`

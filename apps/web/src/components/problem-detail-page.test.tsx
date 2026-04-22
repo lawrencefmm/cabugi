@@ -33,7 +33,7 @@ describe("ProblemDetailPage", () => {
   it("renders the full published problem detail", async () => {
     mockFetch({});
 
-    render(<ProblemDetailPage slug="two-sum" />);
+    render(<ProblemDetailPage authEnabled={false} slug="two-sum" />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading problem");
     expect(await screen.findByRole("heading", { name: "Two Sum" })).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("ProblemDetailPage", () => {
   it("renders a not found message for a missing problem", async () => {
     mockFetch({ ok: false, status: 404 });
 
-    render(<ProblemDetailPage slug="missing-problem" />);
+    render(<ProblemDetailPage authEnabled={false} slug="missing-problem" />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Problem unavailable");
     expect(screen.getByText("Problem not found.")).toBeInTheDocument();
