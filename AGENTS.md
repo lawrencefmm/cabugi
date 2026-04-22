@@ -3,6 +3,7 @@
 ## Current State
 - Planning files now exist: `KANBAN.md`, `MVP_SCOPE.md`, `ARCHITECTURE.md`, and `TESTING_RULES.md`.
 - The repository now has a pnpm workspace, a Go workspace, service placeholder modules, and local shared infrastructure config.
+- Verified test commands now exist for `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `go test ./...` in both `services/api` and `services/judge`.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.
 
 ## Working Rules

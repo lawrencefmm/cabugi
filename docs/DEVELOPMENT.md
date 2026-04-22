@@ -34,4 +34,32 @@ Current development credentials:
 
 ## Current State
 - This task bootstraps the repository structure and shared local infrastructure only.
-- The frontend app, API service, judge worker, and automated test tooling will be expanded in subsequent tasks.
+- The frontend workspace now has an initial `Next.js` scaffold and automated unit test setup.
+- The API and judge services now have initial Go unit-test targets.
+- Integration tests and full service wiring will be expanded in subsequent tasks.
+
+## Test Commands
+Install frontend dependencies from the repository root:
+
+```bash
+pnpm install
+```
+
+Run focused verification:
+
+```bash
+pnpm --filter web typecheck
+pnpm --filter web test --run
+```
+
+```bash
+go test ./...
+```
+
+Run the Go command from `services/api` for API tests or from `services/judge` for judge tests.
+
+Current broad verification for the bootstrapped repo:
+- `pnpm --filter web typecheck`
+- `pnpm --filter web test --run`
+- `go test ./...` from `services/api`
+- `go test ./...` from `services/judge`

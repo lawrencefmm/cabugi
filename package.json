@@ -1,5 +1,9 @@
 {
   "name": "cabugi",
   "private": true,
-  "packageManager": "pnpm@10.28.0"
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "test:web": "pnpm --filter web test --run",
+    "typecheck:web": "pnpm --filter web typecheck"
+  }
 }

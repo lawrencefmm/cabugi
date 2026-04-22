@@ -32,6 +32,7 @@
 | Role-based access is enforced | API or service tests cover `user`, `moderator`, and `admin` permissions for protected actions |
 
 ## Current Gaps
-- There is no application code yet, so there are no runnable automated tests or verified test commands.
-- The first implementation tasks must establish test tooling for the frontend, API, and judge services and document the exact commands once they exist.
+- Initial automated test commands now exist for the frontend workspace and both Go services.
+- Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
+- CI still needs to be added so the documented verification commands run automatically on every push or pull request.
 - This file should be updated whenever a new project rule, security constraint, or core product behavior is introduced.
