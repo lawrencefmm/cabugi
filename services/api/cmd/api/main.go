@@ -12,6 +12,7 @@ import (
 	"github.com/lawrencefmm/cabugi/services/api/internal/config"
 	"github.com/lawrencefmm/cabugi/services/api/internal/httpapi"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
+	"github.com/lawrencefmm/cabugi/services/api/internal/submissions"
 	"github.com/lawrencefmm/cabugi/services/api/internal/users"
 )
 
@@ -43,7 +44,15 @@ func main() {
 		log.Printf("api user store disabled: %v", err)
 	}
 
-	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore)
+	var submissionStore submissions.Store = submissions.DisabledStore{}
+	if store, err := submissions.NewPostgresStore(cfg.DatabaseURL); err == nil {
+		submissionStore = store
+		defer store.Close()
+	} else {
+		log.Printf("api submission store disabled: %v", err)
+	}
+
+	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore)
 
 	go func() {
 		<-ctx.Done()

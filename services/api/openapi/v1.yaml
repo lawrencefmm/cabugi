@@ -42,6 +42,29 @@ components:
               type: string
             notesMarkdown:
               type: string
+    Submission:
+      type: object
+      required:
+        - id
+        - problemSlug
+        - language
+        - status
+        - queuedAt
+      properties:
+        id:
+          type: string
+        problemSlug:
+          type: string
+        language:
+          type: string
+          enum:
+            - cpp17
+            - python
+        status:
+          type: string
+        queuedAt:
+          type: string
+          format: date-time
   securitySchemes:
     clerkSession:
       type: http
@@ -151,3 +174,69 @@ paths:
           description: No published problem exists for the slug.
         '503':
           description: The problem store is not configured.
+  /v1/submissions:
+    post:
+      summary: Create a submission for a published problem
+      operationId: createSubmission
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - problemSlug
+                - language
+                - sourceCode
+              properties:
+                problemSlug:
+                  type: string
+                language:
+                  type: string
+                  enum:
+                    - cpp17
+                    - python
+                sourceCode:
+                  type: string
+      responses:
+        '201':
+          description: Submission created and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '400':
+          description: Invalid submission request.
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No published problem exists for the requested slug.
+        '503':
+          description: Submission dependencies are not configured.
+  /v1/submissions/{id}:
+    get:
+      summary: Get a submission by id for the current user
+      operationId: getSubmissionByID
+      security:
+        - clerkSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stored submission for the current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No submission exists for the current user and requested id.
+        '503':
+          description: Submission dependencies are not configured.

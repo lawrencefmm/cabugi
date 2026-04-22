@@ -16,6 +16,7 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
+	"github.com/lawrencefmm/cabugi/services/api/internal/submissions"
 	"github.com/lawrencefmm/cabugi/services/api/internal/users"
 )
 
@@ -36,6 +37,13 @@ type stubUserStore struct {
 	err  error
 }
 
+type stubSubmissionStore struct {
+	submission  submissions.Summary
+	createErr   error
+	getErr      error
+	createInput submissions.CreateInput
+}
+
 func (verifier stubVerifier) Verify(context.Context, string) (auth.Principal, error) {
 	return verifier.principal, verifier.err
 }
@@ -52,11 +60,20 @@ func (store stubUserStore) GetOrCreateBySubject(context.Context, string) (users.
 	return store.user, store.err
 }
 
+func (store *stubSubmissionStore) CreateSubmission(_ context.Context, input submissions.CreateInput) (submissions.Summary, error) {
+	store.createInput = input
+	return store.submission, store.createErr
+}
+
+func (store *stubSubmissionStore) GetSubmissionByID(context.Context, string, string) (submissions.Summary, error) {
+	return store.submission, store.getErr
+}
+
 func TestHealthzHandler(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	recorder := httptest.NewRecorder()
 
-	NewMux(nil, nil, nil).ServeHTTP(recorder, request)
+	NewMux(nil, nil, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /healthz status = %d, want %d", recorder.Code, http.StatusOK)
@@ -74,7 +91,7 @@ func TestOpenAPIHandler(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/openapi/v1.yaml", nil)
 	recorder := httptest.NewRecorder()
 
-	NewMux(nil, nil, nil).ServeHTTP(recorder, request)
+	NewMux(nil, nil, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /openapi/v1.yaml status = %d, want %d", recorder.Code, http.StatusOK)
@@ -96,7 +113,7 @@ func TestProtectedRouteRejectsMissingToken(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("GET /v1/me without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
@@ -108,7 +125,7 @@ func TestProtectedRouteRejectsInvalidToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer invalid-token")
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{err: auth.ErrInvalidToken}, nil, nil).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{err: auth.ErrInvalidToken}, nil, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("GET /v1/me with invalid token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
@@ -120,7 +137,7 @@ func TestProtectedRouteAcceptsVerifiedToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer good-token")
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/me with valid token status = %d, want %d", recorder.Code, http.StatusOK)
@@ -161,7 +178,7 @@ func TestProtectedRouteAcceptsVerifiedClerkToken(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer "+signedToken)
 	recorder := httptest.NewRecorder()
 
-	NewMux(verifier, nil, stubUserStore{user: users.User{ID: "user-id-2", Subject: "user_456", Handle: "user_efgh", DisplayName: "User efgh"}}).ServeHTTP(recorder, request)
+	NewMux(verifier, nil, stubUserStore{user: users.User{ID: "user-id-2", Subject: "user_456", Handle: "user_efgh", DisplayName: "User efgh"}}, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/me with verified Clerk token status = %d, want %d", recorder.Code, http.StatusOK)
@@ -173,7 +190,7 @@ func TestProtectedRouteReturnsServiceUnavailableWhenVerifierIsDisabled(t *testin
 	request.Header.Set("Authorization", "Bearer configured-token")
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{err: auth.ErrVerifierNotConfigured}, nil, nil).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{err: auth.ErrVerifierNotConfigured}, nil, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("GET /v1/me with disabled verifier status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
@@ -188,7 +205,7 @@ func TestListPublishedProblemsReturnsPublishedProblems(t *testing.T) {
 		{Slug: "a-plus-b", Title: "A + B", TimeLimitMs: 1000, MemoryLimitMB: 256},
 		{Slug: "two-sum", Title: "Two Sum", TimeLimitMs: 1000, MemoryLimitMB: 256},
 	}}
-	NewMux(nil, store, nil).ServeHTTP(recorder, request)
+	NewMux(nil, store, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/problems status = %d, want %d", recorder.Code, http.StatusOK)
@@ -212,7 +229,7 @@ func TestGetPublishedProblemBySlugReturnsProblem(t *testing.T) {
 	store := stubProblemStore{detail: problems.PublishedProblemDetail{
 		Slug: "two-sum", Title: "Two Sum", StatementMarkdown: "Solve it", InputMarkdown: "Input", OutputMarkdown: "Output", ConstraintsMarkdown: "Constraints", NotesMarkdown: "Notes", TimeLimitMs: 1000, MemoryLimitMB: 256,
 	}}
-	NewMux(nil, store, nil).ServeHTTP(recorder, request)
+	NewMux(nil, store, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/problems/{slug} status = %d, want %d", recorder.Code, http.StatusOK)
@@ -223,7 +240,7 @@ func TestGetPublishedProblemBySlugReturnsNotFound(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/problems/missing", nil)
 	recorder := httptest.NewRecorder()
 
-	NewMux(nil, stubProblemStore{getErr: problems.ErrNotFound}, nil).ServeHTTP(recorder, request)
+	NewMux(nil, stubProblemStore{getErr: problems.ErrNotFound}, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("GET /v1/problems/{slug} missing status = %d, want %d", recorder.Code, http.StatusNotFound)
@@ -235,9 +252,73 @@ func TestProtectedRouteReturnsServiceUnavailableWhenUserStoreIsDisabled(t *testi
 	request.Header.Set("Authorization", "Bearer configured-token")
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{err: users.ErrStoreNotConfigured}).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{err: users.ErrStoreNotConfigured}, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("GET /v1/me with disabled user store status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestCreateSubmissionRejectsMissingToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/submissions", strings.NewReader(`{"problemSlug":"two-sum","language":"cpp17","sourceCode":"int main() {}"}`))
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /v1/submissions without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestCreateSubmissionCreatesQueuedSubmission(t *testing.T) {
+	store := &stubSubmissionStore{submission: submissions.Summary{ID: "submission-id", ProblemSlug: "two-sum", Language: "cpp17", Status: "queued"}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/submissions", strings.NewReader(`{"problemSlug":"two-sum","language":"cpp17","sourceCode":"int main() {}"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, store).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST /v1/submissions status = %d, want %d", recorder.Code, http.StatusCreated)
+	}
+	if store.createInput.UserID != "user-id" || store.createInput.ProblemSlug != "two-sum" {
+		t.Fatalf("POST /v1/submissions stored unexpected create input: %#v", store.createInput)
+	}
+}
+
+func TestCreateSubmissionRejectsMissingProblem(t *testing.T) {
+	store := &stubSubmissionStore{createErr: submissions.ErrProblemNotFound}
+	request := httptest.NewRequest(http.MethodPost, "/v1/submissions", strings.NewReader(`{"problemSlug":"draft-only","language":"cpp17","sourceCode":"int main() {}"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, store).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("POST /v1/submissions missing problem status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
+
+func TestGetSubmissionReturnsNotFoundForUnknownID(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/submissions/missing-id", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{getErr: submissions.ErrSubmissionNotFound}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("GET /v1/submissions/{id} missing status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
+
+func TestGetSubmissionReturnsSubmissionForOwner(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/submissions/submission-id", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{submission: submissions.Summary{ID: "submission-id", ProblemSlug: "two-sum", Language: "cpp17", Status: "queued"}}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/submissions/{id} status = %d, want %d", recorder.Code, http.StatusOK)
 	}
 }
