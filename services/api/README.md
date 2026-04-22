@@ -15,10 +15,15 @@ Available bootstrap routes:
 - `GET /healthz`
 - `GET /openapi/v1.yaml`
 - `GET /v1/me` with Clerk session authentication
+- `GET /v1/problems`
+- `GET /v1/problems/{slug}`
 
 ## Clerk Auth Environment
 - `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed `azp` values such as `http://localhost:3000`.
+
+## Database Environment
+- `DATABASE_URL`: PostgreSQL connection string for problem and submission data. Defaults to the local Docker Compose database.
 
 ## Verification
 Run the API test suite from `services/api`:

@@ -11,6 +11,7 @@ import (
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/config"
 	"github.com/lawrencefmm/cabugi/services/api/internal/httpapi"
+	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
 )
 
 func main() {
@@ -25,7 +26,15 @@ func main() {
 		log.Printf("api auth verifier disabled: %v", err)
 	}
 
-	server := httpapi.NewServer(cfg.Address, verifier)
+	var problemStore problems.Store = problems.DisabledStore{}
+	if store, err := problems.NewPostgresStore(cfg.DatabaseURL); err == nil {
+		problemStore = store
+		defer store.Close()
+	} else {
+		log.Printf("api problem store disabled: %v", err)
+	}
+
+	server := httpapi.NewServer(cfg.Address, verifier, problemStore)
 
 	go func() {
 		<-ctx.Done()
