@@ -30,6 +30,21 @@ export type Submission = {
   queuedAt: string;
 };
 
+export type SubmissionResult = {
+  testIndex: number;
+  verdict: SubmissionStatus;
+  executionTimeMs: number;
+  memoryBytes: number;
+  stdoutExcerpt: string;
+  stderrExcerpt: string;
+};
+
+export type SubmissionDetail = Submission & {
+  totalTests: number;
+  passedTests: number;
+  results: SubmissionResult[];
+};
+
 type PublishedProblemsResponse = {
   problems: PublishedProblemSummary[];
 };
@@ -105,7 +120,7 @@ export async function createSubmission(input: CreateSubmissionInput, token: stri
 }
 
 export async function fetchSubmission(id: string, token: string) {
-  return fetchJSON<Submission>(`/v1/submissions/${id}`, {
+  return fetchJSON<SubmissionDetail>(`/v1/submissions/${id}`, {
     token,
   });
 }
@@ -151,6 +166,10 @@ export function formatSubmissionStatus(status: SubmissionStatus) {
     case "time_limit_exceeded":
       return "Time Limit Exceeded";
   }
+}
+
+export function formatSubmissionLanguage(language: Submission["language"]) {
+  return language === "cpp17" ? "C++17" : "Python";
 }
 
 export function isTerminalSubmissionStatus(status: SubmissionStatus) {

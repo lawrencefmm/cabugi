@@ -3,7 +3,7 @@
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchSubmissions, formatQueuedAt, formatSubmissionStatus, type Submission } from "../lib/api";
+import { fetchSubmissions, formatQueuedAt, formatSubmissionLanguage, formatSubmissionStatus, type Submission } from "../lib/api";
 
 type SubmissionHistoryPageProps = {
   authEnabled: boolean;
@@ -100,7 +100,7 @@ function SubmissionHistoryList({ submissions }: { submissions: Submission[] }) {
               <a className="history-card__problem-link" href={`/problems/${submission.problemSlug}`}>
                 {submission.problemSlug}
               </a>
-              <p className="history-card__meta">{submission.language === "cpp17" ? "C++17" : "Python"}</p>
+              <p className="history-card__meta">{formatSubmissionLanguage(submission.language)}</p>
             </div>
 
             <a className="history-card__detail-link" href={`/submissions/${submission.id}`}>
