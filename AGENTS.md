@@ -2,7 +2,7 @@
 
 ## Current State
 - Planning files now exist: `KANBAN.md`, `MVP_SCOPE.md`, `ARCHITECTURE.md`, and `TESTING_RULES.md`.
-- There is still no application code, manifest, lockfile, CI workflow, or verified build/test command yet.
+- The repository now has a pnpm workspace, a Go workspace, service placeholder modules, and local shared infrastructure config.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.
 
 ## Working Rules

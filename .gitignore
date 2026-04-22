@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+coverage/
+
+bin/
+tmp/
+
+.DS_Store
+.env
+.env.*
