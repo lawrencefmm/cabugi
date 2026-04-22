@@ -4,6 +4,7 @@ import { startTransition, useEffect, useEffectEvent, useState } from "react";
 
 import { fetchPublishedProblem, formatMemoryLimit, formatProblemFetchError, formatTimeLimit, type PublishedProblemDetail } from "../lib/api";
 import { ProblemMarkdown } from "./problem-markdown";
+import { SolveWorkspace } from "./solve-workspace";
 
 type ProblemDetailState =
   | { kind: "loading" }
@@ -11,10 +12,11 @@ type ProblemDetailState =
   | { kind: "ready"; problem: PublishedProblemDetail };
 
 type ProblemDetailPageProps = {
+  authEnabled: boolean;
   slug: string;
 };
 
-export function ProblemDetailPage({ slug }: ProblemDetailPageProps) {
+export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps) {
   const [state, setState] = useState<ProblemDetailState>({ kind: "loading" });
 
   const loadProblem = useEffectEvent(async (signal: AbortSignal) => {
@@ -146,6 +148,10 @@ export function ProblemDetailPage({ slug }: ProblemDetailPageProps) {
             </div>
           </div>
         </aside>
+      </section>
+
+      <section className="workspace-section">
+        <SolveWorkspace authEnabled={authEnabled} problemSlug={problem.slug} />
       </section>
     </main>
   );
