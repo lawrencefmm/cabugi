@@ -17,6 +17,8 @@
 
 ## Ready
 
+## Done
+
 ### JUDGE-01 - Prove sandbox execution
 Description: Build a small technical spike that compiles and runs C++17 and Python in an isolated environment with enforced resource limits.
 
@@ -31,9 +33,10 @@ Acceptance Tests:
 - The spike can run a Python submission under the same isolation flow.
 
 Notes:
-- Not started.
-
-## Done
+- Completed by adding `services/judge/internal/spike` plus `cmd/judge-spike`, a Docker-based local runner that compiles and executes submissions with network disabled and resource limits.
+- Added built-in fixture scenarios for `C++17` and `Python`, covering `Accepted`, `Wrong Answer`, `Compile Error`, and `Time Limit Exceeded`.
+- Documented the local spike command in `services/judge/README.md` and `docs/DEVELOPMENT.md` as `go run ./cmd/judge-spike --all` from `services/judge`.
+- Verified `go test ./...` and `go run ./cmd/judge-spike --all` in `services/judge`.
 
 ### DB-01 - Define initial schema
 Description: Design the first database schema for users, roles, problems, problem versions, submissions, and moderation state.
