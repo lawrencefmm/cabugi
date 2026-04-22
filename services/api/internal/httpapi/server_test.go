@@ -87,6 +87,39 @@ func TestHealthzHandler(t *testing.T) {
 	}
 }
 
+func TestCORSAllowsConfiguredOrigin(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/problems", nil)
+	request.Header.Set("Origin", "http://localhost:3000")
+	recorder := httptest.NewRecorder()
+
+	withCORS(NewMux(nil, stubProblemStore{}, nil, nil), []string{"http://localhost:3000"}).ServeHTTP(recorder, request)
+
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "http://localhost:3000")
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodGet) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want GET to be allowed", got)
+	}
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("CORS wrapped GET /v1/problems status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestCORSHandlesPreflightRequests(t *testing.T) {
+	request := httptest.NewRequest(http.MethodOptions, "/v1/submissions", nil)
+	request.Header.Set("Origin", "http://localhost:3000")
+	recorder := httptest.NewRecorder()
+
+	withCORS(NewMux(nil, nil, nil, nil), []string{"http://localhost:3000"}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS preflight status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "http://localhost:3000")
+	}
+}
+
 func TestOpenAPIHandler(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/openapi/v1.yaml", nil)
 	recorder := httptest.NewRecorder()

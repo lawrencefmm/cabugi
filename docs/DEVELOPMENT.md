@@ -34,7 +34,7 @@ Current development credentials:
 
 ## Current State
 - This task bootstraps the repository structure and shared local infrastructure only.
-- The frontend workspace now has an initial `Next.js` scaffold and automated unit test setup.
+- The frontend workspace now has published problem list and detail UI plus automated unit tests.
 - The API service now has a bootstrap HTTP server with a health route and a versioned OpenAPI document.
 - The API now includes PostgreSQL-backed published problem read endpoints.
 - The judge service now has a Docker-based spike plus Go tests for verdict handling.
@@ -89,6 +89,12 @@ Clerk environment variables for protected API routes:
 
 Database environment for API routes backed by PostgreSQL:
 - `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
+
+Web environment:
+- `NEXT_PUBLIC_API_BASE_URL`: web runtime base URL for the Go API. Defaults to `http://127.0.0.1:8080`.
+
+API browser access environment:
+- `WEB_ALLOWED_ORIGINS`: optional comma-separated origins the API should allow for browser requests. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.

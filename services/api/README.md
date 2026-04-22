@@ -26,6 +26,7 @@ Available bootstrap routes:
 
 ## Database Environment
 - `DATABASE_URL`: PostgreSQL connection string for problem and submission data. Defaults to the local Docker Compose database.
+- `WEB_ALLOWED_ORIGINS`: optional comma-separated browser origins allowed by API CORS. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
 
 ## Verification
 Run the API test suite from `services/api`:
