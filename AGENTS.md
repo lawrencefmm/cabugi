@@ -5,6 +5,7 @@
 - The repository now has a pnpm workspace, a Go workspace, service placeholder modules, and local shared infrastructure config.
 - Verified test commands now exist for `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `go test ./...` in both `services/api` and `services/judge`.
 - The database directory now includes an initial PostgreSQL migration and `./db/scripts/verify_initial_schema.sh` for schema verification.
+- The judge service now includes a Docker-based local spike and `go run ./cmd/judge-spike --all` in `services/judge` verifies `C++17` and `Python` verdict handling.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.
 
 ## Working Rules
@@ -31,3 +32,4 @@
 - Initial deployable units are `web`, `api`, `judge`, `postgres`, private `S3`-compatible object storage, and managed `auth`.
 - Use a database-backed queue in `PostgreSQL` for the first submission job flow.
 - Only the `judge` service may run untrusted code, and it must do so on isolated judge hosts.
+- The local proof-of-concept judge flow may use Docker-based isolation, but production hardening still targets dedicated judge hosts with stricter sandboxing.

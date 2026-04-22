@@ -64,3 +64,9 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+
+Judge spike command from `services/judge`:
+
+```bash
+go run ./cmd/judge-spike --all
+```
