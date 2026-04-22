@@ -19,21 +19,6 @@
 
 ## In Progress
 
-### CI-02 - Fix pnpm setup in GitHub Actions
-Description: Fix the failing GitHub Actions web job by ensuring `pnpm` is installed before `actions/setup-node` uses `cache: pnpm`, and record the new workflow rules introduced after the last batch.
-
-Expected Result: The `web` CI job succeeds, and the repository instructions explicitly require Conventional Commits plus post-batch CI inspection.
-
-Acceptance Tests:
-- `.github/workflows/ci.yml` installs `pnpm` before `actions/setup-node` in the `web` job.
-- `AGENTS.md` records the Conventional Commits rule.
-- `AGENTS.md` records the post-batch GitHub Actions inspection rule.
-- `KANBAN.md` rules record the same two workflow expectations.
-- A GitHub Actions run on the task branch completes successfully.
-
-Notes:
-- In progress.
-
 ## Ready
 
 ### USER-01 - Bootstrap app users from Clerk subjects
@@ -88,6 +73,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### CI-02 - Fix pnpm setup in GitHub Actions
+Description: Fix the failing GitHub Actions web job by ensuring `pnpm` is installed before `actions/setup-node` uses `cache: pnpm`, and record the new workflow rules introduced after the last batch.
+
+Expected Result: The `web` CI job succeeds, and the repository instructions explicitly require Conventional Commits plus post-batch CI inspection.
+
+Acceptance Tests:
+- `.github/workflows/ci.yml` installs `pnpm` before `actions/setup-node` in the `web` job.
+- `AGENTS.md` records the Conventional Commits rule.
+- `AGENTS.md` records the post-batch GitHub Actions inspection rule.
+- `KANBAN.md` rules record the same two workflow expectations.
+- A GitHub Actions run on the task branch completes successfully.
+
+Notes:
+- Completed by moving `pnpm/action-setup` ahead of `actions/setup-node` in the `web` job so `cache: pnpm` can resolve the `pnpm` executable on GitHub runners.
+- Recorded the new workflow rules in both `AGENTS.md` and `KANBAN.md`: use Conventional Commits and inspect GitHub Actions after each completed batch.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run` locally.
+- Verified the GitHub Actions run on `task/ci-02-fix-pnpm-setup-in-github-actions` completed successfully.
 
 ### PROB-API-01 - Implement published problem read endpoints
 Description: Implement the first product endpoints for listing published problems and fetching a published problem by slug from PostgreSQL.
