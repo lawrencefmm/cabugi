@@ -105,3 +105,9 @@ Judge spike command from `services/judge`:
 ```bash
 go run ./cmd/judge-spike --all
 ```
+
+Judge worker command from `services/judge`:
+
+```bash
+go run ./cmd/judge --once
+```

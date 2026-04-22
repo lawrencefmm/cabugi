@@ -21,6 +21,8 @@
 
 ## Ready
 
+## Done
+
 ### JUDGE-02 - Process queued submissions and persist verdicts
 Description: Extend the judge from a local spike into a worker flow that claims queued submission jobs, evaluates them, and writes final verdicts plus per-test results back to PostgreSQL.
 
@@ -35,9 +37,10 @@ Acceptance Tests:
 - `go test ./...` passes in `services/judge`.
 
 Notes:
-- Not started.
-
-## Done
+- Completed by adding a PostgreSQL-backed judge worker store, a file-based local hidden-test bundle loader, and a processor that claims one queued job, runs it through the existing spike runner, and persists the final verdict plus per-test results.
+- Implemented `go run ./cmd/judge --once` as the local worker command and documented it in `services/judge/README.md` and `docs/DEVELOPMENT.md`.
+- Added automated worker tests covering `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded` verdict persistence paths.
+- Verified `go test ./...` in `services/judge`, and confirmed locally that a queued submission was processed to `accepted`, wrote one `submission_results` row, and was removed from `submission_jobs`.
 
 ### SUB-API-01 - Add submission create and read endpoints
 Description: Add API routes to create a submission for a published problem and fetch a stored submission by id.
