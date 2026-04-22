@@ -14,7 +14,7 @@ The API listens on `127.0.0.1:8080` by default. Override with `API_ADDRESS`.
 Available bootstrap routes:
 - `GET /healthz`
 - `GET /openapi/v1.yaml`
-- `GET /v1/me` with Clerk session authentication
+- `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
 - `GET /v1/problems/{slug}`
 

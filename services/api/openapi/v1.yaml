@@ -87,20 +87,29 @@ paths:
         - clerkSession: []
       responses:
         '200':
-          description: The current authenticated session subject.
+          description: The current authenticated app user.
           content:
             application/json:
               schema:
                 type: object
                 required:
+                  - id
                   - subject
+                  - handle
+                  - displayName
                 properties:
+                  id:
+                    type: string
                   subject:
+                    type: string
+                  handle:
+                    type: string
+                  displayName:
                     type: string
         '401':
           description: Missing or invalid session token.
         '503':
-          description: Clerk verification is not configured on the API server.
+          description: Authentication or user bootstrap dependencies are not configured on the API server.
   /v1/problems:
     get:
       summary: List published problems
