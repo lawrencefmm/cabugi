@@ -3,6 +3,7 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+services/judge/testdata/**/program
 
 bin/
 tmp/
