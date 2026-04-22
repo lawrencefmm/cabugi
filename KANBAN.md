@@ -22,20 +22,6 @@
 ## Ready
 
 ## Backlog
-### JUDGE-03 - Load hidden test bundles from object storage
-Description: Replace local file-path bundle loading with `S3`-compatible hidden test retrieval so the real worker path matches the intended architecture.
-
-Expected Result: The judge loads hidden tests from private object storage instead of local disk paths.
-
-Acceptance Tests:
-- The worker can fetch hidden test bundles from configured object storage using the stored bundle key.
-- Local development works with `MinIO`.
-- A queued submission can still reach a final verdict using object-stored test data.
-- `go test ./...` passes in `services/judge`.
-
-Notes:
-- Not started.
-
 ### JUDGE-04 - Add worker loop and failure handling
 Description: Extend the judge from one-off processing to a repeatable worker loop with basic retry accounting and failure recording.
 
@@ -157,6 +143,23 @@ Notes:
 - Not started.
 
 ## Done
+
+### JUDGE-03 - Load hidden test bundles from object storage
+Description: Replace local file-path bundle loading with `S3`-compatible hidden test retrieval so the real worker path matches the intended architecture.
+
+Expected Result: The judge loads hidden tests from private object storage instead of local disk paths.
+
+Acceptance Tests:
+- The worker can fetch hidden test bundles from configured object storage using the stored bundle key.
+- Local development works with `MinIO`.
+- A queued submission can still reach a final verdict using object-stored test data.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Completed by replacing the local file loader with an S3-compatible bundle loader configured through judge environment variables and defaulting to local MinIO.
+- Added SHA-256 verification against `hidden_test_bundle_sha256` before hidden tests are decoded or executed.
+- Added loader tests for object fetch and checksum mismatch plus a processor test that completes a submission using object-stored bundle data.
+- Verified `go test ./...` in `services/judge`.
 
 ### WEB-04 - Build submission detail result UI
 Description: Add a submission detail screen that renders the final verdict, aggregate counts, and per-test results returned by the API.

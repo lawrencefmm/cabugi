@@ -99,6 +99,19 @@ Web environment:
 API browser access environment:
 - `WEB_ALLOWED_ORIGINS`: optional comma-separated origins the API should allow for browser requests. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
 
+Judge object storage environment:
+- `OBJECT_STORAGE_ENDPOINT`: judge object storage endpoint. Defaults to `http://127.0.0.1:9000` for local MinIO.
+- `OBJECT_STORAGE_REGION`: object storage region. Defaults to `us-east-1`.
+- `OBJECT_STORAGE_BUCKET`: hidden test bundle bucket. Defaults to `cabugi-hidden-tests`.
+- `OBJECT_STORAGE_ACCESS_KEY_ID`: object storage access key. Defaults to `minioadmin`.
+- `OBJECT_STORAGE_SECRET_ACCESS_KEY`: object storage secret key. Defaults to `minioadmin`.
+- `OBJECT_STORAGE_USE_PATH_STYLE`: optional path-style toggle for S3-compatible APIs. Defaults to `true` for local MinIO.
+
+Local judge bundle storage:
+- Create the `cabugi-hidden-tests` bucket in MinIO.
+- Upload JSON bundle objects to that bucket, and store the object key in `hidden_test_bundle_key`.
+- Store the uploaded bundle SHA-256 hex digest in `hidden_test_bundle_sha256` so the judge can verify integrity before execution.
+
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.
 
