@@ -3,7 +3,11 @@
   "private": true,
   "packageManager": "pnpm@10.28.0",
   "scripts": {
+    "install:all": "pnpm install --frozen-lockfile",
     "test:web": "pnpm --filter web test --run",
-    "typecheck:web": "pnpm --filter web typecheck"
+    "typecheck:web": "pnpm --filter web typecheck",
+    "test:api": "cd services/api && go test ./...",
+    "test:judge": "cd services/judge && go test ./...",
+    "verify:db": "./db/scripts/verify_initial_schema.sh"
   }
 }
