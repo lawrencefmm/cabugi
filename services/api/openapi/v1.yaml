@@ -65,6 +65,50 @@ components:
         queuedAt:
           type: string
           format: date-time
+    SubmissionResult:
+      type: object
+      required:
+        - testIndex
+        - verdict
+        - executionTimeMs
+        - memoryBytes
+        - stdoutExcerpt
+        - stderrExcerpt
+      properties:
+        testIndex:
+          type: integer
+        verdict:
+          type: string
+          enum:
+            - accepted
+            - wrong_answer
+            - runtime_error
+            - time_limit_exceeded
+        executionTimeMs:
+          type: integer
+        memoryBytes:
+          type: integer
+        stdoutExcerpt:
+          type: string
+        stderrExcerpt:
+          type: string
+    SubmissionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Submission'
+        - type: object
+          required:
+            - totalTests
+            - passedTests
+            - results
+          properties:
+            totalTests:
+              type: integer
+            passedTests:
+              type: integer
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubmissionResult'
   securitySchemes:
     clerkSession:
       type: http
@@ -256,7 +300,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Submission'
+                $ref: '#/components/schemas/SubmissionDetail'
         '401':
           description: Missing or invalid session token.
         '404':

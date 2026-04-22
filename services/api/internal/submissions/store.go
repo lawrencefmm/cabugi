@@ -24,6 +24,26 @@ type Summary struct {
 	QueuedAt    time.Time `json:"queuedAt"`
 }
 
+type Result struct {
+	TestIndex       int    `json:"testIndex"`
+	Verdict         string `json:"verdict"`
+	ExecutionTimeMS int    `json:"executionTimeMs"`
+	MemoryBytes     int64  `json:"memoryBytes"`
+	StdoutExcerpt   string `json:"stdoutExcerpt"`
+	StderrExcerpt   string `json:"stderrExcerpt"`
+}
+
+type Detail struct {
+	ID          string    `json:"id"`
+	ProblemSlug string    `json:"problemSlug"`
+	Language    string    `json:"language"`
+	Status      string    `json:"status"`
+	QueuedAt    time.Time `json:"queuedAt"`
+	TotalTests  int       `json:"totalTests"`
+	PassedTests int       `json:"passedTests"`
+	Results     []Result  `json:"results"`
+}
+
 type CreateInput struct {
 	UserID      string
 	ProblemSlug string
@@ -34,7 +54,7 @@ type CreateInput struct {
 type Store interface {
 	CreateSubmission(context.Context, CreateInput) (Summary, error)
 	ListSubmissions(context.Context, string) ([]Summary, error)
-	GetSubmissionByID(context.Context, string, string) (Summary, error)
+	GetSubmissionByID(context.Context, string, string) (Detail, error)
 }
 
 type DisabledStore struct{}
@@ -71,12 +91,19 @@ JOIN published_problem ON TRUE
 `
 
 const getSubmissionByIDSQL = `
-SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at
+SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests
 FROM submissions s
 JOIN problem_versions pv ON pv.id = s.problem_version_id
 JOIN problems p ON p.id = pv.problem_id
 WHERE s.id = $1::uuid AND s.user_id = $2::uuid
 LIMIT 1
+`
+
+const listSubmissionResultsSQL = `
+SELECT test_index, verdict::text, execution_time_ms, memory_bytes, stdout_excerpt, stderr_excerpt
+FROM submission_results
+WHERE submission_id = $1::uuid
+ORDER BY test_index ASC
 `
 
 const listSubmissionsSQL = `
@@ -121,20 +148,51 @@ func (store *PostgresStore) CreateSubmission(ctx context.Context, input CreateIn
 	return submission, err
 }
 
-func (store *PostgresStore) GetSubmissionByID(ctx context.Context, submissionID string, userID string) (Summary, error) {
-	var submission Summary
+func (store *PostgresStore) GetSubmissionByID(ctx context.Context, submissionID string, userID string) (Detail, error) {
+	submission := Detail{Results: make([]Result, 0)}
 	err := store.db.QueryRow(ctx, getSubmissionByIDSQL, submissionID, userID).Scan(
 		&submission.ID,
 		&submission.ProblemSlug,
 		&submission.Language,
 		&submission.Status,
 		&submission.QueuedAt,
+		&submission.TotalTests,
+		&submission.PassedTests,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Summary{}, ErrSubmissionNotFound
+		return Detail{}, ErrSubmissionNotFound
+	}
+	if err != nil {
+		return Detail{}, err
 	}
 
-	return submission, err
+	rows, err := store.db.Query(ctx, listSubmissionResultsSQL, submissionID)
+	if err != nil {
+		return Detail{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var result Result
+		if err := rows.Scan(
+			&result.TestIndex,
+			&result.Verdict,
+			&result.ExecutionTimeMS,
+			&result.MemoryBytes,
+			&result.StdoutExcerpt,
+			&result.StderrExcerpt,
+		); err != nil {
+			return Detail{}, err
+		}
+
+		submission.Results = append(submission.Results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return Detail{}, err
+	}
+
+	return submission, nil
 }
 
 func (store *PostgresStore) ListSubmissions(ctx context.Context, userID string) ([]Summary, error) {
@@ -175,6 +233,6 @@ func (DisabledStore) ListSubmissions(context.Context, string) ([]Summary, error)
 	return nil, ErrStoreNotConfigured
 }
 
-func (DisabledStore) GetSubmissionByID(context.Context, string, string) (Summary, error) {
-	return Summary{}, ErrStoreNotConfigured
+func (DisabledStore) GetSubmissionByID(context.Context, string, string) (Detail, error) {
+	return Detail{}, ErrStoreNotConfigured
 }

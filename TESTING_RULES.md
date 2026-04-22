@@ -28,7 +28,7 @@
 | Hidden tests remain private | API and storage integration tests prove hidden test bundles are not exposed through public endpoints or frontend assets |
 | Moderated user-created problems follow lifecycle rules | Tests cover `draft`, `in_review`, `published`, and `archived` transitions and permission checks |
 | Supported languages are `C++17` and `Python` | Judge tests cover successful execution and common failure verdicts for both languages |
-| Verdict reporting is trustworthy | Tests cover final verdict aggregation from per-test results, including `Accepted`, `Wrong Answer`, `Compile Error`, `Runtime Error`, and `Time Limit Exceeded` |
+| Verdict reporting is trustworthy | Tests cover final verdict aggregation from per-test results, owner-scoped submission detail reads, and verdict rendering for `Accepted`, `Wrong Answer`, `Compile Error`, `Runtime Error`, and `Time Limit Exceeded` |
 | Role-based access is enforced | API or service tests cover `user`, `moderator`, and `admin` permissions for protected actions |
 
 ## Current Gaps

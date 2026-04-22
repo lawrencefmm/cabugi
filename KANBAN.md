@@ -22,21 +22,6 @@
 ## Ready
 
 ## Backlog
-### SUB-API-03 - Expand submission detail with result breakdown
-Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
-
-Expected Result: The API exposes verdict breakdown data for an owned submission, including stored `submission_results` rows.
-
-Acceptance Tests:
-- The OpenAPI document defines the per-test result shape on `GET /v1/submissions/{id}`.
-- The endpoint returns final status plus aggregate counts for total and passed tests.
-- The endpoint returns per-test result items when they exist.
-- The endpoint still returns `404` for submissions not owned by the current user.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### WEB-04 - Build submission detail result UI
 Description: Add a submission detail screen that renders the final verdict, aggregate counts, and per-test results returned by the API.
 
@@ -188,6 +173,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### SUB-API-03 - Expand submission detail with result breakdown
+Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
+
+Expected Result: The API exposes verdict breakdown data for an owned submission, including stored `submission_results` rows.
+
+Acceptance Tests:
+- The OpenAPI document defines the per-test result shape on `GET /v1/submissions/{id}`.
+- The endpoint returns final status plus aggregate counts for total and passed tests.
+- The endpoint returns per-test result items when they exist.
+- The endpoint still returns `404` for submissions not owned by the current user.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by extending `GET /v1/submissions/{id}` from a summary response to a detail response that includes `totalTests`, `passedTests`, and ordered `submission_results` rows.
+- Added explicit API/store coverage for owner-scoped reads, aggregate counts, ordered per-test results, and the existing `404` behavior.
+- Updated `services/api/openapi/v1.yaml` with `SubmissionDetail` and `SubmissionResult` schemas so the contract matches the stored judge data.
+- Verified `go test ./...` in `services/api`.
 
 ### WEB-03 - Build submission history page
 Description: Add a page where signed-in users can review recent submissions and navigate back to the relevant problem or submission detail.
