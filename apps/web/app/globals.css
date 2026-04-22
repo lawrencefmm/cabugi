@@ -441,6 +441,53 @@ a {
   color: #fca5a5;
 }
 
+.history-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-card {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1.15rem;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: var(--shadow);
+}
+
+.history-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.history-card__problem-link,
+.history-card__detail-link {
+  font-weight: 700;
+}
+
+.history-card__detail-link {
+  color: var(--accent-strong);
+}
+
+.history-card__meta,
+.history-card__timestamp {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+}
+
+.history-card__footer {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.history-actions {
+  margin-top: 1rem;
+}
+
 @media (max-width: 900px) {
   .problem-layout {
     grid-template-columns: 1fr;
@@ -448,6 +495,12 @@ a {
 
   .workspace-panel__header {
     flex-direction: column;
+  }
+
+  .history-card__header,
+  .history-card__footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .problem-sidebar {

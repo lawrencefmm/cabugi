@@ -9,6 +9,7 @@
 - Baseline CI now lives in `.github/workflows/ci.yml` and runs the web, Go service, and database verification commands on pushes and pull requests.
 - The web app now includes published problem list and detail pages powered by the API.
 - The web app now includes an authenticated solve workspace that submits code and polls verdict status from the API.
+- The web app now includes submission history and summary pages for authenticated users.
 - The API service now exposes `GET /healthz` and serves `services/api/openapi/v1.yaml` at `GET /openapi/v1.yaml`.
 - The API now has Clerk-style JWT middleware and a protected `GET /v1/me` bootstrap route.
 - The API now bootstraps DB-backed app users from authenticated Clerk subjects.

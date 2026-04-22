@@ -24,8 +24,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
             </a>
 
             <nav className="app-nav" aria-label="Primary">
-              <span>Published problems</span>
-              <span>Modern practice flow</span>
+              <a href="/">Problems</a>
+              <a href="/submissions">Submissions</a>
             </nav>
           </div>
         </header>
