@@ -35,7 +35,8 @@ Current development credentials:
 ## Current State
 - This task bootstraps the repository structure and shared local infrastructure only.
 - The frontend workspace now has an initial `Next.js` scaffold and automated unit test setup.
-- The API and judge services now have initial Go unit-test targets.
+- The API service now has a bootstrap HTTP server with a health route and a versioned OpenAPI document.
+- The judge service now has a Docker-based spike plus Go tests for verdict handling.
 - Integration tests and full service wiring will be expanded in subsequent tasks.
 
 ## Test Commands
@@ -64,6 +65,17 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+
+## API Service
+Run the bootstrap API locally from `services/api`:
+
+```bash
+go run ./cmd/api
+```
+
+Current bootstrap API routes:
+- `GET /healthz`
+- `GET /openapi/v1.yaml`
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.

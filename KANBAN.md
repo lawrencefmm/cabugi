@@ -19,21 +19,6 @@
 
 ## Ready
 
-### API-01 - Bootstrap API service and publish OpenAPI
-Description: Turn `services/api` from a placeholder into a minimal HTTP service with configuration loading, a health route, and a versioned OpenAPI document.
-
-Expected Result: The API starts locally, exposes a health endpoint, and serves a versioned contract that future handlers will implement.
-
-Acceptance Tests:
-- `services/api/openapi/v1.yaml` exists.
-- Running the API locally exposes `GET /healthz` and returns `200`.
-- Running the API locally exposes the OpenAPI document and returns `200`.
-- `go test ./...` passes in `services/api`.
-- Handler tests cover the health route and OpenAPI document route.
-
-Notes:
-- Not started.
-
 ### AUTH-01 - Add Clerk auth verification to the API
 Description: Add API-side authentication plumbing for Clerk, including token verification, current-user resolution, and protected-route middleware.
 
@@ -66,6 +51,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### API-01 - Bootstrap API service and publish OpenAPI
+Description: Turn `services/api` from a placeholder into a minimal HTTP service with configuration loading, a health route, and a versioned OpenAPI document.
+
+Expected Result: The API starts locally, exposes a health endpoint, and serves a versioned contract that future handlers will implement.
+
+Acceptance Tests:
+- `services/api/openapi/v1.yaml` exists.
+- Running the API locally exposes `GET /healthz` and returns `200`.
+- Running the API locally exposes the OpenAPI document and returns `200`.
+- `go test ./...` passes in `services/api`.
+- Handler tests cover the health route and OpenAPI document route.
+
+Notes:
+- Completed by adding a bootstrap HTTP server in `services/api` with config loading, route registration, and graceful shutdown wiring.
+- Added `services/api/openapi/v1.yaml` plus embedded serving at `GET /openapi/v1.yaml` and a `GET /healthz` JSON health route.
+- Documented the local run command in `services/api/README.md` and `docs/DEVELOPMENT.md`.
+- Verified `go test ./...` in `services/api` and confirmed `GET /healthz` and `GET /openapi/v1.yaml` return `200` when running `go run ./cmd/api` locally.
 
 ### CI-01 - Add baseline CI
 Description: Add GitHub Actions that run the repository's verified checks on pushes and pull requests.
