@@ -17,20 +17,6 @@
 
 ## Ready
 
-### DB-01 - Define initial schema
-Description: Design the first database schema for users, roles, problems, problem versions, submissions, and moderation state.
-
-Expected Result: A schema document or first migration set that supports the MVP flows without contest features.
-
-Acceptance Tests:
-- The schema defines users and role-aware access control.
-- The schema defines problem lifecycle states including `draft`, `in_review`, `published`, and `archived`.
-- The schema defines submissions linked to a stable problem version.
-- The schema excludes contest-only tables from v1.
-
-Notes:
-- Not started.
-
 ### JUDGE-01 - Prove sandbox execution
 Description: Build a small technical spike that compiles and runs C++17 and Python in an isolated environment with enforced resource limits.
 
@@ -48,6 +34,23 @@ Notes:
 - Not started.
 
 ## Done
+
+### DB-01 - Define initial schema
+Description: Design the first database schema for users, roles, problems, problem versions, submissions, and moderation state.
+
+Expected Result: A schema document or first migration set that supports the MVP flows without contest features.
+
+Acceptance Tests:
+- The schema defines users and role-aware access control.
+- The schema defines problem lifecycle states including `draft`, `in_review`, `published`, and `archived`.
+- The schema defines submissions linked to a stable problem version.
+- The schema excludes contest-only tables from v1.
+
+Notes:
+- Completed by adding `db/migrations/0001_initial_schema.sql` with users, role grants, problems, stable problem versions, tags, submissions, submission jobs, and per-test submission results.
+- Stored the moderation lifecycle as the `problem_version_status` enum and linked each submission directly to `problem_versions.id` so old submissions remain reproducible.
+- Added `db/scripts/verify_initial_schema.sh` to apply the migration to the local PostgreSQL container and verify the MVP schema rules automatically.
+- Verified the schema with `./db/scripts/verify_initial_schema.sh`, including the absence of contest tables.
 
 ### TEST-01 - Bootstrap automated test tooling
 Description: Establish the first test runners, test directory conventions, and developer commands for the frontend, API, and judge services.
