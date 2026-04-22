@@ -63,3 +63,4 @@ Current broad verification for the bootstrapped repo:
 - `pnpm --filter web test --run`
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
+- `./db/scripts/verify_initial_schema.sh`
