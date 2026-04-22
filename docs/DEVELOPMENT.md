@@ -76,6 +76,11 @@ go run ./cmd/api
 Current bootstrap API routes:
 - `GET /healthz`
 - `GET /openapi/v1.yaml`
+- `GET /v1/me` with Clerk session authentication
+
+Clerk environment variables for protected API routes:
+- `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
+- `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed frontend origins used to validate the `azp` claim.
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.

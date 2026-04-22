@@ -3,6 +3,12 @@ info:
   title: Cabugi API
   version: 1.0.0
   description: Initial Cabugi API surface for health checks and published problem access.
+components:
+  securitySchemes:
+    clerkSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 servers:
   - url: http://127.0.0.1:8080
 paths:
@@ -35,3 +41,25 @@ paths:
             application/yaml:
               schema:
                 type: string
+  /v1/me:
+    get:
+      summary: Current authenticated user
+      operationId: getCurrentUser
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: The current authenticated session subject.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - subject
+                properties:
+                  subject:
+                    type: string
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Clerk verification is not configured on the API server.
