@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	pgxmock "github.com/pashagolub/pgxmock/v4"
 )
 
@@ -80,5 +81,147 @@ func TestGetPublishedProblemBySlugReturnsNotFound(t *testing.T) {
 	_, err = store.GetPublishedProblemBySlug(context.Background(), "missing-problem")
 	if err != ErrNotFound {
 		t.Fatalf("GetPublishedProblemBySlug() error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestCreateDraftCreatesProblemAndInitialDraftVersion(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "draft", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "", "")
+	mock.ExpectQuery(`WITH inserted_problem AS \((.|\n)*INSERT INTO problem_versions(.|\n)*RETURNING problem_id, version_number, lifecycle_status::text`).
+		WithArgs("two-sum-user", "00000000-0000-0000-0000-000000000001", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "", "").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	problem, err := store.CreateDraft(context.Background(), CreateDraftInput{
+		UserID:              "00000000-0000-0000-0000-000000000001",
+		Slug:                "two-sum-user",
+		Title:               "Two Sum User",
+		StatementMarkdown:   "Solve it",
+		InputMarkdown:       "Input",
+		OutputMarkdown:      "Output",
+		ConstraintsMarkdown: "Constraints",
+		NotesMarkdown:       "Notes",
+		TimeLimitMs:         1000,
+		MemoryLimitMB:       256,
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft() error = %v", err)
+	}
+	if problem.Slug != "two-sum-user" || problem.VersionNumber != 1 || problem.LifecycleStatus != "draft" {
+		t.Fatalf("CreateDraft() returned unexpected problem: %#v", problem)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
+
+func TestCreateDraftReturnsProblemSlugTakenOnUniqueViolation(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`WITH inserted_problem AS \((.|\n)*INSERT INTO problem_versions`).
+		WithArgs("two-sum", "00000000-0000-0000-0000-000000000001", "Two Sum", "", "", "", "", "", 1000, 256, "", "").
+		WillReturnError(&pgconn.PgError{Code: "23505", ConstraintName: "problems_slug_key"})
+
+	store := NewPostgresStoreFromQuerier(mock)
+	_, err = store.CreateDraft(context.Background(), CreateDraftInput{
+		UserID:        "00000000-0000-0000-0000-000000000001",
+		Slug:          "two-sum",
+		Title:         "Two Sum",
+		TimeLimitMs:   1000,
+		MemoryLimitMB: 256,
+	})
+	if err != ErrProblemSlugTaken {
+		t.Fatalf("CreateDraft() error = %v, want %v", err, ErrProblemSlugTaken)
+	}
+}
+
+func TestGetDraftBySlugReturnsOwnerDraft(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "draft", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "", "")
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status = 'draft' AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	problem, err := store.GetDraftBySlug(context.Background(), "two-sum-user", "00000000-0000-0000-0000-000000000001", false)
+	if err != nil {
+		t.Fatalf("GetDraftBySlug() error = %v", err)
+	}
+	if problem.Title != "Two Sum User" {
+		t.Fatalf("GetDraftBySlug() returned unexpected problem: %#v", problem)
+	}
+}
+
+func TestUpdateDraftReturnsUpdatedDraftForOwner(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "draft", "Updated Title", "Solve it better", "Input", "Output", "Constraints", "Notes", 1500, 512, "", "")
+	mock.ExpectQuery(`WITH target_version AS \((.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status = 'draft' AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*UPDATE problem_versions pv`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001", "Updated Title", "Solve it better", "Input", "Output", "Constraints", "Notes", 1500, 512, "", "").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	problem, err := store.UpdateDraft(context.Background(), UpdateDraftInput{
+		ActorUserID:         "00000000-0000-0000-0000-000000000001",
+		Slug:                "two-sum-user",
+		Title:               "Updated Title",
+		StatementMarkdown:   "Solve it better",
+		InputMarkdown:       "Input",
+		OutputMarkdown:      "Output",
+		ConstraintsMarkdown: "Constraints",
+		NotesMarkdown:       "Notes",
+		TimeLimitMs:         1500,
+		MemoryLimitMB:       512,
+	})
+	if err != nil {
+		t.Fatalf("UpdateDraft() error = %v", err)
+	}
+	if problem.Title != "Updated Title" || problem.TimeLimitMs != 1500 {
+		t.Fatalf("UpdateDraft() returned unexpected problem: %#v", problem)
+	}
+}
+
+func TestUpdateDraftReturnsNotFoundForUnownedDraft(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`WITH target_version AS \((.|\n)*UPDATE problem_versions pv`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000002", "Updated Title", "", "", "", "", "", 1000, 256, "", "").
+		WillReturnRows(pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	_, err = store.UpdateDraft(context.Background(), UpdateDraftInput{
+		ActorUserID:   "00000000-0000-0000-0000-000000000002",
+		Slug:          "two-sum-user",
+		Title:         "Updated Title",
+		TimeLimitMs:   1000,
+		MemoryLimitMB: 256,
+	})
+	if err != ErrDraftNotFound {
+		t.Fatalf("UpdateDraft() error = %v, want %v", err, ErrDraftNotFound)
 	}
 }

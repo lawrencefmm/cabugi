@@ -26,15 +26,27 @@ type stubVerifier struct {
 }
 
 type stubProblemStore struct {
-	summaries []problems.PublishedProblemSummary
-	detail    problems.PublishedProblemDetail
-	listErr   error
-	getErr    error
+	summaries           []problems.PublishedProblemSummary
+	detail              problems.PublishedProblemDetail
+	draft               problems.DraftProblem
+	listErr             error
+	getErr              error
+	createErr           error
+	getDraftErr         error
+	updateErr           error
+	createDraftInput    problems.CreateDraftInput
+	updateDraftInput    problems.UpdateDraftInput
+	getDraftSlug        string
+	getDraftActorUserID string
+	getDraftAllowStaff  bool
 }
 
 type stubUserStore struct {
-	user users.User
-	err  error
+	user        users.User
+	err         error
+	hasRole     bool
+	hasRoleErr  error
+	checkedUser string
 }
 
 type stubSubmissionStore struct {
@@ -59,8 +71,29 @@ func (store stubProblemStore) GetPublishedProblemBySlug(context.Context, string)
 	return store.detail, store.getErr
 }
 
+func (store *stubProblemStore) CreateDraft(_ context.Context, input problems.CreateDraftInput) (problems.DraftProblem, error) {
+	store.createDraftInput = input
+	return store.draft, store.createErr
+}
+
+func (store *stubProblemStore) GetDraftBySlug(_ context.Context, slug string, actorUserID string, allowStaff bool) (problems.DraftProblem, error) {
+	store.getDraftSlug = slug
+	store.getDraftActorUserID = actorUserID
+	store.getDraftAllowStaff = allowStaff
+	return store.draft, store.getDraftErr
+}
+
+func (store *stubProblemStore) UpdateDraft(_ context.Context, input problems.UpdateDraftInput) (problems.DraftProblem, error) {
+	store.updateDraftInput = input
+	return store.draft, store.updateErr
+}
+
 func (store stubUserStore) GetOrCreateBySubject(context.Context, string) (users.User, error) {
 	return store.user, store.err
+}
+
+func (store stubUserStore) HasAnyRole(context.Context, string, ...users.Role) (bool, error) {
+	return store.hasRole, store.hasRoleErr
 }
 
 func (store *stubSubmissionStore) CreateSubmission(_ context.Context, input submissions.CreateInput) (submissions.Summary, error) {
@@ -99,7 +132,7 @@ func TestCORSAllowsConfiguredOrigin(t *testing.T) {
 	request.Header.Set("Origin", "http://localhost:3000")
 	recorder := httptest.NewRecorder()
 
-	withCORS(NewMux(nil, stubProblemStore{}, nil, nil), []string{"http://localhost:3000"}).ServeHTTP(recorder, request)
+	withCORS(NewMux(nil, &stubProblemStore{}, nil, nil), []string{"http://localhost:3000"}).ServeHTTP(recorder, request)
 
 	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "http://localhost:3000")
@@ -143,6 +176,9 @@ func TestOpenAPIHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, "/v1/problems/{slug}:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problems/{slug} path")
+	}
+	if !strings.Contains(body, "/v1/problem-drafts/{slug}:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/{slug} path")
 	}
 	if got := recorder.Header().Get("Content-Type"); got != "application/yaml" {
 		t.Fatalf("GET /openapi/v1.yaml content type = %q, want %q", got, "application/yaml")
@@ -241,7 +277,7 @@ func TestListPublishedProblemsReturnsPublishedProblems(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/problems", nil)
 	recorder := httptest.NewRecorder()
 
-	store := stubProblemStore{summaries: []problems.PublishedProblemSummary{
+	store := &stubProblemStore{summaries: []problems.PublishedProblemSummary{
 		{Slug: "a-plus-b", Title: "A + B", TimeLimitMs: 1000, MemoryLimitMB: 256},
 		{Slug: "two-sum", Title: "Two Sum", TimeLimitMs: 1000, MemoryLimitMB: 256},
 	}}
@@ -266,7 +302,7 @@ func TestGetPublishedProblemBySlugReturnsProblem(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/problems/two-sum", nil)
 	recorder := httptest.NewRecorder()
 
-	store := stubProblemStore{detail: problems.PublishedProblemDetail{
+	store := &stubProblemStore{detail: problems.PublishedProblemDetail{
 		Slug: "two-sum", Title: "Two Sum", StatementMarkdown: "Solve it", InputMarkdown: "Input", OutputMarkdown: "Output", ConstraintsMarkdown: "Constraints", NotesMarkdown: "Notes", TimeLimitMs: 1000, MemoryLimitMB: 256,
 	}}
 	NewMux(nil, store, nil, nil).ServeHTTP(recorder, request)
@@ -280,7 +316,7 @@ func TestGetPublishedProblemBySlugReturnsNotFound(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/problems/missing", nil)
 	recorder := httptest.NewRecorder()
 
-	NewMux(nil, stubProblemStore{getErr: problems.ErrNotFound}, nil, nil).ServeHTTP(recorder, request)
+	NewMux(nil, &stubProblemStore{getErr: problems.ErrNotFound}, nil, nil).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("GET /v1/problems/{slug} missing status = %d, want %d", recorder.Code, http.StatusNotFound)
@@ -296,6 +332,77 @@ func TestProtectedRouteReturnsServiceUnavailableWhenUserStoreIsDisabled(t *testi
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("GET /v1/me with disabled user store status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestCreateProblemDraftRejectsMissingToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","timeLimitMs":1000,"memoryLimitMb":256}`))
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /v1/problem-drafts without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestCreateProblemDraftCreatesInitialDraft(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST /v1/problem-drafts status = %d, want %d", recorder.Code, http.StatusCreated)
+	}
+	if store.createDraftInput.UserID != "user-id" || store.createDraftInput.Slug != "two-sum-user" {
+		t.Fatalf("POST /v1/problem-drafts stored unexpected create input: %#v", store.createDraftInput)
+	}
+}
+
+func TestGetProblemDraftReturnsOwnedDraft(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256}}
+	request := httptest.NewRequest(http.MethodGet, "/v1/problem-drafts/two-sum-user", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/problem-drafts/{slug} status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if store.getDraftSlug != "two-sum-user" || store.getDraftActorUserID != "user-id" || store.getDraftAllowStaff {
+		t.Fatalf("GET /v1/problem-drafts/{slug} used unexpected draft lookup inputs: %#v", store)
+	}
+}
+
+func TestUpdateProblemDraftReturnsNotFoundForUnownedDraft(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPatch, "/v1/problem-drafts/two-sum-user", strings.NewReader(`{"title":"Updated Title","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{updateErr: problems.ErrDraftNotFound}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("PATCH /v1/problem-drafts/{slug} unowned status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
+
+func TestUpdateProblemDraftAllowsStaffToModifyAnotherUsersDraft(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Updated Title", TimeLimitMs: 1000, MemoryLimitMB: 256}}
+	request := httptest.NewRequest(http.MethodPatch, "/v1/problem-drafts/two-sum-user", strings.NewReader(`{"title":"Updated Title","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}, hasRole: true}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PATCH /v1/problem-drafts/{slug} staff status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if !store.updateDraftInput.AllowStaff || store.updateDraftInput.ActorUserID != "user-id" {
+		t.Fatalf("PATCH /v1/problem-drafts/{slug} stored unexpected update input: %#v", store.updateDraftInput)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
@@ -28,6 +29,9 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
+	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore)))
+	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
+	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore)))
 	mux.Handle("GET /v1/submissions", auth.RequireAuth(verifier, listSubmissionsHandler(userStore, submissionStore)))
 	mux.Handle("POST /v1/submissions", auth.RequireAuth(verifier, createSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/submissions/{id}", auth.RequireAuth(verifier, getSubmissionHandler(userStore, submissionStore)))
@@ -98,6 +102,134 @@ func getPublishedProblemHandler(problemStore problems.Store) http.HandlerFunc {
 
 		writeJSON(writer, http.StatusOK, problem)
 	}
+}
+
+func createProblemDraftHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		var body struct {
+			Slug                string `json:"slug"`
+			Title               string `json:"title"`
+			StatementMarkdown   string `json:"statementMarkdown"`
+			InputMarkdown       string `json:"inputMarkdown"`
+			OutputMarkdown      string `json:"outputMarkdown"`
+			ConstraintsMarkdown string `json:"constraintsMarkdown"`
+			NotesMarkdown       string `json:"notesMarkdown"`
+			TimeLimitMs         int    `json:"timeLimitMs"`
+			MemoryLimitMB       int    `json:"memoryLimitMb"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+			return
+		}
+
+		body.Slug = strings.TrimSpace(body.Slug)
+		body.Title = strings.TrimSpace(body.Title)
+		if body.Slug == "" || body.Title == "" || body.TimeLimitMs <= 0 || body.MemoryLimitMB <= 0 {
+			writeError(writer, http.StatusBadRequest, "invalid_problem_draft")
+			return
+		}
+
+		problem, err := problemStore.CreateDraft(request.Context(), problems.CreateDraftInput{
+			UserID:              user.ID,
+			Slug:                body.Slug,
+			Title:               body.Title,
+			StatementMarkdown:   body.StatementMarkdown,
+			InputMarkdown:       body.InputMarkdown,
+			OutputMarkdown:      body.OutputMarkdown,
+			ConstraintsMarkdown: body.ConstraintsMarkdown,
+			NotesMarkdown:       body.NotesMarkdown,
+			TimeLimitMs:         body.TimeLimitMs,
+			MemoryLimitMB:       body.MemoryLimitMB,
+		})
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusCreated, problem)
+	})
+}
+
+func getProblemDraftHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		allowStaff, ok := currentUserCanManageDrafts(writer, request, userStore, user.ID)
+		if !ok {
+			return
+		}
+
+		problem, err := problemStore.GetDraftBySlug(request.Context(), request.PathValue("slug"), user.ID, allowStaff)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, problem)
+	})
+}
+
+func updateProblemDraftHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		allowStaff, ok := currentUserCanManageDrafts(writer, request, userStore, user.ID)
+		if !ok {
+			return
+		}
+
+		var body struct {
+			Title               string `json:"title"`
+			StatementMarkdown   string `json:"statementMarkdown"`
+			InputMarkdown       string `json:"inputMarkdown"`
+			OutputMarkdown      string `json:"outputMarkdown"`
+			ConstraintsMarkdown string `json:"constraintsMarkdown"`
+			NotesMarkdown       string `json:"notesMarkdown"`
+			TimeLimitMs         int    `json:"timeLimitMs"`
+			MemoryLimitMB       int    `json:"memoryLimitMb"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+			return
+		}
+
+		body.Title = strings.TrimSpace(body.Title)
+		if body.Title == "" || body.TimeLimitMs <= 0 || body.MemoryLimitMB <= 0 {
+			writeError(writer, http.StatusBadRequest, "invalid_problem_draft")
+			return
+		}
+
+		problem, err := problemStore.UpdateDraft(request.Context(), problems.UpdateDraftInput{
+			ActorUserID:         user.ID,
+			AllowStaff:          allowStaff,
+			Slug:                request.PathValue("slug"),
+			Title:               body.Title,
+			StatementMarkdown:   body.StatementMarkdown,
+			InputMarkdown:       body.InputMarkdown,
+			OutputMarkdown:      body.OutputMarkdown,
+			ConstraintsMarkdown: body.ConstraintsMarkdown,
+			NotesMarkdown:       body.NotesMarkdown,
+			TimeLimitMs:         body.TimeLimitMs,
+			MemoryLimitMB:       body.MemoryLimitMB,
+		})
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, problem)
+	})
 }
 
 func listSubmissionsHandler(userStore users.Store, submissionStore submissions.Store) http.Handler {
@@ -187,10 +319,40 @@ func getSubmissionHandler(userStore users.Store, submissionStore submissions.Sto
 	})
 }
 
+func currentUserFromRequest(writer http.ResponseWriter, request *http.Request, userStore users.Store) (users.User, bool) {
+	principal, ok := auth.PrincipalFromContext(request.Context())
+	if !ok {
+		writeError(writer, http.StatusInternalServerError, "missing_principal")
+		return users.User{}, false
+	}
+
+	user, err := userStore.GetOrCreateBySubject(request.Context(), principal.Subject)
+	if err != nil {
+		writeUserStoreError(writer, err)
+		return users.User{}, false
+	}
+
+	return user, true
+}
+
+func currentUserCanManageDrafts(writer http.ResponseWriter, request *http.Request, userStore users.Store, userID string) (bool, bool) {
+	hasRole, err := userStore.HasAnyRole(request.Context(), userID, users.RoleModerator, users.RoleAdmin)
+	if err != nil {
+		writeUserStoreError(writer, err)
+		return false, false
+	}
+
+	return hasRole, true
+}
+
 func writeProblemStoreError(writer http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, problems.ErrStoreNotConfigured):
 		writeError(writer, http.StatusServiceUnavailable, "problem_store_not_configured")
+	case errors.Is(err, problems.ErrProblemSlugTaken):
+		writeError(writer, http.StatusConflict, "problem_slug_taken")
+	case errors.Is(err, problems.ErrDraftNotFound):
+		writeError(writer, http.StatusNotFound, "problem_draft_not_found")
 	case errors.Is(err, problems.ErrNotFound):
 		writeError(writer, http.StatusNotFound, "problem_not_found")
 	default:
