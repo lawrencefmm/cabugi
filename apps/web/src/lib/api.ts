@@ -34,6 +34,10 @@ type PublishedProblemsResponse = {
   problems: PublishedProblemSummary[];
 };
 
+type SubmissionsResponse = {
+  submissions: Submission[];
+};
+
 type CreateSubmissionInput = {
   problemSlug: string;
   language: "cpp17" | "python";
@@ -106,6 +110,14 @@ export async function fetchSubmission(id: string, token: string) {
   });
 }
 
+export async function fetchSubmissions(token: string) {
+  const response = await fetchJSON<SubmissionsResponse>("/v1/submissions", {
+    token,
+  });
+
+  return response.submissions;
+}
+
 export function formatProblemFetchError(error: unknown, missingMessage: string) {
   if (error instanceof ApiError && error.status === 404) {
     return missingMessage;
@@ -143,4 +155,12 @@ export function formatSubmissionStatus(status: SubmissionStatus) {
 
 export function isTerminalSubmissionStatus(status: SubmissionStatus) {
   return status !== "queued" && status !== "running";
+}
+
+export function formatQueuedAt(queuedAt: string) {
+  const date = new Date(queuedAt);
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }

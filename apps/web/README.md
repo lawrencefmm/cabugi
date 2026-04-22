@@ -5,6 +5,8 @@ This workspace now contains the published problem browsing UI and the frontend t
 ## Current Routes
 - `/`: published problem list
 - `/problems/[slug]`: published problem detail page
+- `/submissions`: authenticated submission history page
+- `/submissions/[id]`: submission summary page
 
 ## Environment
 - `NEXT_PUBLIC_API_BASE_URL`: browser-visible base URL for the Go API. Defaults to `http://127.0.0.1:8080`.

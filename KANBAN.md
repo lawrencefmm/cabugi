@@ -21,22 +21,6 @@
 
 ## Ready
 
-### WEB-03 - Build submission history page
-Description: Add a page where signed-in users can review recent submissions and navigate back to the relevant problem or submission detail.
-
-Expected Result: Users can see their own submission history inside the web app.
-
-Acceptance Tests:
-- The page fetches the submission history endpoint.
-- The page shows problem slug, language, status, and queued time.
-- The page links to problem detail and submission detail routes.
-- Loading and error states are present.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Not started.
-
 ## Backlog
 ### SUB-API-03 - Expand submission detail with result breakdown
 Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
@@ -204,6 +188,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### WEB-03 - Build submission history page
+Description: Add a page where signed-in users can review recent submissions and navigate back to the relevant problem or submission detail.
+
+Expected Result: Users can see their own submission history inside the web app.
+
+Acceptance Tests:
+- The page fetches the submission history endpoint.
+- The page shows problem slug, language, status, and queued time.
+- The page links to problem detail and submission detail routes.
+- Loading and error states are present.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by adding `/submissions` for authenticated history browsing and `/submissions/[id]` for a minimal submission summary page linked from the history list.
+- The history UI handles signed-out, loading, empty, and error states while reusing Clerk auth and React Query for direct API calls.
+- Added tests for signed-out behavior, populated history rendering with real links, and empty-history handling.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
 
 ### SUB-API-02 - Add submission history endpoint
 Description: Add an authenticated endpoint that returns the current user's recent submissions with summary metadata for history views.

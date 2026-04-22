@@ -35,6 +35,7 @@ Current development credentials:
 ## Current State
 - This task bootstraps the repository structure and shared local infrastructure only.
 - The frontend workspace now has published problem list and detail UI plus automated unit tests.
+- The frontend workspace now has submission history and summary UI for authenticated users.
 - The API service now has a bootstrap HTTP server with a health route and a versioned OpenAPI document.
 - The API now includes PostgreSQL-backed published problem read endpoints.
 - The judge service now has a Docker-based spike plus Go tests for verdict handling.
