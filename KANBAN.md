@@ -22,22 +22,6 @@
 ## Ready
 
 ## Backlog
-### WEB-04 - Build submission detail result UI
-Description: Add a submission detail screen that renders the final verdict, aggregate counts, and per-test results returned by the API.
-
-Expected Result: Users can inspect an individual submission and understand what failed.
-
-Acceptance Tests:
-- The page fetches `GET /v1/submissions/{id}`.
-- The page renders the final verdict, total tests, and passed tests.
-- The page renders per-test result rows when present.
-- The page handles compile errors or empty per-test results gracefully.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Not started.
-
 ### JUDGE-03 - Load hidden test bundles from object storage
 Description: Replace local file-path bundle loading with `S3`-compatible hidden test retrieval so the real worker path matches the intended architecture.
 
@@ -173,6 +157,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### WEB-04 - Build submission detail result UI
+Description: Add a submission detail screen that renders the final verdict, aggregate counts, and per-test results returned by the API.
+
+Expected Result: Users can inspect an individual submission and understand what failed.
+
+Acceptance Tests:
+- The page fetches `GET /v1/submissions/{id}`.
+- The page renders the final verdict, total tests, and passed tests.
+- The page renders per-test result rows when present.
+- The page handles compile errors or empty per-test results gracefully.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by replacing the placeholder submission summary with a richer detail view that shows final verdict, aggregate test counts, and per-test result cards with output excerpts when present.
+- The page now handles compile errors and other empty-result cases with explicit messaging instead of rendering a blank section.
+- Added detail-page component tests that prove the authenticated fetch path, verdict breakdown rendering, and compile-error empty-state handling.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
 
 ### SUB-API-03 - Expand submission detail with result breakdown
 Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.

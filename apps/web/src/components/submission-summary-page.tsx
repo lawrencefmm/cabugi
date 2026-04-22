@@ -3,7 +3,7 @@
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchSubmission, formatQueuedAt, formatSubmissionStatus } from "../lib/api";
+import { fetchSubmission, formatQueuedAt, formatSubmissionLanguage, formatSubmissionStatus, type SubmissionDetail, type SubmissionStatus } from "../lib/api";
 
 type SubmissionSummaryPageProps = {
   authEnabled: boolean;
@@ -78,26 +78,112 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
         </section>
       ) : null}
 
+      {isLoaded && isSignedIn && submissionQuery.isPending ? (
+        <section className="empty-state" role="status" aria-live="polite">
+          <h2 className="empty-state__title">Loading submission</h2>
+          <p className="empty-state__text">Fetching the latest verdict and per-test results.</p>
+        </section>
+      ) : null}
+
       {submissionQuery.data ? (
-        <section className="history-card">
+        <section className="history-card submission-detail">
           <div className="history-card__header">
             <div>
               <a className="history-card__problem-link" href={`/problems/${submissionQuery.data.problemSlug}`}>
                 {submissionQuery.data.problemSlug}
               </a>
-              <p className="history-card__meta">{submissionQuery.data.language === "cpp17" ? "C++17" : "Python"}</p>
+              <p className="history-card__meta">{formatSubmissionLanguage(submissionQuery.data.language)}</p>
             </div>
           </div>
 
-          <div className="history-card__footer">
-            <span className={`workspace-status workspace-status--${submissionQuery.data.status}`}>
-              <span className="workspace-status__label">Status</span>
-              <span className="workspace-status__value">{formatSubmissionStatus(submissionQuery.data.status)}</span>
-            </span>
-            <span className="history-card__timestamp">{formatQueuedAt(submissionQuery.data.queuedAt)}</span>
+          <div className="submission-stats" aria-label="Submission summary">
+            <article className="submission-stat">
+              <p className="submission-stat__label">Final verdict</p>
+              <div className={`workspace-status workspace-status--${submissionQuery.data.status}`}>
+                <span className="workspace-status__value">{formatSubmissionStatus(submissionQuery.data.status)}</span>
+              </div>
+            </article>
+
+            <article className="submission-stat">
+              <p className="submission-stat__label">Passed tests</p>
+              <p className="submission-stat__value">{submissionQuery.data.passedTests}</p>
+            </article>
+
+            <article className="submission-stat">
+              <p className="submission-stat__label">Total tests</p>
+              <p className="submission-stat__value">{submissionQuery.data.totalTests}</p>
+            </article>
           </div>
+
+          <div className="history-card__footer">
+            <span className="history-card__timestamp">Queued {formatQueuedAt(submissionQuery.data.queuedAt)}</span>
+          </div>
+
+          <SubmissionResults submission={submissionQuery.data} />
         </section>
       ) : null}
     </main>
   );
+}
+
+function SubmissionResults({ submission }: { submission: SubmissionDetail }) {
+  if (submission.results.length === 0) {
+    return (
+      <section className="submission-results-empty" aria-live="polite">
+        <h2 className="submission-results-empty__title">Per-test results unavailable</h2>
+        <p className="submission-results-empty__text">{emptyResultsMessage(submission.status)}</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="submission-results" aria-label="Per-test results">
+      <h2 className="submission-results__title">Per-test results</h2>
+      <ol className="submission-results__list">
+        {submission.results.map((result) => (
+          <li className="submission-result" key={result.testIndex}>
+            <div className="submission-result__header">
+              <div>
+                <p className="submission-result__title">Test {result.testIndex + 1}</p>
+                <p className="submission-result__meta">Execution time: {result.executionTimeMs} ms</p>
+              </div>
+
+              <span className={`workspace-status workspace-status--${result.verdict}`}>
+                <span className="workspace-status__value">{formatSubmissionStatus(result.verdict)}</span>
+              </span>
+            </div>
+
+            {result.stdoutExcerpt ? (
+              <ResultStream heading="Stdout excerpt" value={result.stdoutExcerpt} />
+            ) : null}
+
+            {result.stderrExcerpt ? (
+              <ResultStream heading="Stderr excerpt" value={result.stderrExcerpt} />
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function ResultStream({ heading, value }: { heading: string; value: string }) {
+  return (
+    <div className="submission-result__stream">
+      <p className="submission-result__stream-label">{heading}</p>
+      <pre className="submission-result__stream-value">{value}</pre>
+    </div>
+  );
+}
+
+function emptyResultsMessage(status: SubmissionStatus) {
+  if (status === "compile_error") {
+    return "No per-test results were recorded because compilation failed before execution started.";
+  }
+
+  if (status === "queued" || status === "running") {
+    return "Per-test results will appear after judging finishes.";
+  }
+
+  return "This submission finished without individual test-case rows.";
 }
