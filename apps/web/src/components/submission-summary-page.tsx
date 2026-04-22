@@ -181,6 +181,10 @@ function emptyResultsMessage(status: SubmissionStatus) {
     return "No per-test results were recorded because compilation failed before execution started.";
   }
 
+  if (status === "judge_failed") {
+    return "The judge infrastructure could not finish this submission after repeated attempts.";
+  }
+
   if (status === "queued" || status === "running") {
     return "Per-test results will appear after judging finishes.";
   }

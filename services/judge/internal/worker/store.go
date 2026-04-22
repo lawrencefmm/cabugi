@@ -6,11 +6,20 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type database interface {
+	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
 type PostgresStore struct {
-	pool *pgxpool.Pool
+	pool           *pgxpool.Pool
+	db             database
+	maxJobAttempts int
+	retryDelay     time.Duration
 }
 
 const claimNextJobSQL = `
@@ -42,13 +51,61 @@ JOIN problem_versions pv ON pv.id = s.problem_version_id
 WHERE s.id = $1::uuid
 `
 
-func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
+const selectJobAttemptsSQL = `
+SELECT attempts
+FROM submission_jobs
+WHERE submission_id = $1::uuid
+FOR UPDATE
+`
+
+const requeueSubmissionJobSQL = `
+UPDATE submission_jobs
+SET claimed_at = NULL, available_at = $2, last_error = $3
+WHERE submission_id = $1::uuid
+`
+
+const poisonSubmissionJobSQL = `
+UPDATE submission_jobs
+SET last_error = $2
+WHERE submission_id = $1::uuid
+`
+
+const resetSubmissionForRetrySQL = `
+UPDATE submissions
+SET status = 'queued', started_at = NULL, finished_at = NULL, total_tests = 0, passed_tests = 0
+WHERE id = $1::uuid
+`
+
+const markSubmissionJudgeFailedSQL = `
+UPDATE submissions
+SET status = 'judge_failed', finished_at = NOW(), total_tests = 0, passed_tests = 0
+WHERE id = $1::uuid
+`
+
+func NewPostgresStore(databaseURL string, maxJobAttempts int, retryDelay time.Duration) (*PostgresStore, error) {
 	pool, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
 		return nil, err
 	}
+	if maxJobAttempts <= 0 {
+		maxJobAttempts = 3
+	}
+	if retryDelay <= 0 {
+		retryDelay = 5 * time.Second
+	}
 
-	return &PostgresStore{pool: pool}, nil
+	return &PostgresStore{pool: pool, db: pool, maxJobAttempts: maxJobAttempts, retryDelay: retryDelay}, nil
+}
+
+func NewPostgresStoreFromDatabase(db database, maxJobAttempts int, retryDelay time.Duration) *PostgresStore {
+	if maxJobAttempts <= 0 {
+		maxJobAttempts = 3
+	}
+	if retryDelay <= 0 {
+		retryDelay = 5 * time.Second
+	}
+
+	return &PostgresStore{db: db, maxJobAttempts: maxJobAttempts, retryDelay: retryDelay}
 }
 
 func (store *PostgresStore) Close() {
@@ -58,7 +115,7 @@ func (store *PostgresStore) Close() {
 }
 
 func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, error) {
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return SubmissionJob{}, err
 	}
@@ -89,12 +146,52 @@ func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, er
 }
 
 func (store *PostgresStore) MarkSubmissionRunning(ctx context.Context, submissionID string) error {
-	_, err := store.pool.Exec(ctx, `UPDATE submissions SET status = 'running', started_at = NOW() WHERE id = $1::uuid`, submissionID)
+	_, err := store.db.Exec(ctx, `UPDATE submissions SET status = 'running', started_at = NOW() WHERE id = $1::uuid`, submissionID)
 	return err
 }
 
+func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID string, lastError string) error {
+	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var attempts int
+	err = tx.QueryRow(ctx, selectJobAttemptsSQL, submissionID).Scan(&attempts)
+	if err != nil {
+		return err
+	}
+
+	if attempts >= store.maxJobAttempts {
+		_, err = tx.Exec(ctx, poisonSubmissionJobSQL, submissionID, lastError)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(ctx, markSubmissionJudgeFailedSQL, submissionID)
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit(ctx)
+	}
+
+	_, err = tx.Exec(ctx, requeueSubmissionJobSQL, submissionID, time.Now().Add(store.retryDelay), lastError)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, resetSubmissionForRetrySQL, submissionID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, status string, results []CaseResult) error {
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}

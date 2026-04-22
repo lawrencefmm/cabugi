@@ -20,7 +20,8 @@ export type SubmissionStatus =
   | "wrong_answer"
   | "compile_error"
   | "runtime_error"
-  | "time_limit_exceeded";
+  | "time_limit_exceeded"
+  | "judge_failed";
 
 export type Submission = {
   id: string;
@@ -165,6 +166,8 @@ export function formatSubmissionStatus(status: SubmissionStatus) {
       return "Runtime Error";
     case "time_limit_exceeded":
       return "Time Limit Exceeded";
+    case "judge_failed":
+      return "Judge Failed";
   }
 }
 

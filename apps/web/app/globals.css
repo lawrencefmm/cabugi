@@ -419,7 +419,8 @@ a {
 .workspace-status--wrong_answer,
 .workspace-status--compile_error,
 .workspace-status--runtime_error,
-.workspace-status--time_limit_exceeded {
+.workspace-status--time_limit_exceeded,
+.workspace-status--judge_failed {
   border-color: rgba(248, 113, 113, 0.35);
 }
 

@@ -22,21 +22,6 @@
 ## Ready
 
 ## Backlog
-### JUDGE-04 - Add worker loop and failure handling
-Description: Extend the judge from one-off processing to a repeatable worker loop with basic retry accounting and failure recording.
-
-Expected Result: The judge can run continuously and recover cleanly from job errors.
-
-Acceptance Tests:
-- A documented long-running worker command exists.
-- Failed jobs increment `attempts` and record `last_error`.
-- Successful jobs are removed from `submission_jobs`.
-- Empty queues do not cause the worker to exit with failure.
-- `go test ./...` passes in `services/judge`.
-
-Notes:
-- Not started.
-
 ### DRAFT-API-01 - Add problem draft create and update endpoints
 Description: Add authenticated API routes for users to create and edit draft problems and draft problem versions.
 
@@ -143,6 +128,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### JUDGE-04 - Add worker loop and failure handling
+Description: Extend the judge from one-off processing to a repeatable worker loop with basic retry accounting and failure recording.
+
+Expected Result: The judge can run continuously and recover cleanly from job errors.
+
+Acceptance Tests:
+- A documented long-running worker command exists.
+- Failed jobs increment `attempts` and record `last_error`.
+- Successful jobs are removed from `submission_jobs`.
+- Empty queues do not cause the worker to exit with failure.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Completed by turning `go run ./cmd/judge` into a real polling worker loop while keeping `--once` for one-shot processing.
+- Added retry handling that requeues claimed jobs with `last_error`, then marks submissions as terminal `judge_failed` after the configured max-attempt limit is reached.
+- Extended the schema, API status helpers, OpenAPI contract, and web submission status rendering so poison jobs appear as a final user-visible state instead of polling forever.
+- Added worker store tests for requeue, poison-job handling, and successful queue deletion plus command-loop tests that prove idle queues do not fail the worker.
+- Verified `go test ./...` in `services/judge`, `go test ./...` in `services/api`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `./db/scripts/verify_initial_schema.sh`.
 
 ### JUDGE-03 - Load hidden test bundles from object storage
 Description: Replace local file-path bundle loading with `S3`-compatible hidden test retrieval so the real worker path matches the intended architecture.
