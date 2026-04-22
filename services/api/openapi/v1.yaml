@@ -175,6 +175,29 @@ paths:
         '503':
           description: The problem store is not configured.
   /v1/submissions:
+    get:
+      summary: List submissions for the current user
+      operationId: listSubmissions
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: Submission history for the current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - submissions
+                properties:
+                  submissions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Submission'
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Submission dependencies are not configured.
     post:
       summary: Create a submission for a published problem
       operationId: createSubmission

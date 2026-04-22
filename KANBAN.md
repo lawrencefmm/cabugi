@@ -21,39 +21,6 @@
 
 ## Ready
 
-## Backlog
-
-### SUB-API-02 - Add submission history endpoint
-Description: Add an authenticated endpoint that returns the current user's recent submissions with summary metadata for history views.
-
-Expected Result: The API supports personal submission history ordered from newest to oldest.
-
-Acceptance Tests:
-- The OpenAPI document defines `GET /v1/submissions`.
-- The endpoint returns `401` without auth.
-- The endpoint returns only submissions owned by the current user.
-- The endpoint orders submissions by newest first.
-- Each returned item includes problem slug, language, status, and queued time.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
-### SUB-API-03 - Expand submission detail with result breakdown
-Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
-
-Expected Result: The API exposes verdict breakdown data for an owned submission, including stored `submission_results` rows.
-
-Acceptance Tests:
-- The OpenAPI document defines the per-test result shape on `GET /v1/submissions/{id}`.
-- The endpoint returns final status plus aggregate counts for total and passed tests.
-- The endpoint returns per-test result items when they exist.
-- The endpoint still returns `404` for submissions not owned by the current user.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### WEB-03 - Build submission history page
 Description: Add a page where signed-in users can review recent submissions and navigate back to the relevant problem or submission detail.
 
@@ -66,6 +33,22 @@ Acceptance Tests:
 - Loading and error states are present.
 - `pnpm --filter web typecheck` passes.
 - `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+## Backlog
+### SUB-API-03 - Expand submission detail with result breakdown
+Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
+
+Expected Result: The API exposes verdict breakdown data for an owned submission, including stored `submission_results` rows.
+
+Acceptance Tests:
+- The OpenAPI document defines the per-test result shape on `GET /v1/submissions/{id}`.
+- The endpoint returns final status plus aggregate counts for total and passed tests.
+- The endpoint returns per-test result items when they exist.
+- The endpoint still returns `404` for submissions not owned by the current user.
+- `go test ./...` passes in `services/api`.
 
 Notes:
 - Not started.
@@ -221,6 +204,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### SUB-API-02 - Add submission history endpoint
+Description: Add an authenticated endpoint that returns the current user's recent submissions with summary metadata for history views.
+
+Expected Result: The API supports personal submission history ordered from newest to oldest.
+
+Acceptance Tests:
+- The OpenAPI document defines `GET /v1/submissions`.
+- The endpoint returns `401` without auth.
+- The endpoint returns only submissions owned by the current user.
+- The endpoint orders submissions by newest first.
+- Each returned item includes problem slug, language, status, and queued time.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by extending the submission store with owner-scoped history queries and adding an authenticated `GET /v1/submissions` route plus OpenAPI contract.
+- The history endpoint reuses the existing Clerk-backed user bootstrap flow and returns summary rows ordered newest first.
+- Added route tests for `401` and successful history reads plus store tests that verify owner filtering and newest-first ordering.
+- Verified `go test ./...` in `services/api`.
 
 ### WEB-02 - Add authenticated solve and submission UX
 Description: Add Clerk-based frontend auth integration, a solve page editor and language picker, submission creation from the browser, and polling until a final verdict is reached.

@@ -80,6 +80,7 @@ Current bootstrap API routes:
 - `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
 - `GET /v1/problems/{slug}`
+- `GET /v1/submissions`
 - `POST /v1/submissions`
 - `GET /v1/submissions/{id}`
 
