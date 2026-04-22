@@ -11,7 +11,8 @@ go run ./cmd/judge --once
 
 Current local worker behavior:
 - claims one queued submission job from PostgreSQL
-- loads hidden test cases from the file path stored in `hidden_test_bundle_key`
+- downloads hidden test cases from private object storage using the stored `hidden_test_bundle_key`
+- verifies the downloaded bundle against `hidden_test_bundle_sha256`
 - executes the submission with the existing Docker-based spike runner
 - writes final submission status plus `submission_results`
 

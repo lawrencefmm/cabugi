@@ -16,6 +16,7 @@ type SubmissionJob struct {
 	Language     string
 	SourceCode   string
 	BundleKey    string
+	BundleSHA256 string
 	TimeLimit    time.Duration
 }
 
@@ -59,7 +60,7 @@ func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	cases, err := processor.loader.LoadCases(ctx, job.BundleKey)
+	cases, err := processor.loader.LoadCases(ctx, job.BundleKey, job.BundleSHA256)
 	if err != nil {
 		return false, err
 	}

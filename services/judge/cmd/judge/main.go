@@ -23,7 +23,12 @@ func main() {
 	}
 	defer store.Close()
 
-	processor := worker.NewProcessor(store, worker.FileBundleLoader{}, spike.NewRunner())
+	bundleLoader, err := worker.NewS3BundleLoader(cfg.ObjectStorage)
+	if err != nil {
+		log.Fatalf("create bundle loader: %v", err)
+	}
+
+	processor := worker.NewProcessor(store, bundleLoader, spike.NewRunner())
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
 		log.Fatalf("process submission job: %v", err)

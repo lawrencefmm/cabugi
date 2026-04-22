@@ -19,8 +19,10 @@ type stubStore struct {
 }
 
 type stubLoader struct {
-	cases []spike.TestCase
-	err   error
+	cases       []spike.TestCase
+	err         error
+	receivedKey string
+	receivedSHA string
 }
 
 type stubRunner struct {
@@ -45,7 +47,9 @@ func (store *stubStore) CompleteSubmission(_ context.Context, submissionID strin
 	return nil
 }
 
-func (loader stubLoader) LoadCases(context.Context, string) ([]spike.TestCase, error) {
+func (loader *stubLoader) LoadCases(_ context.Context, key string, expectedSHA256 string) ([]spike.TestCase, error) {
+	loader.receivedKey = key
+	loader.receivedSHA = expectedSHA256
 	return loader.cases, loader.err
 }
 
@@ -55,7 +59,7 @@ func (runner *stubRunner) Evaluate(_ context.Context, request spike.Request) (sp
 }
 
 func TestProcessOneReturnsFalseWhenNoJobsExist(t *testing.T) {
-	processor := NewProcessor(&stubStore{claimErr: ErrNoJobs}, stubLoader{}, &stubRunner{})
+	processor := NewProcessor(&stubStore{claimErr: ErrNoJobs}, &stubLoader{}, &stubRunner{})
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessOne() error = %v", err)
@@ -66,9 +70,10 @@ func TestProcessOneReturnsFalseWhenNoJobsExist(t *testing.T) {
 }
 
 func TestProcessOneClaimsRunsAndCompletesSubmission(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundles/two-sum.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictAccepted, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictAccepted, Duration: 25 * time.Millisecond}}}}
-	processor := NewProcessor(store, stubLoader{cases: []spike.TestCase{{Input: "21\n", ExpectedOutput: "42\n"}}}, runner)
+	loader := &stubLoader{cases: []spike.TestCase{{Input: "21\n", ExpectedOutput: "42\n"}}}
+	processor := NewProcessor(store, loader, runner)
 
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -92,12 +97,15 @@ func TestProcessOneClaimsRunsAndCompletesSubmission(t *testing.T) {
 	if runner.request.TimeLimit != time.Second {
 		t.Fatalf("runner received time limit %s, want %s", runner.request.TimeLimit, time.Second)
 	}
+	if loader.receivedKey != "bundles/two-sum.json" || loader.receivedSHA != "bundle-sha" {
+		t.Fatalf("loader received unexpected bundle metadata: key=%q sha=%q", loader.receivedKey, loader.receivedSHA)
+	}
 }
 
 func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "broken", BundleKey: "bundle.json", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "broken", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictCompileError}}
-	processor := NewProcessor(store, stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -109,9 +117,9 @@ func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneMapsWrongAnswerToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "wrong", BundleKey: "bundle.json", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "wrong", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictWrongAnswer, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictWrongAnswer, Duration: 10 * time.Millisecond}}}}
-	processor := NewProcessor(store, stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -123,9 +131,9 @@ func TestProcessOneMapsWrongAnswerToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneMapsTimeLimitExceededToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "python", SourceCode: "while True: pass", BundleKey: "bundle.json", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "python", SourceCode: "while True: pass", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictTimeLimitExceeded, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictTimeLimitExceeded, Duration: 1500 * time.Millisecond}}}}
-	processor := NewProcessor(store, stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -137,7 +145,7 @@ func TestProcessOneMapsTimeLimitExceededToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneReturnsLoaderErrors(t *testing.T) {
-	processor := NewProcessor(&stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", TimeLimit: time.Second}}, stubLoader{err: errors.New("missing bundle")}, &stubRunner{})
+	processor := NewProcessor(&stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}, &stubLoader{err: errors.New("missing bundle")}, &stubRunner{})
 	_, err := processor.ProcessOne(context.Background())
 	if err == nil {
 		t.Fatal("ProcessOne() should return bundle loader errors")

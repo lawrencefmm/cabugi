@@ -35,6 +35,7 @@ SELECT
   s.language::text,
   s.source_code,
   pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256,
   pv.time_limit_ms
 FROM submissions s
 JOIN problem_versions pv ON pv.id = s.problem_version_id
@@ -74,7 +75,7 @@ func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, er
 
 	var job SubmissionJob
 	var timeLimitMS int
-	err = tx.QueryRow(ctx, loadSubmissionJobSQL, submissionID).Scan(&job.SubmissionID, &job.Language, &job.SourceCode, &job.BundleKey, &timeLimitMS)
+	err = tx.QueryRow(ctx, loadSubmissionJobSQL, submissionID).Scan(&job.SubmissionID, &job.Language, &job.SourceCode, &job.BundleKey, &job.BundleSHA256, &timeLimitMS)
 	if err != nil {
 		return SubmissionJob{}, err
 	}
