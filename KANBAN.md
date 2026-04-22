@@ -17,19 +17,6 @@
 
 ## Ready
 
-### REPO-01 - Bootstrap repository layout
-Description: Create the initial monorepo structure for the web app, Go API, Go judge worker, shared docs, and infrastructure config.
-
-Expected Result: A minimal but usable repo layout that matches the architecture and can hold the first implementation slices without reorganization.
-
-Acceptance Tests:
-- Root directories exist for the web app, API service, judge service, and infrastructure or local environment config.
-- The root includes a developer-facing file that explains how to start the local stack.
-- The layout matches the service boundaries defined in the architecture document.
-
-Notes:
-- Not started.
-
 ### TEST-01 - Bootstrap automated test tooling
 Description: Establish the first test runners, test directory conventions, and developer commands for the frontend, API, and judge services.
 
@@ -74,6 +61,22 @@ Notes:
 - Not started.
 
 ## Done
+
+### REPO-01 - Bootstrap repository layout
+Description: Create the initial monorepo structure for the web app, Go API, Go judge worker, shared docs, and infrastructure config.
+
+Expected Result: A minimal but usable repo layout that matches the architecture and can hold the first implementation slices without reorganization.
+
+Acceptance Tests:
+- Root directories exist for the web app, API service, judge service, and infrastructure or local environment config.
+- The root includes a developer-facing file that explains how to start the local stack.
+- The layout matches the service boundaries defined in the architecture document.
+
+Notes:
+- Completed by creating the initial monorepo skeleton under `apps/web`, `services/api`, `services/judge`, `db`, `infra`, and `docs`.
+- Added executable local shared infrastructure with `infra/docker-compose.yml` for PostgreSQL and MinIO, plus developer-facing setup docs in `README.md` and `docs/DEVELOPMENT.md`.
+- Added a root pnpm workspace and Go workspace so the next tasks can attach real app code and test tooling without restructuring.
+- Verified the Compose file with `docker compose -f infra/docker-compose.yml config` and smoke-checked both Go service placeholders with `go test ./...`.
 
 ### QUAL-01 - Define testing and verification rules
 Description: Document how the project will use automated tests, requirement traceability, and continuous verification during development.
