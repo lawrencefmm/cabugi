@@ -6,6 +6,7 @@
 - Verified test commands now exist for `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `go test ./...` in both `services/api` and `services/judge`.
 - The database directory now includes an initial PostgreSQL migration and `./db/scripts/verify_initial_schema.sh` for schema verification.
 - The judge service now includes a Docker-based local spike and `go run ./cmd/judge-spike --all` in `services/judge` verifies `C++17` and `Python` verdict handling.
+- Baseline CI now lives in `.github/workflows/ci.yml` and runs the web, Go service, and database verification commands on pushes and pull requests.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.
 
 ## Working Rules
@@ -13,8 +14,10 @@
 - Before starting a new batch of implementation work, pause for planning with the user and ask clarifying questions if anything important is unclear.
 - After that planning step, complete at most four tasks before stopping for another planning checkpoint with the user.
 - Work on exactly one task at a time unless the user explicitly approves parallel work.
+- Use `dev` as the integration branch for day-to-day work.
+- Start each task branch from `dev`.
 - Use one git branch per task.
-- After each completed task, run the relevant verification, create a commit, and push that task branch to `origin`.
+- After each completed task, run the relevant verification, create a commit, push that task branch to `origin`, merge it into `dev`, and push `dev`.
 - Every task in `KANBAN.md` must include `Description`, `Expected Result`, `Acceptance Tests`, and `Notes`.
 - Keep acceptance tests objective and directly verifiable from files, commands, endpoints, or UI behavior.
 - After completing a task, add a short `Notes` section that records what was implemented and any key discoveries.

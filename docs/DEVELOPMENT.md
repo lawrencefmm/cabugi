@@ -65,6 +65,16 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
 
+## CI
+GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.
+
+Current CI checks:
+- `pnpm --filter web typecheck`
+- `pnpm --filter web test --run`
+- `go test ./...` from `services/api`
+- `go test ./...` from `services/judge`
+- `./db/scripts/verify_initial_schema.sh`
+
 Judge spike command from `services/judge`:
 
 ```bash

@@ -5,7 +5,9 @@
 - Before starting a new implementation batch, pause for planning with the user and ask clarifying questions if anything important is unclear.
 - Complete at most four tasks after each planning checkpoint before stopping for another planning pass with the user.
 - Keep exactly one task in `In Progress` unless the user explicitly approves parallel work.
-- Use one git branch per task and push each completed task branch to `origin` after its acceptance checks pass.
+- Use `dev` as the integration branch for ongoing work.
+- Start each task branch from `dev`.
+- Use one git branch per task, push each completed task branch to `origin`, then merge it into `dev` and push `dev` after its acceptance checks pass.
 - Every task must include `Description`, `Expected Result`, `Acceptance Tests`, and `Notes`.
 - Acceptance tests must be objective and directly verifiable from files, commands, endpoints, or UI behavior.
 - After finishing a task, add implementation details and important discoveries to that task's `Notes` section.
@@ -17,7 +19,73 @@
 
 ## Ready
 
+### API-01 - Bootstrap API service and publish OpenAPI
+Description: Turn `services/api` from a placeholder into a minimal HTTP service with configuration loading, a health route, and a versioned OpenAPI document.
+
+Expected Result: The API starts locally, exposes a health endpoint, and serves a versioned contract that future handlers will implement.
+
+Acceptance Tests:
+- `services/api/openapi/v1.yaml` exists.
+- Running the API locally exposes `GET /healthz` and returns `200`.
+- Running the API locally exposes the OpenAPI document and returns `200`.
+- `go test ./...` passes in `services/api`.
+- Handler tests cover the health route and OpenAPI document route.
+
+Notes:
+- Not started.
+
+### AUTH-01 - Add Clerk auth verification to the API
+Description: Add API-side authentication plumbing for Clerk, including token verification, current-user resolution, and protected-route middleware.
+
+Expected Result: The API can distinguish public and authenticated routes and resolve the authenticated user subject safely.
+
+Acceptance Tests:
+- The API has a protected test route that returns `401` with no token.
+- The same protected route returns `401` for an invalid token.
+- Middleware tests prove authenticated requests can pass when the verifier accepts the token.
+- Required Clerk-related environment variables are documented in `docs/DEVELOPMENT.md`.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### PROB-API-01 - Implement published problem read endpoints
+Description: Implement the first product endpoints for listing published problems and fetching a published problem by slug from PostgreSQL.
+
+Expected Result: The API can return published problem data using the stable problem version model defined in the schema.
+
+Acceptance Tests:
+- The OpenAPI document defines `GET /v1/problems`.
+- The OpenAPI document defines `GET /v1/problems/{slug}`.
+- `GET /v1/problems` returns only `published` problem versions in tests.
+- `GET /v1/problems/{slug}` returns `200` for a published problem.
+- `GET /v1/problems/{slug}` returns `404` for a draft-only or missing slug.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
 ## Done
+
+### CI-01 - Add baseline CI
+Description: Add GitHub Actions that run the repository's verified checks on pushes and pull requests.
+
+Expected Result: The current local verification commands run automatically in CI for `dev`, `main`, and task branches.
+
+Acceptance Tests:
+- `.github/workflows/ci.yml` exists at the repository root.
+- `.github/workflows/ci.yml` runs on pushes to `dev`, `main`, and `task/**`, plus pull requests.
+- `.github/workflows/ci.yml` runs `pnpm --filter web typecheck`.
+- `.github/workflows/ci.yml` runs `pnpm --filter web test --run`.
+- `.github/workflows/ci.yml` runs `go test ./...` in `services/api`.
+- `.github/workflows/ci.yml` runs `go test ./...` in `services/judge`.
+- `.github/workflows/ci.yml` runs `./db/scripts/verify_initial_schema.sh`.
+
+Notes:
+- Completed by adding `.github/workflows/ci.yml` with separate web, Go service, and database verification jobs for pushes and pull requests.
+- Recorded the new `dev` integration-branch workflow in both `AGENTS.md` and `KANBAN.md`, and added the next planned API tasks to `KANBAN.md`.
+- Kept the CI commands aligned with the already-verified local commands documented in `docs/DEVELOPMENT.md`.
+- Verified `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `go test ./...` in `services/api`, `go test ./...` in `services/judge`, and `./db/scripts/verify_initial_schema.sh` locally.
 
 ### JUDGE-01 - Prove sandbox execution
 Description: Build a small technical spike that compiles and runs C++17 and Python in an isolated environment with enforced resource limits.
