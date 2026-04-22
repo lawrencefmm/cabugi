@@ -17,19 +17,6 @@
 
 ## Ready
 
-### TEST-01 - Bootstrap automated test tooling
-Description: Establish the first test runners, test directory conventions, and developer commands for the frontend, API, and judge services.
-
-Expected Result: The repository has an initial automated testing foundation and documented commands that future tasks can use for continuous verification.
-
-Acceptance Tests:
-- The repository includes test runner configuration for the frontend, API, and judge code once those packages exist.
-- A developer-facing document lists the exact commands for running focused tests and broader verification.
-- The setup supports adding unit and integration tests without restructuring the repo.
-
-Notes:
-- Not started.
-
 ### DB-01 - Define initial schema
 Description: Design the first database schema for users, roles, problems, problem versions, submissions, and moderation state.
 
@@ -61,6 +48,22 @@ Notes:
 - Not started.
 
 ## Done
+
+### TEST-01 - Bootstrap automated test tooling
+Description: Establish the first test runners, test directory conventions, and developer commands for the frontend, API, and judge services.
+
+Expected Result: The repository has an initial automated testing foundation and documented commands that future tasks can use for continuous verification.
+
+Acceptance Tests:
+- The repository includes test runner configuration for the frontend, API, and judge code once those packages exist.
+- A developer-facing document lists the exact commands for running focused tests and broader verification.
+- The setup supports adding unit and integration tests without restructuring the repo.
+
+Notes:
+- Completed by adding a minimal `Next.js` frontend scaffold with `Vitest`, `jsdom`, and `Testing Library`, plus a passing component test.
+- Added initial Go unit-test targets for API submission statuses and judge language support so both services have real test coverage instead of empty runners.
+- Documented the exact focused and broad verification commands in `docs/DEVELOPMENT.md` and recorded the remaining gap in `TESTING_RULES.md`: integration and end-to-end coverage still need to be added.
+- Verified `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `go test ./...` in `services/api`, and `go test ./...` in `services/judge`.
 
 ### REPO-01 - Bootstrap repository layout
 Description: Create the initial monorepo structure for the web app, Go API, Go judge worker, shared docs, and infrastructure config.

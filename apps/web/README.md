@@ -1,5 +1,7 @@
 # Web Workspace
 
-This workspace will hold the `Next.js` frontend application.
+This workspace now contains the initial `Next.js` scaffold and frontend test tooling.
 
-The actual app scaffold and test tooling will be added in later tasks.
+Current verification commands:
+- `pnpm --filter web typecheck`
+- `pnpm --filter web test --run`
