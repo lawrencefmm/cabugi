@@ -7,6 +7,7 @@
 - The database directory now includes an initial PostgreSQL migration and `./db/scripts/verify_initial_schema.sh` for schema verification.
 - The judge service now includes a Docker-based local spike and `go run ./cmd/judge-spike --all` in `services/judge` verifies `C++17` and `Python` verdict handling.
 - Baseline CI now lives in `.github/workflows/ci.yml` and runs the web, Go service, and database verification commands on pushes and pull requests.
+- The web app now includes published problem list and detail pages powered by the API.
 - The API service now exposes `GET /healthz` and serves `services/api/openapi/v1.yaml` at `GET /openapi/v1.yaml`.
 - The API now has Clerk-style JWT middleware and a protected `GET /v1/me` bootstrap route.
 - The API now bootstraps DB-backed app users from authenticated Clerk subjects.
@@ -18,7 +19,7 @@
 ## Working Rules
 - Use `KANBAN.md` as the source of truth for active and upcoming work.
 - Before starting a new batch of implementation work, pause for planning with the user and ask clarifying questions if anything important is unclear.
-- After that planning step, complete at most four tasks before stopping for another planning checkpoint with the user.
+- After that planning step, complete at most two tasks before stopping for another planning checkpoint with the user.
 - After each completed batch, inspect the current GitHub Actions runs and confirm the pipelines are working as intended.
 - Work on exactly one task at a time unless the user explicitly approves parallel work.
 - Use `dev` as the integration branch for day-to-day work.

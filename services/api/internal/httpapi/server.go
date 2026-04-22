@@ -35,10 +35,10 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	return mux
 }
 
-func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store) *http.Server {
+func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string) *http.Server {
 	return &http.Server{
 		Addr:    address,
-		Handler: NewMux(verifier, problemStore, userStore, submissionStore),
+		Handler: withCORS(NewMux(verifier, problemStore, userStore, submissionStore), allowedOrigins),
 	}
 }
 

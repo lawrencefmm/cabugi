@@ -3,7 +3,7 @@
 ## Rules
 - Use this file as the source of truth for active and upcoming work.
 - Before starting a new implementation batch, pause for planning with the user and ask clarifying questions if anything important is unclear.
-- Complete at most four tasks after each planning checkpoint before stopping for another planning pass with the user.
+- Complete at most two tasks after each planning checkpoint before stopping for another planning pass with the user.
 - After each completed batch, inspect the current GitHub Actions runs and confirm the pipelines are working as intended.
 - Keep exactly one task in `In Progress` unless the user explicitly approves parallel work.
 - Use `dev` as the integration branch for ongoing work.
@@ -21,7 +21,245 @@
 
 ## Ready
 
+### WEB-02 - Add authenticated solve and submission UX
+Description: Add Clerk-based frontend auth integration, a solve page editor and language picker, submission creation from the browser, and polling until a final verdict is reached.
+
+Expected Result: A signed-in user can submit `C++17` or `Python` code from the browser and see queued, running, and final verdict states.
+
+Acceptance Tests:
+- The web app can obtain a Clerk session token and send it to the API.
+- The problem detail page includes a language picker for `C++17` and `Python`.
+- The solve page includes a code editor area.
+- Submitting from the page calls `POST /v1/submissions`.
+- After submission creation, the UI polls `GET /v1/submissions/{id}` until a terminal status is reached.
+- The UI displays at least `queued`, `running`, `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded`.
+- Unauthenticated submission attempts prompt sign-in or block submission clearly.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+## Backlog
+
+### SUB-API-02 - Add submission history endpoint
+Description: Add an authenticated endpoint that returns the current user's recent submissions with summary metadata for history views.
+
+Expected Result: The API supports personal submission history ordered from newest to oldest.
+
+Acceptance Tests:
+- The OpenAPI document defines `GET /v1/submissions`.
+- The endpoint returns `401` without auth.
+- The endpoint returns only submissions owned by the current user.
+- The endpoint orders submissions by newest first.
+- Each returned item includes problem slug, language, status, and queued time.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### SUB-API-03 - Expand submission detail with result breakdown
+Description: Enrich submission detail responses with aggregate counts and per-test case results so the UI can show meaningful feedback after judging.
+
+Expected Result: The API exposes verdict breakdown data for an owned submission, including stored `submission_results` rows.
+
+Acceptance Tests:
+- The OpenAPI document defines the per-test result shape on `GET /v1/submissions/{id}`.
+- The endpoint returns final status plus aggregate counts for total and passed tests.
+- The endpoint returns per-test result items when they exist.
+- The endpoint still returns `404` for submissions not owned by the current user.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### WEB-03 - Build submission history page
+Description: Add a page where signed-in users can review recent submissions and navigate back to the relevant problem or submission detail.
+
+Expected Result: Users can see their own submission history inside the web app.
+
+Acceptance Tests:
+- The page fetches the submission history endpoint.
+- The page shows problem slug, language, status, and queued time.
+- The page links to problem detail and submission detail routes.
+- Loading and error states are present.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+### WEB-04 - Build submission detail result UI
+Description: Add a submission detail screen that renders the final verdict, aggregate counts, and per-test results returned by the API.
+
+Expected Result: Users can inspect an individual submission and understand what failed.
+
+Acceptance Tests:
+- The page fetches `GET /v1/submissions/{id}`.
+- The page renders the final verdict, total tests, and passed tests.
+- The page renders per-test result rows when present.
+- The page handles compile errors or empty per-test results gracefully.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+### JUDGE-03 - Load hidden test bundles from object storage
+Description: Replace local file-path bundle loading with `S3`-compatible hidden test retrieval so the real worker path matches the intended architecture.
+
+Expected Result: The judge loads hidden tests from private object storage instead of local disk paths.
+
+Acceptance Tests:
+- The worker can fetch hidden test bundles from configured object storage using the stored bundle key.
+- Local development works with `MinIO`.
+- A queued submission can still reach a final verdict using object-stored test data.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Not started.
+
+### JUDGE-04 - Add worker loop and failure handling
+Description: Extend the judge from one-off processing to a repeatable worker loop with basic retry accounting and failure recording.
+
+Expected Result: The judge can run continuously and recover cleanly from job errors.
+
+Acceptance Tests:
+- A documented long-running worker command exists.
+- Failed jobs increment `attempts` and record `last_error`.
+- Successful jobs are removed from `submission_jobs`.
+- Empty queues do not cause the worker to exit with failure.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Not started.
+
+### DRAFT-API-01 - Add problem draft create and update endpoints
+Description: Add authenticated API routes for users to create and edit draft problems and draft problem versions.
+
+Expected Result: Users can save and update draft problem content in the backend.
+
+Acceptance Tests:
+- The OpenAPI document defines draft create and update endpoints.
+- Authenticated users can create a draft problem and initial draft version.
+- Draft owners can update their draft statement fields and limits.
+- Non-owners cannot update another user's draft unless they are staff.
+- Public problem endpoints continue to exclude drafts.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### DRAFT-API-02 - Add hidden test bundle registration and validation
+Description: Add draft-problem support for registering hidden test bundle metadata and validating bundle references before review.
+
+Expected Result: Draft problems can reference real hidden test bundles safely.
+
+Acceptance Tests:
+- Draft problem routes can store hidden test bundle metadata.
+- Invalid or missing hidden test bundle metadata is rejected.
+- Draft versions retain the bundle key and checksum needed by the judge.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### DRAFT-API-03 - Add submit-for-review transition
+Description: Add the lifecycle transition that moves a user draft from `draft` to `in_review`.
+
+Expected Result: Draft problems can enter the moderation queue through an explicit API action.
+
+Acceptance Tests:
+- The OpenAPI document defines a submit-for-review route.
+- Draft owners can transition a draft to `in_review`.
+- Invalid lifecycle transitions are rejected.
+- Public problem endpoints continue to exclude `in_review` versions.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### MOD-API-01 - Add moderation queue and decision endpoints
+Description: Add moderator-only API routes to list drafts in review and approve, reject, or request changes.
+
+Expected Result: Moderators can control the publish flow for user-created problems.
+
+Acceptance Tests:
+- The OpenAPI document defines moderation queue and decision endpoints.
+- Non-moderators are denied access to moderation routes.
+- Moderators can approve, reject, and request changes.
+- Approval results in one published version for the problem.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### WEB-05 - Build problem authoring UI
+Description: Add authenticated web screens for creating and editing draft problems, including statement fields, limits, and hidden test bundle metadata.
+
+Expected Result: Users can create and edit draft problems from the browser.
+
+Acceptance Tests:
+- Authenticated users can create a draft problem from the UI.
+- Users can edit statement fields, limits, and hidden test bundle metadata.
+- Users can submit a draft for review from the UI.
+- The UI shows loading and validation error states.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+### WEB-06 - Build moderation UI
+Description: Add moderator web screens for reviewing queued drafts and applying moderation decisions.
+
+Expected Result: Moderators can review and publish user-created problems from the browser.
+
+Acceptance Tests:
+- Moderators can view the review queue in the UI.
+- Moderators can approve, reject, or request changes.
+- Non-moderators cannot access the moderation screens.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Not started.
+
+### SEED-01 - Seed official starter problems
+Description: Add a small official set of published starter problems with verified hidden tests so the platform is immediately usable.
+
+Expected Result: The public problem list contains a starter set of official problems that can be solved and judged successfully.
+
+Acceptance Tests:
+- At least a small starter set of published problems exists in development or seed data.
+- Public problem list endpoints return the seeded problems.
+- A seeded problem can be submitted against successfully through the real submission flow.
+- Relevant verification commands pass.
+
+Notes:
+- Not started.
+
 ## Done
+
+### WEB-01 - Build published problem browsing UI
+Description: Replace the placeholder web page with a real app shell, a published problem list screen, and a problem detail page powered by the existing API.
+
+Expected Result: A user can open the web app, browse published problems, and read a full problem statement with limits and metadata.
+
+Acceptance Tests:
+- The home route renders a published problem list screen instead of the placeholder landing page.
+- The web app fetches `GET /v1/problems` and renders returned problems.
+- A problem detail route exists and fetches `GET /v1/problems/{slug}`.
+- The problem detail page renders statement, input, output, constraints, notes, time limit, and memory limit.
+- Loading and error states exist for both list and detail fetches.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by replacing the placeholder landing page with a published problem list and adding `/problems/[slug]` for full published problem detail rendering.
+- Added a small browser-facing API client, markdown plus KaTeX rendering for statement sections, and a responsive app shell for the first real web experience.
+- Added direct-browser API support by documenting `NEXT_PUBLIC_API_BASE_URL` and enabling API CORS for local web origins.
+- Verified `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `go test ./...` in `services/api` for the new CORS middleware support.
 
 ### JUDGE-02 - Process queued submissions and persist verdicts
 Description: Extend the judge from a local spike into a worker flow that claims queued submission jobs, evaluates them, and writes final verdicts plus per-test results back to PostgreSQL.

@@ -1,11 +1,5 @@
-import { VerdictBadge } from "../src/components/verdict-badge";
+import { ProblemListPage } from "../src/components/problem-list-page";
 
 export default function HomePage() {
-  return (
-    <main>
-      <h1>Cabugi</h1>
-      <p>Competitive programming practice platform.</p>
-      <VerdictBadge verdict="accepted" />
-    </main>
-  );
+  return <ProblemListPage />;
 }

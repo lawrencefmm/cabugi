@@ -52,7 +52,7 @@ func main() {
 		log.Printf("api submission store disabled: %v", err)
 	}
 
-	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore)
+	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore, cfg.AllowedOrigins)
 
 	go func() {
 		<-ctx.Done()

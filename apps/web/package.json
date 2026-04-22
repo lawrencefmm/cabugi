@@ -9,9 +9,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "katex": "^0.16.45",
     "next": "^16.2.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
