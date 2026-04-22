@@ -13,6 +13,13 @@ import (
 
 var ErrStoreNotConfigured = errors.New("user store not configured")
 
+type Role string
+
+const (
+	RoleModerator Role = "moderator"
+	RoleAdmin     Role = "admin"
+)
+
 type User struct {
 	ID          string `json:"id"`
 	Subject     string `json:"subject"`
@@ -22,6 +29,7 @@ type User struct {
 
 type Store interface {
 	GetOrCreateBySubject(context.Context, string) (User, error)
+	HasAnyRole(context.Context, string, ...Role) (bool, error)
 }
 
 type DisabledStore struct{}
@@ -41,6 +49,14 @@ VALUES ($1, $2, $3)
 ON CONFLICT (auth_subject)
 DO UPDATE SET updated_at = NOW()
 RETURNING id::text, auth_subject, handle, display_name
+`
+
+const hasAnyRoleSQL = `
+SELECT EXISTS(
+  SELECT 1
+  FROM user_roles
+  WHERE user_id = $1::uuid AND role::text = ANY($2::text[])
+)
 `
 
 func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
@@ -69,6 +85,17 @@ func (store *PostgresStore) GetOrCreateBySubject(ctx context.Context, subject st
 	return user, err
 }
 
+func (store *PostgresStore) HasAnyRole(ctx context.Context, userID string, roles ...Role) (bool, error) {
+	roleValues := make([]string, 0, len(roles))
+	for _, role := range roles {
+		roleValues = append(roleValues, string(role))
+	}
+
+	var hasRole bool
+	err := store.db.QueryRow(ctx, hasAnyRoleSQL, userID, roleValues).Scan(&hasRole)
+	return hasRole, err
+}
+
 func (store *PostgresStore) Close() {
 	if store.pool != nil {
 		store.pool.Close()
@@ -77,6 +104,10 @@ func (store *PostgresStore) Close() {
 
 func (DisabledStore) GetOrCreateBySubject(context.Context, string) (User, error) {
 	return User{}, ErrStoreNotConfigured
+}
+
+func (DisabledStore) HasAnyRole(context.Context, string, ...Role) (bool, error) {
+	return false, ErrStoreNotConfigured
 }
 
 func TemporaryProfileForSubject(subject string) User {

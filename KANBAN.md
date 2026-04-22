@@ -22,22 +22,6 @@
 ## Ready
 
 ## Backlog
-### DRAFT-API-01 - Add problem draft create and update endpoints
-Description: Add authenticated API routes for users to create and edit draft problems and draft problem versions.
-
-Expected Result: Users can save and update draft problem content in the backend.
-
-Acceptance Tests:
-- The OpenAPI document defines draft create and update endpoints.
-- Authenticated users can create a draft problem and initial draft version.
-- Draft owners can update their draft statement fields and limits.
-- Non-owners cannot update another user's draft unless they are staff.
-- Public problem endpoints continue to exclude drafts.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### DRAFT-API-02 - Add hidden test bundle registration and validation
 Description: Add draft-problem support for registering hidden test bundle metadata and validating bundle references before review.
 
@@ -128,6 +112,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### DRAFT-API-01 - Add problem draft create and update endpoints
+Description: Add authenticated API routes for users to create and edit draft problems and draft problem versions.
+
+Expected Result: Users can save and update draft problem content in the backend.
+
+Acceptance Tests:
+- The OpenAPI document defines draft create and update endpoints.
+- Authenticated users can create a draft problem and initial draft version.
+- Draft owners can update their draft statement fields and limits.
+- Non-owners cannot update another user's draft unless they are staff.
+- Public problem endpoints continue to exclude drafts.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by extending the problem store with owner-scoped draft create, read, and update flows backed by `problems` plus `problem_versions` rows.
+- Added staff-aware authorization using `user_roles` lookups so moderators and admins can update another user's draft while non-owners still receive `404`.
+- Added `GET /v1/problem-drafts/{slug}` alongside create and update so the next web authoring task can reopen saved drafts without immediate follow-up API work.
+- Verified `go test ./...` in `services/api`.
 
 ### JUDGE-04 - Add worker loop and failure handling
 Description: Extend the judge from one-off processing to a repeatable worker loop with basic retry accounting and failure recording.

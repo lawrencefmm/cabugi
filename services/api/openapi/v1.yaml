@@ -42,6 +42,104 @@ components:
               type: string
             notesMarkdown:
               type: string
+    ProblemDraft:
+      type: object
+      required:
+        - slug
+        - versionNumber
+        - lifecycleStatus
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        versionNumber:
+          type: integer
+        lifecycleStatus:
+          type: string
+          enum:
+            - draft
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+    ProblemDraftCreateInput:
+      type: object
+      required:
+        - slug
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+    ProblemDraftUpdateInput:
+      type: object
+      required:
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
     Submission:
       type: object
       required:
@@ -227,6 +325,90 @@ paths:
           description: No published problem exists for the slug.
         '503':
           description: The problem store is not configured.
+  /v1/problem-drafts:
+    post:
+      summary: Create a draft problem
+      operationId: createProblemDraft
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemDraftCreateInput'
+      responses:
+        '201':
+          description: Draft problem created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid draft problem request.
+        '401':
+          description: Missing or invalid session token.
+        '409':
+          description: A problem with the requested slug already exists.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/problem-drafts/{slug}:
+    get:
+      summary: Get an owned draft problem by slug
+      operationId: getProblemDraftBySlug
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft problem detail for the owner or staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '503':
+          description: Draft problem dependencies are not configured.
+    patch:
+      summary: Update an owned draft problem by slug
+      operationId: updateProblemDraft
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemDraftUpdateInput'
+      responses:
+        '200':
+          description: Draft problem updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid draft problem update request.
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '503':
+          description: Draft problem dependencies are not configured.
   /v1/submissions:
     get:
       summary: List submissions for the current user

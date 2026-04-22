@@ -59,3 +59,51 @@ func TestGetOrCreateBySubjectCreatesOrReusesUser(t *testing.T) {
 		t.Fatalf("mock expectations not met: %v", err)
 	}
 }
+
+func TestHasAnyRoleReturnsTrueWhenUserHasStaffRole(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`SELECT EXISTS\((.|\n)*FROM user_roles(.|\n)*role::text = ANY\(\$2::text\[\]\)(.|\n)*\)`).
+		WithArgs("user-id-1", []string{"moderator", "admin"}).
+		WillReturnRows(pgxmock.NewRows([]string{"exists"}).AddRow(true))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	hasRole, err := store.HasAnyRole(context.Background(), "user-id-1", RoleModerator, RoleAdmin)
+	if err != nil {
+		t.Fatalf("HasAnyRole() error = %v", err)
+	}
+	if !hasRole {
+		t.Fatal("HasAnyRole() = false, want true")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
+
+func TestHasAnyRoleReturnsFalseWhenUserHasNoRequestedRoles(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`SELECT EXISTS\((.|\n)*FROM user_roles(.|\n)*role::text = ANY\(\$2::text\[\]\)(.|\n)*\)`).
+		WithArgs("user-id-2", []string{"moderator", "admin"}).
+		WillReturnRows(pgxmock.NewRows([]string{"exists"}).AddRow(false))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	hasRole, err := store.HasAnyRole(context.Background(), "user-id-2", RoleModerator, RoleAdmin)
+	if err != nil {
+		t.Fatalf("HasAnyRole() error = %v", err)
+	}
+	if hasRole {
+		t.Fatal("HasAnyRole() = true, want false")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
