@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/config"
 	"github.com/lawrencefmm/cabugi/services/api/internal/httpapi"
 )
@@ -17,7 +18,14 @@ func main() {
 	defer stop()
 
 	cfg := config.Load()
-	server := httpapi.NewServer(cfg.Address)
+	var verifier auth.Verifier = auth.DisabledVerifier{}
+	if clerkVerifier, err := auth.NewClerkVerifier(auth.LoadClerkConfig()); err == nil {
+		verifier = clerkVerifier
+	} else {
+		log.Printf("api auth verifier disabled: %v", err)
+	}
+
+	server := httpapi.NewServer(cfg.Address, verifier)
 
 	go func() {
 		<-ctx.Done()

@@ -19,21 +19,6 @@
 
 ## Ready
 
-### AUTH-01 - Add Clerk auth verification to the API
-Description: Add API-side authentication plumbing for Clerk, including token verification, current-user resolution, and protected-route middleware.
-
-Expected Result: The API can distinguish public and authenticated routes and resolve the authenticated user subject safely.
-
-Acceptance Tests:
-- The API has a protected test route that returns `401` with no token.
-- The same protected route returns `401` for an invalid token.
-- Middleware tests prove authenticated requests can pass when the verifier accepts the token.
-- Required Clerk-related environment variables are documented in `docs/DEVELOPMENT.md`.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### PROB-API-01 - Implement published problem read endpoints
 Description: Implement the first product endpoints for listing published problems and fetching a published problem by slug from PostgreSQL.
 
@@ -51,6 +36,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### AUTH-01 - Add Clerk auth verification to the API
+Description: Add API-side authentication plumbing for Clerk, including token verification, current-user resolution, and protected-route middleware.
+
+Expected Result: The API can distinguish public and authenticated routes and resolve the authenticated user subject safely.
+
+Acceptance Tests:
+- The API has a protected test route that returns `401` with no token.
+- The same protected route returns `401` for an invalid token.
+- Middleware tests prove authenticated requests can pass when the verifier accepts the token.
+- Required Clerk-related environment variables are documented in `docs/DEVELOPMENT.md`.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding Clerk-style session token middleware, request token extraction, current-user context handling, and a protected `GET /v1/me` bootstrap route.
+- Used Clerk's documented manual JWT verification approach with `CLERK_PEM_PUBLIC_KEY` and optional allowed `azp` validation via `CLERK_ALLOWED_PARTIES`.
+- Documented the required auth environment variables in `services/api/README.md` and `docs/DEVELOPMENT.md`, and extended the OpenAPI document with the protected route and security scheme.
+- Verified `go test ./...` in `services/api` and confirmed `GET /v1/me` returns `401` without a token when running `go run ./cmd/api` locally.
 
 ### API-01 - Bootstrap API service and publish OpenAPI
 Description: Turn `services/api` from a placeholder into a minimal HTTP service with configuration loading, a health route, and a versioned OpenAPI document.

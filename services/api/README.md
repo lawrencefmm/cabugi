@@ -14,6 +14,11 @@ The API listens on `127.0.0.1:8080` by default. Override with `API_ADDRESS`.
 Available bootstrap routes:
 - `GET /healthz`
 - `GET /openapi/v1.yaml`
+- `GET /v1/me` with Clerk session authentication
+
+## Clerk Auth Environment
+- `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
+- `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed `azp` values such as `http://localhost:3000`.
 
 ## Verification
 Run the API test suite from `services/api`:
