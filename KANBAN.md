@@ -21,22 +21,6 @@
 
 ## Ready
 
-### USER-01 - Bootstrap app users from Clerk subjects
-Description: Create or load a database-backed app user from an authenticated Clerk subject, using generated temporary values for `handle` and `display_name` on first bootstrap.
-
-Expected Result: Authenticated API requests resolve a stable `users` row that later features can reference by `user_id`.
-
-Acceptance Tests:
-- `GET /v1/me` returns `401` without a token.
-- `GET /v1/me` returns `200` with a verified token.
-- The first successful authenticated request creates a `users` row keyed by `auth_subject`.
-- Repeated authenticated requests reuse the same user row.
-- Generated temporary `handle` values are unique.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### SUB-API-01 - Add submission create and read endpoints
 Description: Add API routes to create a submission for a published problem and fetch a stored submission by id.
 
@@ -73,6 +57,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### USER-01 - Bootstrap app users from Clerk subjects
+Description: Create or load a database-backed app user from an authenticated Clerk subject, using generated temporary values for `handle` and `display_name` on first bootstrap.
+
+Expected Result: Authenticated API requests resolve a stable `users` row that later features can reference by `user_id`.
+
+Acceptance Tests:
+- `GET /v1/me` returns `401` without a token.
+- `GET /v1/me` returns `200` with a verified token.
+- The first successful authenticated request creates a `users` row keyed by `auth_subject`.
+- Repeated authenticated requests reuse the same user row.
+- Generated temporary `handle` values are unique.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding a PostgreSQL-backed user store and wiring `GET /v1/me` to create or load an app user from the authenticated Clerk subject.
+- Temporary profile values are derived deterministically from the Clerk subject, giving each new user a unique placeholder `handle` and `display_name` until profile editing exists.
+- Added automated coverage for generated-handle uniqueness, repeated subject reuse in the store, and a route test that accepts a real signed JWT through the Clerk verifier path.
+- Verified `go test ./...` in `services/api`.
 
 ### CI-02 - Fix pnpm setup in GitHub Actions
 Description: Fix the failing GitHub Actions web job by ensuring `pnpm` is installed before `actions/setup-node` uses `cache: pnpm`, and record the new workflow rules introduced after the last batch.

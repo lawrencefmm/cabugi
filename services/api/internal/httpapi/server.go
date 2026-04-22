@@ -7,12 +7,16 @@ import (
 
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
+	"github.com/lawrencefmm/cabugi/services/api/internal/users"
 	openapiasset "github.com/lawrencefmm/cabugi/services/api/openapi"
 )
 
-func NewMux(verifier auth.Verifier, problemStore problems.Store) *http.ServeMux {
+func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store) *http.ServeMux {
 	if problemStore == nil {
 		problemStore = problems.DisabledStore{}
+	}
+	if userStore == nil {
+		userStore = users.DisabledStore{}
 	}
 
 	mux := http.NewServeMux()
@@ -20,15 +24,15 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store) *http.ServeMux 
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
-	mux.Handle("GET /v1/me", auth.RequireAuth(verifier, http.HandlerFunc(currentUserHandler)))
+	mux.Handle("GET /v1/me", auth.RequireAuth(verifier, currentUserHandler(userStore)))
 
 	return mux
 }
 
-func NewServer(address string, verifier auth.Verifier, problemStore problems.Store) *http.Server {
+func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store) *http.Server {
 	return &http.Server{
 		Addr:    address,
-		Handler: NewMux(verifier, problemStore),
+		Handler: NewMux(verifier, problemStore, userStore),
 	}
 }
 
@@ -42,14 +46,27 @@ func openAPIHandler(writer http.ResponseWriter, _ *http.Request) {
 	_, _ = writer.Write(openapiasset.V1)
 }
 
-func currentUserHandler(writer http.ResponseWriter, request *http.Request) {
-	principal, ok := auth.PrincipalFromContext(request.Context())
-	if !ok {
-		writeError(writer, http.StatusInternalServerError, "missing_principal")
-		return
-	}
+func currentUserHandler(userStore users.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		principal, ok := auth.PrincipalFromContext(request.Context())
+		if !ok {
+			writeError(writer, http.StatusInternalServerError, "missing_principal")
+			return
+		}
 
-	writeJSON(writer, http.StatusOK, map[string]string{"subject": principal.Subject})
+		user, err := userStore.GetOrCreateBySubject(request.Context(), principal.Subject)
+		if err != nil {
+			switch {
+			case errors.Is(err, users.ErrStoreNotConfigured):
+				writeError(writer, http.StatusServiceUnavailable, "user_store_not_configured")
+			default:
+				writeError(writer, http.StatusInternalServerError, "internal_server_error")
+			}
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, user)
+	})
 }
 
 func listPublishedProblemsHandler(problemStore problems.Store) http.HandlerFunc {
