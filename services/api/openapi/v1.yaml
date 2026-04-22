@@ -62,6 +62,15 @@ components:
             - python
         status:
           type: string
+          enum:
+            - queued
+            - running
+            - accepted
+            - wrong_answer
+            - compile_error
+            - runtime_error
+            - time_limit_exceeded
+            - judge_failed
         queuedAt:
           type: string
           format: date-time

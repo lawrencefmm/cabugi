@@ -30,6 +30,7 @@ type CaseResult struct {
 type Store interface {
 	ClaimNextJob(context.Context) (SubmissionJob, error)
 	MarkSubmissionRunning(context.Context, string) error
+	HandleJobFailure(context.Context, string, string) error
 	CompleteSubmission(context.Context, string, string, []CaseResult) error
 }
 
@@ -56,18 +57,31 @@ func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
+	if err := processor.processClaimedJob(ctx, job); err != nil {
+		if handleErr := processor.store.HandleJobFailure(ctx, job.SubmissionID, err.Error()); handleErr != nil {
+			return false, fmt.Errorf("record failed submission job: %w", handleErr)
+		}
+
+		return true, nil
+	}
+
+	return true, nil
+}
+
+func (processor Processor) processClaimedJob(ctx context.Context, job SubmissionJob) error {
+
 	if err := processor.store.MarkSubmissionRunning(ctx, job.SubmissionID); err != nil {
-		return false, err
+		return err
 	}
 
 	cases, err := processor.loader.LoadCases(ctx, job.BundleKey, job.BundleSHA256)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	language, err := spikeLanguage(job.Language)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	result, err := processor.runner.Evaluate(ctx, spike.Request{
@@ -77,14 +91,14 @@ func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
 		Cases:     cases,
 	})
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if err := processor.store.CompleteSubmission(ctx, job.SubmissionID, submissionStatus(result.Verdict), toCaseResults(result.CaseResults)); err != nil {
-		return false, err
+		return err
 	}
 
-	return true, nil
+	return nil
 }
 
 func spikeLanguage(language string) (spike.Language, error) {

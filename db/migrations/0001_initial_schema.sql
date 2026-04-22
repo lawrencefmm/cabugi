@@ -25,7 +25,8 @@ CREATE TYPE submission_status AS ENUM (
   'wrong_answer',
   'compile_error',
   'runtime_error',
-  'time_limit_exceeded'
+  'time_limit_exceeded',
+  'judge_failed'
 );
 
 CREATE TYPE submission_case_status AS ENUM (

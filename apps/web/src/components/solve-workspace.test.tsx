@@ -126,4 +126,37 @@ describe("SolveWorkspace", () => {
     expect(await screen.findByText("Running")).toBeInTheDocument();
     expect(await screen.findByText("Accepted")).toBeInTheDocument();
   });
+
+  it("treats judge failures as terminal submission states", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: "submission-1", problemSlug: "two-sum", language: "cpp17", status: "queued", queuedAt: new Date().toISOString() }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "submission-1", problemSlug: "two-sum", language: "cpp17", status: "running", queuedAt: new Date().toISOString() }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "submission-1", problemSlug: "two-sum", language: "cpp17", status: "judge_failed", queuedAt: new Date().toISOString(), totalTests: 0, passedTests: 0, results: [] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWorkspace(<SolveWorkspace authEnabled pollIntervalMs={10} problemSlug="two-sum" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit solution" }));
+
+    expect(await screen.findByText("Judge Failed")).toBeInTheDocument();
+  });
 });

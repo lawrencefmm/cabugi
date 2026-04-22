@@ -3,7 +3,13 @@
 This service will claim submission jobs and execute untrusted code in isolation on dedicated judge hosts.
 
 ## Worker Command
-Process one queued submission from `services/judge`:
+Run the long-running judge worker from `services/judge`:
+
+```bash
+go run ./cmd/judge
+```
+
+Process at most one queued submission from `services/judge`:
 
 ```bash
 go run ./cmd/judge --once
@@ -14,6 +20,8 @@ Current local worker behavior:
 - downloads hidden test cases from private object storage using the stored `hidden_test_bundle_key`
 - verifies the downloaded bundle against `hidden_test_bundle_sha256`
 - executes the submission with the existing Docker-based spike runner
+- requeues failed jobs with `last_error` until the configured max-attempt limit is reached
+- marks submissions as `judge_failed` when the worker exhausts retry attempts
 - writes final submission status plus `submission_results`
 
 ## Judge Spike

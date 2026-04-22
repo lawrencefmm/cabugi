@@ -106,6 +106,9 @@ Judge object storage environment:
 - `OBJECT_STORAGE_ACCESS_KEY_ID`: object storage access key. Defaults to `minioadmin`.
 - `OBJECT_STORAGE_SECRET_ACCESS_KEY`: object storage secret key. Defaults to `minioadmin`.
 - `OBJECT_STORAGE_USE_PATH_STYLE`: optional path-style toggle for S3-compatible APIs. Defaults to `true` for local MinIO.
+- `JUDGE_MAX_JOB_ATTEMPTS`: retry limit before the worker marks a submission as `judge_failed`. Defaults to `3`.
+- `JUDGE_POLL_INTERVAL`: idle poll interval for the long-running worker loop. Defaults to `3s`.
+- `JUDGE_RETRY_DELAY`: delay before retrying a failed claimed job. Defaults to `5s`.
 
 Local judge bundle storage:
 - Create the `cabugi-hidden-tests` bucket in MinIO.
@@ -128,7 +131,13 @@ Judge spike command from `services/judge`:
 go run ./cmd/judge-spike --all
 ```
 
-Judge worker command from `services/judge`:
+Long-running judge worker command from `services/judge`:
+
+```bash
+go run ./cmd/judge
+```
+
+One-shot judge worker command from `services/judge`:
 
 ```bash
 go run ./cmd/judge --once

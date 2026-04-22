@@ -13,6 +13,9 @@ type stubStore struct {
 	job              SubmissionJob
 	claimErr         error
 	runningID        string
+	failedID         string
+	failedError      string
+	handleFailureErr error
 	completedID      string
 	completedStatus  string
 	completedResults []CaseResult
@@ -38,6 +41,12 @@ func (store *stubStore) ClaimNextJob(context.Context) (SubmissionJob, error) {
 func (store *stubStore) MarkSubmissionRunning(_ context.Context, submissionID string) error {
 	store.runningID = submissionID
 	return nil
+}
+
+func (store *stubStore) HandleJobFailure(_ context.Context, submissionID string, lastError string) error {
+	store.failedID = submissionID
+	store.failedError = lastError
+	return store.handleFailureErr
 }
 
 func (store *stubStore) CompleteSubmission(_ context.Context, submissionID string, status string, results []CaseResult) error {
@@ -145,9 +154,19 @@ func TestProcessOneMapsTimeLimitExceededToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneReturnsLoaderErrors(t *testing.T) {
-	processor := NewProcessor(&stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}, &stubLoader{err: errors.New("missing bundle")}, &stubRunner{})
-	_, err := processor.ProcessOne(context.Background())
-	if err == nil {
-		t.Fatal("ProcessOne() should return bundle loader errors")
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	processor := NewProcessor(store, &stubLoader{err: errors.New("missing bundle")}, &stubRunner{})
+	processed, err := processor.ProcessOne(context.Background())
+	if err != nil {
+		t.Fatalf("ProcessOne() error = %v", err)
+	}
+	if !processed {
+		t.Fatal("ProcessOne() should report that a claimed job was handled")
+	}
+	if store.failedID != "submission-id" {
+		t.Fatalf("HandleJobFailure() received %q, want %q", store.failedID, "submission-id")
+	}
+	if store.failedError == "" {
+		t.Fatal("HandleJobFailure() should receive a failure message")
 	}
 }
