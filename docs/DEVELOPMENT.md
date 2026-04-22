@@ -116,7 +116,7 @@ Judge object storage environment:
 Local judge bundle storage:
 - Create the `cabugi-hidden-tests` bucket in MinIO.
 - Upload JSON bundle objects to that bucket, and store the object key in `hidden_test_bundle_key`.
-- Store the uploaded bundle SHA-256 hex digest in `hidden_test_bundle_sha256` so the judge can verify integrity before execution.
+- Store the uploaded bundle SHA-256 hex digest in `hidden_test_bundle_sha256` so the API can validate draft bundle references and the judge can verify integrity before execution.
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.

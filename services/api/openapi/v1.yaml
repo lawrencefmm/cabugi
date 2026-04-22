@@ -21,6 +21,10 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
     PublishedProblemDetail:
       allOf:
         - $ref: '#/components/schemas/PublishedProblemSummary'
@@ -81,6 +85,10 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
     ProblemDraftCreateInput:
       type: object
       required:
@@ -112,6 +120,10 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
     ProblemDraftUpdateInput:
       type: object
       required:

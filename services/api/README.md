@@ -32,6 +32,14 @@ Available bootstrap routes:
 - `DATABASE_URL`: PostgreSQL connection string for problem and submission data. Defaults to the local Docker Compose database.
 - `WEB_ALLOWED_ORIGINS`: optional comma-separated browser origins allowed by API CORS. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
 
+## Hidden Test Bundle Validation Environment
+- `OBJECT_STORAGE_ENDPOINT`: object storage endpoint used to validate hidden test bundle references. Defaults to local MinIO at `http://127.0.0.1:9000`.
+- `OBJECT_STORAGE_REGION`: object storage region. Defaults to `us-east-1`.
+- `OBJECT_STORAGE_BUCKET`: hidden test bundle bucket. Defaults to `cabugi-hidden-tests`.
+- `OBJECT_STORAGE_ACCESS_KEY_ID`: object storage access key. Defaults to `minioadmin`.
+- `OBJECT_STORAGE_SECRET_ACCESS_KEY`: object storage secret key. Defaults to `minioadmin`.
+- `OBJECT_STORAGE_USE_PATH_STYLE`: optional path-style toggle for S3-compatible APIs. Defaults to `true` for local MinIO.
+
 ## Verification
 Run the API test suite from `services/api`:
 

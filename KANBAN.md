@@ -22,20 +22,6 @@
 ## Ready
 
 ## Backlog
-### DRAFT-API-02 - Add hidden test bundle registration and validation
-Description: Add draft-problem support for registering hidden test bundle metadata and validating bundle references before review.
-
-Expected Result: Draft problems can reference real hidden test bundles safely.
-
-Acceptance Tests:
-- Draft problem routes can store hidden test bundle metadata.
-- Invalid or missing hidden test bundle metadata is rejected.
-- Draft versions retain the bundle key and checksum needed by the judge.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### DRAFT-API-03 - Add submit-for-review transition
 Description: Add the lifecycle transition that moves a user draft from `draft` to `in_review`.
 
@@ -112,6 +98,23 @@ Notes:
 - Not started.
 
 ## Done
+
+### DRAFT-API-02 - Add hidden test bundle registration and validation
+Description: Add draft-problem support for registering hidden test bundle metadata and validating bundle references before review.
+
+Expected Result: Draft problems can reference real hidden test bundles safely.
+
+Acceptance Tests:
+- Draft problem routes can store hidden test bundle metadata.
+- Invalid or missing hidden test bundle metadata is rejected.
+- Draft versions retain the bundle key and checksum needed by the judge.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by extending draft create and update routes with optional `hiddenTestBundleKey` and `hiddenTestBundleSha256` fields plus API-side object storage validation against local MinIO or other S3-compatible storage.
+- Added checksum and object-existence validation before persistence, and preserved existing bundle metadata on draft updates when the request omits those fields.
+- Added validator tests for checksum matching and route tests that reject partial or missing bundle metadata while storing validated references for the judge.
+- Verified `go test ./...` in `services/api`.
 
 ### DRAFT-API-01 - Add problem draft create and update endpoints
 Description: Add authenticated API routes for users to create and edit draft problems and draft problem versions.

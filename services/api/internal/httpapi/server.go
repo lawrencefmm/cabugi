@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	openapiasset "github.com/lawrencefmm/cabugi/services/api/openapi"
 )
 
-func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store) *http.ServeMux {
+func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, bundleValidators ...problems.BundleValidator) *http.ServeMux {
 	if problemStore == nil {
 		problemStore = problems.DisabledStore{}
 	}
@@ -23,15 +24,19 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	if submissionStore == nil {
 		submissionStore = submissions.DisabledStore{}
 	}
+	bundleValidator := problems.BundleValidator(problems.DisabledBundleValidator{})
+	if len(bundleValidators) > 0 && bundleValidators[0] != nil {
+		bundleValidator = bundleValidators[0]
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthzHandler)
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
-	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore)))
+	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
-	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore)))
+	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("GET /v1/submissions", auth.RequireAuth(verifier, listSubmissionsHandler(userStore, submissionStore)))
 	mux.Handle("POST /v1/submissions", auth.RequireAuth(verifier, createSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/submissions/{id}", auth.RequireAuth(verifier, getSubmissionHandler(userStore, submissionStore)))
@@ -40,10 +45,10 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	return mux
 }
 
-func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string) *http.Server {
+func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string, bundleValidators ...problems.BundleValidator) *http.Server {
 	return &http.Server{
 		Addr:    address,
-		Handler: withCORS(NewMux(verifier, problemStore, userStore, submissionStore), allowedOrigins),
+		Handler: withCORS(NewMux(verifier, problemStore, userStore, submissionStore, bundleValidators...), allowedOrigins),
 	}
 }
 
@@ -104,7 +109,7 @@ func getPublishedProblemHandler(problemStore problems.Store) http.HandlerFunc {
 	}
 }
 
-func createProblemDraftHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+func createProblemDraftHandler(userStore users.Store, problemStore problems.Store, bundleValidator problems.BundleValidator) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		user, ok := currentUserFromRequest(writer, request, userStore)
 		if !ok {
@@ -112,15 +117,17 @@ func createProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 		}
 
 		var body struct {
-			Slug                string `json:"slug"`
-			Title               string `json:"title"`
-			StatementMarkdown   string `json:"statementMarkdown"`
-			InputMarkdown       string `json:"inputMarkdown"`
-			OutputMarkdown      string `json:"outputMarkdown"`
-			ConstraintsMarkdown string `json:"constraintsMarkdown"`
-			NotesMarkdown       string `json:"notesMarkdown"`
-			TimeLimitMs         int    `json:"timeLimitMs"`
-			MemoryLimitMB       int    `json:"memoryLimitMb"`
+			Slug                string  `json:"slug"`
+			Title               string  `json:"title"`
+			StatementMarkdown   string  `json:"statementMarkdown"`
+			InputMarkdown       string  `json:"inputMarkdown"`
+			OutputMarkdown      string  `json:"outputMarkdown"`
+			ConstraintsMarkdown string  `json:"constraintsMarkdown"`
+			NotesMarkdown       string  `json:"notesMarkdown"`
+			TimeLimitMs         int     `json:"timeLimitMs"`
+			MemoryLimitMB       int     `json:"memoryLimitMb"`
+			HiddenTestBundleKey *string `json:"hiddenTestBundleKey"`
+			HiddenTestBundleSHA *string `json:"hiddenTestBundleSha256"`
 		}
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			writeError(writer, http.StatusBadRequest, "invalid_request_body")
@@ -134,17 +141,25 @@ func createProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 			return
 		}
 
+		hiddenTestBundleKey, hiddenTestBundleSHA, err := resolveDraftBundleMetadata(request.Context(), bundleValidator, nil, body.HiddenTestBundleKey, body.HiddenTestBundleSHA)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
 		problem, err := problemStore.CreateDraft(request.Context(), problems.CreateDraftInput{
-			UserID:              user.ID,
-			Slug:                body.Slug,
-			Title:               body.Title,
-			StatementMarkdown:   body.StatementMarkdown,
-			InputMarkdown:       body.InputMarkdown,
-			OutputMarkdown:      body.OutputMarkdown,
-			ConstraintsMarkdown: body.ConstraintsMarkdown,
-			NotesMarkdown:       body.NotesMarkdown,
-			TimeLimitMs:         body.TimeLimitMs,
-			MemoryLimitMB:       body.MemoryLimitMB,
+			UserID:                 user.ID,
+			Slug:                   body.Slug,
+			Title:                  body.Title,
+			StatementMarkdown:      body.StatementMarkdown,
+			InputMarkdown:          body.InputMarkdown,
+			OutputMarkdown:         body.OutputMarkdown,
+			ConstraintsMarkdown:    body.ConstraintsMarkdown,
+			NotesMarkdown:          body.NotesMarkdown,
+			TimeLimitMs:            body.TimeLimitMs,
+			MemoryLimitMB:          body.MemoryLimitMB,
+			HiddenTestBundleKey:    hiddenTestBundleKey,
+			HiddenTestBundleSHA256: hiddenTestBundleSHA,
 		})
 		if err != nil {
 			writeProblemStoreError(writer, err)
@@ -177,7 +192,7 @@ func getProblemDraftHandler(userStore users.Store, problemStore problems.Store) 
 	})
 }
 
-func updateProblemDraftHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+func updateProblemDraftHandler(userStore users.Store, problemStore problems.Store, bundleValidator problems.BundleValidator) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		user, ok := currentUserFromRequest(writer, request, userStore)
 		if !ok {
@@ -189,15 +204,23 @@ func updateProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 			return
 		}
 
+		existingDraft, err := problemStore.GetDraftBySlug(request.Context(), request.PathValue("slug"), user.ID, allowStaff)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
 		var body struct {
-			Title               string `json:"title"`
-			StatementMarkdown   string `json:"statementMarkdown"`
-			InputMarkdown       string `json:"inputMarkdown"`
-			OutputMarkdown      string `json:"outputMarkdown"`
-			ConstraintsMarkdown string `json:"constraintsMarkdown"`
-			NotesMarkdown       string `json:"notesMarkdown"`
-			TimeLimitMs         int    `json:"timeLimitMs"`
-			MemoryLimitMB       int    `json:"memoryLimitMb"`
+			Title               string  `json:"title"`
+			StatementMarkdown   string  `json:"statementMarkdown"`
+			InputMarkdown       string  `json:"inputMarkdown"`
+			OutputMarkdown      string  `json:"outputMarkdown"`
+			ConstraintsMarkdown string  `json:"constraintsMarkdown"`
+			NotesMarkdown       string  `json:"notesMarkdown"`
+			TimeLimitMs         int     `json:"timeLimitMs"`
+			MemoryLimitMB       int     `json:"memoryLimitMb"`
+			HiddenTestBundleKey *string `json:"hiddenTestBundleKey"`
+			HiddenTestBundleSHA *string `json:"hiddenTestBundleSha256"`
 		}
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			writeError(writer, http.StatusBadRequest, "invalid_request_body")
@@ -210,18 +233,26 @@ func updateProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 			return
 		}
 
+		hiddenTestBundleKey, hiddenTestBundleSHA, err := resolveDraftBundleMetadata(request.Context(), bundleValidator, &existingDraft, body.HiddenTestBundleKey, body.HiddenTestBundleSHA)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
 		problem, err := problemStore.UpdateDraft(request.Context(), problems.UpdateDraftInput{
-			ActorUserID:         user.ID,
-			AllowStaff:          allowStaff,
-			Slug:                request.PathValue("slug"),
-			Title:               body.Title,
-			StatementMarkdown:   body.StatementMarkdown,
-			InputMarkdown:       body.InputMarkdown,
-			OutputMarkdown:      body.OutputMarkdown,
-			ConstraintsMarkdown: body.ConstraintsMarkdown,
-			NotesMarkdown:       body.NotesMarkdown,
-			TimeLimitMs:         body.TimeLimitMs,
-			MemoryLimitMB:       body.MemoryLimitMB,
+			ActorUserID:            user.ID,
+			AllowStaff:             allowStaff,
+			Slug:                   request.PathValue("slug"),
+			Title:                  body.Title,
+			StatementMarkdown:      body.StatementMarkdown,
+			InputMarkdown:          body.InputMarkdown,
+			OutputMarkdown:         body.OutputMarkdown,
+			ConstraintsMarkdown:    body.ConstraintsMarkdown,
+			NotesMarkdown:          body.NotesMarkdown,
+			TimeLimitMs:            body.TimeLimitMs,
+			MemoryLimitMB:          body.MemoryLimitMB,
+			HiddenTestBundleKey:    hiddenTestBundleKey,
+			HiddenTestBundleSHA256: hiddenTestBundleSHA,
 		})
 		if err != nil {
 			writeProblemStoreError(writer, err)
@@ -345,6 +376,36 @@ func currentUserCanManageDrafts(writer http.ResponseWriter, request *http.Reques
 	return hasRole, true
 }
 
+func resolveDraftBundleMetadata(ctx context.Context, bundleValidator problems.BundleValidator, existing *problems.DraftProblem, keyValue *string, checksumValue *string) (string, string, error) {
+	bundleKey := ""
+	bundleChecksum := ""
+	if existing != nil {
+		bundleKey = existing.HiddenTestBundleKey
+		bundleChecksum = existing.HiddenTestBundleSHA256
+	}
+
+	if keyValue == nil && checksumValue == nil {
+		return bundleKey, bundleChecksum, nil
+	}
+	if keyValue == nil || checksumValue == nil {
+		return "", "", problems.ErrInvalidBundleChecksum
+	}
+
+	bundleKey = strings.TrimSpace(*keyValue)
+	bundleChecksum = strings.TrimSpace(*checksumValue)
+	if err := problems.ValidateBundleMetadata(bundleKey, bundleChecksum); err != nil {
+		return "", "", err
+	}
+	if bundleKey == "" && bundleChecksum == "" {
+		return "", "", nil
+	}
+	if err := bundleValidator.ValidateBundle(ctx, bundleKey, bundleChecksum); err != nil {
+		return "", "", err
+	}
+
+	return bundleKey, bundleChecksum, nil
+}
+
 func writeProblemStoreError(writer http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, problems.ErrStoreNotConfigured):
@@ -353,6 +414,10 @@ func writeProblemStoreError(writer http.ResponseWriter, err error) {
 		writeError(writer, http.StatusConflict, "problem_slug_taken")
 	case errors.Is(err, problems.ErrDraftNotFound):
 		writeError(writer, http.StatusNotFound, "problem_draft_not_found")
+	case errors.Is(err, problems.ErrBundleValidatorNotConfigured):
+		writeError(writer, http.StatusServiceUnavailable, "hidden_test_bundle_validator_not_configured")
+	case errors.Is(err, problems.ErrBundleNotFound), errors.Is(err, problems.ErrBundleChecksumMismatch), errors.Is(err, problems.ErrInvalidBundleChecksum):
+		writeError(writer, http.StatusBadRequest, "invalid_hidden_test_bundle")
 	case errors.Is(err, problems.ErrNotFound):
 		writeError(writer, http.StatusNotFound, "problem_not_found")
 	default:

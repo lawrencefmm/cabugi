@@ -59,6 +59,12 @@ type stubSubmissionStore struct {
 	createInput submissions.CreateInput
 }
 
+type stubBundleValidator struct {
+	err      error
+	key      string
+	checksum string
+}
+
 func (verifier stubVerifier) Verify(context.Context, string) (auth.Principal, error) {
 	return verifier.principal, verifier.err
 }
@@ -107,6 +113,12 @@ func (store *stubSubmissionStore) ListSubmissions(context.Context, string) ([]su
 
 func (store *stubSubmissionStore) GetSubmissionByID(context.Context, string, string) (submissions.Detail, error) {
 	return store.submission, store.getErr
+}
+
+func (validator *stubBundleValidator) ValidateBundle(_ context.Context, key string, checksum string) error {
+	validator.key = key
+	validator.checksum = checksum
+	return validator.err
 }
 
 func TestHealthzHandler(t *testing.T) {
@@ -403,6 +415,75 @@ func TestUpdateProblemDraftAllowsStaffToModifyAnotherUsersDraft(t *testing.T) {
 	}
 	if !store.updateDraftInput.AllowStaff || store.updateDraftInput.ActorUserID != "user-id" {
 		t.Fatalf("PATCH /v1/problem-drafts/{slug} stored unexpected update input: %#v", store.updateDraftInput)
+	}
+}
+
+func TestCreateProblemDraftRejectsPartialHiddenBundleMetadata(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256,"hiddenTestBundleKey":"bundles/two-sum.json"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/problem-drafts partial bundle metadata status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if validator.key != "" || validator.checksum != "" {
+		t.Fatalf("validator should not run for invalid metadata, got key=%q checksum=%q", validator.key, validator.checksum)
+	}
+}
+
+func TestCreateProblemDraftRejectsMissingHiddenBundleObject(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256,"hiddenTestBundleKey":"bundles/two-sum.json","hiddenTestBundleSha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{err: problems.ErrBundleNotFound}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/problem-drafts missing bundle object status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if validator.key != "bundles/two-sum.json" {
+		t.Fatalf("validator received key %q, want %q", validator.key, "bundles/two-sum.json")
+	}
+}
+
+func TestCreateProblemDraftStoresValidatedHiddenBundleMetadata(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256, HiddenTestBundleKey: "bundles/two-sum.json", HiddenTestBundleSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256,"hiddenTestBundleKey":"bundles/two-sum.json","hiddenTestBundleSha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST /v1/problem-drafts with bundle metadata status = %d, want %d", recorder.Code, http.StatusCreated)
+	}
+	if store.createDraftInput.HiddenTestBundleKey != "bundles/two-sum.json" || store.createDraftInput.HiddenTestBundleSHA256 == "" {
+		t.Fatalf("POST /v1/problem-drafts stored unexpected bundle metadata: %#v", store.createDraftInput)
+	}
+}
+
+func TestUpdateProblemDraftPreservesExistingHiddenBundleMetadataWhenOmitted(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256, HiddenTestBundleKey: "bundles/two-sum.json", HiddenTestBundleSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}
+	request := httptest.NewRequest(http.MethodPatch, "/v1/problem-drafts/two-sum-user", strings.NewReader(`{"title":"Updated Title","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PATCH /v1/problem-drafts/{slug} preserve bundle metadata status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if store.updateDraftInput.HiddenTestBundleKey != "bundles/two-sum.json" || store.updateDraftInput.HiddenTestBundleSHA256 == "" {
+		t.Fatalf("PATCH /v1/problem-drafts/{slug} did not preserve bundle metadata: %#v", store.updateDraftInput)
+	}
+	if validator.key != "" {
+		t.Fatalf("validator should not run when bundle metadata is omitted, got key=%q", validator.key)
 	}
 }
 

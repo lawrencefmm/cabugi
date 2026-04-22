@@ -36,6 +36,13 @@ func main() {
 		log.Printf("api problem store disabled: %v", err)
 	}
 
+	bundleValidator := problems.BundleValidator(problems.DisabledBundleValidator{})
+	if validator, err := problems.NewS3BundleValidator(cfg.ObjectStorage); err == nil {
+		bundleValidator = validator
+	} else {
+		log.Printf("api hidden test bundle validation disabled: %v", err)
+	}
+
 	var userStore users.Store = users.DisabledStore{}
 	if store, err := users.NewPostgresStore(cfg.DatabaseURL); err == nil {
 		userStore = store
@@ -52,7 +59,7 @@ func main() {
 		log.Printf("api submission store disabled: %v", err)
 	}
 
-	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore, cfg.AllowedOrigins)
+	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore, cfg.AllowedOrigins, bundleValidator)
 
 	go func() {
 		<-ctx.Done()
