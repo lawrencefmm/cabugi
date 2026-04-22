@@ -21,25 +21,6 @@
 
 ## Ready
 
-### SUB-API-01 - Add submission create and read endpoints
-Description: Add API routes to create a submission for a published problem and fetch a stored submission by id.
-
-Expected Result: The API can accept a submission, queue it in PostgreSQL, and expose its current state to the owner.
-
-Acceptance Tests:
-- The OpenAPI document defines `POST /v1/submissions`.
-- The OpenAPI document defines `GET /v1/submissions/{id}`.
-- `POST /v1/submissions` returns `401` without auth.
-- `POST /v1/submissions` returns `201` for an authenticated user on a published problem.
-- `POST /v1/submissions` creates one `submissions` row and one `submission_jobs` row.
-- `POST /v1/submissions` rejects draft-only or missing problems.
-- `GET /v1/submissions/{id}` returns `404` for unknown ids.
-- `GET /v1/submissions/{id}` returns the stored submission for its owner.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### JUDGE-02 - Process queued submissions and persist verdicts
 Description: Extend the judge from a local spike into a worker flow that claims queued submission jobs, evaluates them, and writes final verdicts plus per-test results back to PostgreSQL.
 
@@ -57,6 +38,28 @@ Notes:
 - Not started.
 
 ## Done
+
+### SUB-API-01 - Add submission create and read endpoints
+Description: Add API routes to create a submission for a published problem and fetch a stored submission by id.
+
+Expected Result: The API can accept a submission, queue it in PostgreSQL, and expose its current state to the owner.
+
+Acceptance Tests:
+- The OpenAPI document defines `POST /v1/submissions`.
+- The OpenAPI document defines `GET /v1/submissions/{id}`.
+- `POST /v1/submissions` returns `401` without auth.
+- `POST /v1/submissions` returns `201` for an authenticated user on a published problem.
+- `POST /v1/submissions` creates one `submissions` row and one `submission_jobs` row.
+- `POST /v1/submissions` rejects draft-only or missing problems.
+- `GET /v1/submissions/{id}` returns `404` for unknown ids.
+- `GET /v1/submissions/{id}` returns the stored submission for its owner.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding a PostgreSQL-backed submission store, authenticated handlers for `POST /v1/submissions` and `GET /v1/submissions/{id}`, and OpenAPI definitions for both endpoints.
+- Submission creation now resolves the published problem version by slug, inserts one `submissions` row, and inserts one `submission_jobs` row through a single database-backed workflow.
+- Added handler tests for `401`, `201`, and `404` cases plus store tests that assert published-only submission creation and owner-scoped reads.
+- Verified `go test ./...` in `services/api`.
 
 ### USER-01 - Bootstrap app users from Clerk subjects
 Description: Create or load a database-backed app user from an authenticated Clerk subject, using generated temporary values for `handle` and `display_name` on first bootstrap.

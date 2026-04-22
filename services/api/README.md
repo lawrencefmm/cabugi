@@ -17,6 +17,8 @@ Available bootstrap routes:
 - `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
 - `GET /v1/problems/{slug}`
+- `POST /v1/submissions`
+- `GET /v1/submissions/{id}`
 
 ## Clerk Auth Environment
 - `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
