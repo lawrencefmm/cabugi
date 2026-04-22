@@ -16,11 +16,13 @@
 - Use `KANBAN.md` as the source of truth for active and upcoming work.
 - Before starting a new batch of implementation work, pause for planning with the user and ask clarifying questions if anything important is unclear.
 - After that planning step, complete at most four tasks before stopping for another planning checkpoint with the user.
+- After each completed batch, inspect the current GitHub Actions runs and confirm the pipelines are working as intended.
 - Work on exactly one task at a time unless the user explicitly approves parallel work.
 - Use `dev` as the integration branch for day-to-day work.
 - Start each task branch from `dev`.
 - Use one git branch per task.
 - After each completed task, run the relevant verification, create a commit, push that task branch to `origin`, merge it into `dev`, and push `dev`.
+- Use Conventional Commits for all new commit messages.
 - Every task in `KANBAN.md` must include `Description`, `Expected Result`, `Acceptance Tests`, and `Notes`.
 - Keep acceptance tests objective and directly verifiable from files, commands, endpoints, or UI behavior.
 - After completing a task, add a short `Notes` section that records what was implemented and any key discoveries.

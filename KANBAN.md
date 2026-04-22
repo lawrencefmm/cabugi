@@ -4,10 +4,12 @@
 - Use this file as the source of truth for active and upcoming work.
 - Before starting a new implementation batch, pause for planning with the user and ask clarifying questions if anything important is unclear.
 - Complete at most four tasks after each planning checkpoint before stopping for another planning pass with the user.
+- After each completed batch, inspect the current GitHub Actions runs and confirm the pipelines are working as intended.
 - Keep exactly one task in `In Progress` unless the user explicitly approves parallel work.
 - Use `dev` as the integration branch for ongoing work.
 - Start each task branch from `dev`.
 - Use one git branch per task, push each completed task branch to `origin`, then merge it into `dev` and push `dev` after its acceptance checks pass.
+- Use Conventional Commits for all new commit messages.
 - Every task must include `Description`, `Expected Result`, `Acceptance Tests`, and `Notes`.
 - Acceptance tests must be objective and directly verifiable from files, commands, endpoints, or UI behavior.
 - After finishing a task, add implementation details and important discoveries to that task's `Notes` section.
@@ -19,7 +21,76 @@
 
 ## Ready
 
+### USER-01 - Bootstrap app users from Clerk subjects
+Description: Create or load a database-backed app user from an authenticated Clerk subject, using generated temporary values for `handle` and `display_name` on first bootstrap.
+
+Expected Result: Authenticated API requests resolve a stable `users` row that later features can reference by `user_id`.
+
+Acceptance Tests:
+- `GET /v1/me` returns `401` without a token.
+- `GET /v1/me` returns `200` with a verified token.
+- The first successful authenticated request creates a `users` row keyed by `auth_subject`.
+- Repeated authenticated requests reuse the same user row.
+- Generated temporary `handle` values are unique.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### SUB-API-01 - Add submission create and read endpoints
+Description: Add API routes to create a submission for a published problem and fetch a stored submission by id.
+
+Expected Result: The API can accept a submission, queue it in PostgreSQL, and expose its current state to the owner.
+
+Acceptance Tests:
+- The OpenAPI document defines `POST /v1/submissions`.
+- The OpenAPI document defines `GET /v1/submissions/{id}`.
+- `POST /v1/submissions` returns `401` without auth.
+- `POST /v1/submissions` returns `201` for an authenticated user on a published problem.
+- `POST /v1/submissions` creates one `submissions` row and one `submission_jobs` row.
+- `POST /v1/submissions` rejects draft-only or missing problems.
+- `GET /v1/submissions/{id}` returns `404` for unknown ids.
+- `GET /v1/submissions/{id}` returns the stored submission for its owner.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Not started.
+
+### JUDGE-02 - Process queued submissions and persist verdicts
+Description: Extend the judge from a local spike into a worker flow that claims queued submission jobs, evaluates them, and writes final verdicts plus per-test results back to PostgreSQL.
+
+Expected Result: A queued submission can move through `queued`, `running`, and a final verdict using the real database-backed workflow.
+
+Acceptance Tests:
+- A documented worker command exists for local execution.
+- The worker can claim one queued submission job from PostgreSQL.
+- The worker updates submission state to `running` and then a final verdict.
+- The worker inserts `submission_results` rows.
+- The worker can persist at least `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded`.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Not started.
+
 ## Done
+
+### CI-02 - Fix pnpm setup in GitHub Actions
+Description: Fix the failing GitHub Actions web job by ensuring `pnpm` is installed before `actions/setup-node` uses `cache: pnpm`, and record the new workflow rules introduced after the last batch.
+
+Expected Result: The `web` CI job succeeds, and the repository instructions explicitly require Conventional Commits plus post-batch CI inspection.
+
+Acceptance Tests:
+- `.github/workflows/ci.yml` installs `pnpm` before `actions/setup-node` in the `web` job.
+- `AGENTS.md` records the Conventional Commits rule.
+- `AGENTS.md` records the post-batch GitHub Actions inspection rule.
+- `KANBAN.md` rules record the same two workflow expectations.
+- A GitHub Actions run on the task branch completes successfully.
+
+Notes:
+- Completed by moving `pnpm/action-setup` ahead of `actions/setup-node` in the `web` job so `cache: pnpm` can resolve the `pnpm` executable on GitHub runners.
+- Recorded the new workflow rules in both `AGENTS.md` and `KANBAN.md`: use Conventional Commits and inspect GitHub Actions after each completed batch.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run` locally.
+- Verified the GitHub Actions run on `task/ci-02-fix-pnpm-setup-in-github-actions` completed successfully.
 
 ### PROB-API-01 - Implement published problem read endpoints
 Description: Implement the first product endpoints for listing published problems and fetching a published problem by slug from PostgreSQL.
