@@ -36,6 +36,7 @@ Current development credentials:
 - This task bootstraps the repository structure and shared local infrastructure only.
 - The frontend workspace now has an initial `Next.js` scaffold and automated unit test setup.
 - The API service now has a bootstrap HTTP server with a health route and a versioned OpenAPI document.
+- The API now includes PostgreSQL-backed published problem read endpoints.
 - The judge service now has a Docker-based spike plus Go tests for verdict handling.
 - Integration tests and full service wiring will be expanded in subsequent tasks.
 
@@ -77,10 +78,15 @@ Current bootstrap API routes:
 - `GET /healthz`
 - `GET /openapi/v1.yaml`
 - `GET /v1/me` with Clerk session authentication
+- `GET /v1/problems`
+- `GET /v1/problems/{slug}`
 
 Clerk environment variables for protected API routes:
 - `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed frontend origins used to validate the `azp` claim.
+
+Database environment for API routes backed by PostgreSQL:
+- `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.

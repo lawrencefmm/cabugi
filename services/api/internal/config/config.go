@@ -3,9 +3,11 @@ package config
 import "os"
 
 const defaultAddress = "127.0.0.1:8080"
+const defaultDatabaseURL = "postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable"
 
 type Config struct {
-	Address string
+	Address     string
+	DatabaseURL string
 }
 
 func Load() Config {
@@ -14,5 +16,10 @@ func Load() Config {
 		address = defaultAddress
 	}
 
-	return Config{Address: address}
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = defaultDatabaseURL
+	}
+
+	return Config{Address: address, DatabaseURL: databaseURL}
 }

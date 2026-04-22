@@ -9,6 +9,7 @@
 - Baseline CI now lives in `.github/workflows/ci.yml` and runs the web, Go service, and database verification commands on pushes and pull requests.
 - The API service now exposes `GET /healthz` and serves `services/api/openapi/v1.yaml` at `GET /openapi/v1.yaml`.
 - The API now has Clerk-style JWT middleware and a protected `GET /v1/me` bootstrap route.
+- The API now includes published problem read endpoints backed by PostgreSQL.
 - The git remote is `origin` at `git@github.com:lawrencefmm/cabugi.git`.
 
 ## Working Rules

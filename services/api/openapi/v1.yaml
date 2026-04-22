@@ -4,6 +4,44 @@ info:
   version: 1.0.0
   description: Initial Cabugi API surface for health checks and published problem access.
 components:
+  schemas:
+    PublishedProblemSummary:
+      type: object
+      required:
+        - slug
+        - title
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+    PublishedProblemDetail:
+      allOf:
+        - $ref: '#/components/schemas/PublishedProblemSummary'
+        - type: object
+          required:
+            - statementMarkdown
+            - inputMarkdown
+            - outputMarkdown
+            - constraintsMarkdown
+            - notesMarkdown
+          properties:
+            statementMarkdown:
+              type: string
+            inputMarkdown:
+              type: string
+            outputMarkdown:
+              type: string
+            constraintsMarkdown:
+              type: string
+            notesMarkdown:
+              type: string
   securitySchemes:
     clerkSession:
       type: http
@@ -63,3 +101,44 @@ paths:
           description: Missing or invalid session token.
         '503':
           description: Clerk verification is not configured on the API server.
+  /v1/problems:
+    get:
+      summary: List published problems
+      operationId: listPublishedProblems
+      responses:
+        '200':
+          description: Published problems visible to users.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - problems
+                properties:
+                  problems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublishedProblemSummary'
+        '503':
+          description: The problem store is not configured.
+  /v1/problems/{slug}:
+    get:
+      summary: Get a published problem by slug
+      operationId: getPublishedProblemBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Published problem detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedProblemDetail'
+        '404':
+          description: No published problem exists for the slug.
+        '503':
+          description: The problem store is not configured.

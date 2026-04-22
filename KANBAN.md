@@ -19,6 +19,8 @@
 
 ## Ready
 
+## Done
+
 ### PROB-API-01 - Implement published problem read endpoints
 Description: Implement the first product endpoints for listing published problems and fetching a published problem by slug from PostgreSQL.
 
@@ -33,9 +35,10 @@ Acceptance Tests:
 - `go test ./...` passes in `services/api`.
 
 Notes:
-- Not started.
-
-## Done
+- Completed by adding a PostgreSQL-backed problem store, public API handlers for `GET /v1/problems` and `GET /v1/problems/{slug}`, and OpenAPI definitions for both endpoints.
+- Added store-level query tests to prove the SQL only reads `published` problem versions, plus handler tests for `200` and `404` behavior.
+- Documented `DATABASE_URL` usage in `services/api/README.md` and `docs/DEVELOPMENT.md`.
+- Verified `go test ./...` in `services/api`, and confirmed locally that a seeded published problem returns `200` while a draft-only slug returns `404`.
 
 ### AUTH-01 - Add Clerk auth verification to the API
 Description: Add API-side authentication plumbing for Clerk, including token verification, current-user resolution, and protected-route middleware.
