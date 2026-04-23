@@ -84,6 +84,7 @@ Current bootstrap API routes:
 - `POST /v1/problem-drafts`
 - `GET /v1/problem-drafts/{slug}`
 - `PATCH /v1/problem-drafts/{slug}`
+- `POST /v1/problem-drafts/{slug}/submit-for-review`
 - `GET /v1/submissions`
 - `POST /v1/submissions`
 - `GET /v1/submissions/{id}`

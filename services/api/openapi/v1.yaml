@@ -69,6 +69,7 @@ components:
           type: string
           enum:
             - draft
+            - in_review
         title:
           type: string
         statementMarkdown:
@@ -419,6 +420,33 @@ paths:
           description: Missing or invalid session token.
         '404':
           description: No owned draft problem exists for the requested slug.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/problem-drafts/{slug}/submit-for-review:
+    post:
+      summary: Submit an owned draft problem for review
+      operationId: submitProblemDraftForReview
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft problem moved into review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '409':
+          description: The draft cannot be submitted for review from its current state.
         '503':
           description: Draft problem dependencies are not configured.
   /v1/submissions:

@@ -34,11 +34,14 @@ type stubProblemStore struct {
 	createErr           error
 	getDraftErr         error
 	updateErr           error
+	submitForReviewErr  error
 	createDraftInput    problems.CreateDraftInput
 	updateDraftInput    problems.UpdateDraftInput
 	getDraftSlug        string
 	getDraftActorUserID string
 	getDraftAllowStaff  bool
+	submitSlug          string
+	submitOwnerUserID   string
 }
 
 type stubUserStore struct {
@@ -92,6 +95,12 @@ func (store *stubProblemStore) GetDraftBySlug(_ context.Context, slug string, ac
 func (store *stubProblemStore) UpdateDraft(_ context.Context, input problems.UpdateDraftInput) (problems.DraftProblem, error) {
 	store.updateDraftInput = input
 	return store.draft, store.updateErr
+}
+
+func (store *stubProblemStore) SubmitDraftForReview(_ context.Context, slug string, ownerUserID string) (problems.DraftProblem, error) {
+	store.submitSlug = slug
+	store.submitOwnerUserID = ownerUserID
+	return store.draft, store.submitForReviewErr
 }
 
 func (store stubUserStore) GetOrCreateBySubject(context.Context, string) (users.User, error) {
@@ -191,6 +200,9 @@ func TestOpenAPIHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, "/v1/problem-drafts/{slug}:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/{slug} path")
+	}
+	if !strings.Contains(body, "/v1/problem-drafts/{slug}/submit-for-review:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/{slug}/submit-for-review path")
 	}
 	if got := recorder.Header().Get("Content-Type"); got != "application/yaml" {
 		t.Fatalf("GET /openapi/v1.yaml content type = %q, want %q", got, "application/yaml")
@@ -484,6 +496,45 @@ func TestUpdateProblemDraftPreservesExistingHiddenBundleMetadataWhenOmitted(t *t
 	}
 	if validator.key != "" {
 		t.Fatalf("validator should not run when bundle metadata is omitted, got key=%q", validator.key)
+	}
+}
+
+func TestSubmitProblemDraftForReviewRejectsMissingToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts/two-sum-user/submit-for-review", nil)
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /v1/problem-drafts/{slug}/submit-for-review without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSubmitProblemDraftForReviewTransitionsOwnedDraft(t *testing.T) {
+	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "in_review", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256}}
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts/two-sum-user/submit-for-review", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("POST /v1/problem-drafts/{slug}/submit-for-review status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if store.submitSlug != "two-sum-user" || store.submitOwnerUserID != "user-id" {
+		t.Fatalf("POST /v1/problem-drafts/{slug}/submit-for-review used unexpected submit inputs: %#v", store)
+	}
+}
+
+func TestSubmitProblemDraftForReviewRejectsInvalidLifecycleTransition(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts/two-sum-user/submit-for-review", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{submitForReviewErr: problems.ErrInvalidLifecycleTransition}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("POST /v1/problem-drafts/{slug}/submit-for-review invalid transition status = %d, want %d", recorder.Code, http.StatusConflict)
 	}
 }
 

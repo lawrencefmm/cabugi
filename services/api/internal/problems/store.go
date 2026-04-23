@@ -3,6 +3,7 @@ package problems
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -10,10 +11,12 @@ import (
 )
 
 var (
-	ErrNotFound           = errors.New("published problem not found")
-	ErrDraftNotFound      = errors.New("problem draft not found")
-	ErrProblemSlugTaken   = errors.New("problem slug already exists")
-	ErrStoreNotConfigured = errors.New("problem store not configured")
+	ErrNotFound                   = errors.New("published problem not found")
+	ErrDraftNotFound              = errors.New("problem draft not found")
+	ErrProblemSlugTaken           = errors.New("problem slug already exists")
+	ErrInvalidLifecycleTransition = errors.New("invalid problem lifecycle transition")
+	ErrDraftNotReadyForReview     = errors.New("problem draft not ready for review")
+	ErrStoreNotConfigured         = errors.New("problem store not configured")
 )
 
 type PublishedProblemSummary struct {
@@ -82,12 +85,28 @@ type UpdateDraftInput struct {
 	HiddenTestBundleSHA256 string
 }
 
+type ModerationQueueItem struct {
+	Slug                 string    `json:"slug"`
+	VersionNumber        int       `json:"versionNumber"`
+	Title                string    `json:"title"`
+	SubmittedForReviewAt time.Time `json:"submittedForReviewAt"`
+}
+
+type ModerationDecision string
+
+const (
+	DecisionApprove        ModerationDecision = "approve"
+	DecisionReject         ModerationDecision = "reject"
+	DecisionRequestChanges ModerationDecision = "request_changes"
+)
+
 type Store interface {
 	ListPublishedProblems(context.Context) ([]PublishedProblemSummary, error)
 	GetPublishedProblemBySlug(context.Context, string) (PublishedProblemDetail, error)
 	CreateDraft(context.Context, CreateDraftInput) (DraftProblem, error)
 	GetDraftBySlug(context.Context, string, string, bool) (DraftProblem, error)
 	UpdateDraft(context.Context, UpdateDraftInput) (DraftProblem, error)
+	SubmitDraftForReview(context.Context, string, string) (DraftProblem, error)
 }
 
 type DisabledStore struct{}
@@ -206,9 +225,41 @@ SELECT
   pv.hidden_test_bundle_sha256
 FROM problem_versions pv
 JOIN problems p ON p.id = pv.problem_id
-WHERE p.slug = $1 AND pv.lifecycle_status = 'draft' AND ($2 OR pv.created_by_user_id = $3::uuid)
+WHERE p.slug = $1 AND pv.lifecycle_status IN ('draft', 'in_review') AND ($2 OR pv.created_by_user_id = $3::uuid)
 ORDER BY pv.version_number DESC
 LIMIT 1
+`
+
+const submitDraftForReviewSQL = `
+WITH target_version AS (
+  SELECT pv.id
+  FROM problem_versions pv
+  JOIN problems p ON p.id = pv.problem_id
+  WHERE p.slug = $1 AND pv.lifecycle_status = 'draft' AND pv.created_by_user_id = $2::uuid
+  ORDER BY pv.version_number DESC
+  LIMIT 1
+)
+UPDATE problem_versions pv
+SET
+  lifecycle_status = 'in_review',
+  submitted_for_review_at = NOW(),
+  updated_at = NOW()
+FROM target_version, problems p
+WHERE pv.id = target_version.id AND p.id = pv.problem_id
+RETURNING
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.statement_markdown,
+  pv.input_markdown,
+  pv.output_markdown,
+  pv.constraints_markdown,
+  pv.notes_markdown,
+  pv.time_limit_ms,
+  pv.memory_limit_mb,
+  pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256
 `
 
 const updateDraftSQL = `
@@ -411,6 +462,41 @@ func (store *PostgresStore) UpdateDraft(ctx context.Context, input UpdateDraftIn
 	return problem, err
 }
 
+func (store *PostgresStore) SubmitDraftForReview(ctx context.Context, slug string, ownerUserID string) (DraftProblem, error) {
+	existing, err := store.GetDraftBySlug(ctx, slug, ownerUserID, false)
+	if err != nil {
+		return DraftProblem{}, err
+	}
+	if existing.LifecycleStatus != "draft" {
+		return DraftProblem{}, ErrInvalidLifecycleTransition
+	}
+	if existing.HiddenTestBundleKey == "" || existing.HiddenTestBundleSHA256 == "" {
+		return DraftProblem{}, ErrDraftNotReadyForReview
+	}
+
+	var problem DraftProblem
+	err = store.db.QueryRow(ctx, submitDraftForReviewSQL, slug, ownerUserID).Scan(
+		&problem.Slug,
+		&problem.VersionNumber,
+		&problem.LifecycleStatus,
+		&problem.Title,
+		&problem.StatementMarkdown,
+		&problem.InputMarkdown,
+		&problem.OutputMarkdown,
+		&problem.ConstraintsMarkdown,
+		&problem.NotesMarkdown,
+		&problem.TimeLimitMs,
+		&problem.MemoryLimitMB,
+		&problem.HiddenTestBundleKey,
+		&problem.HiddenTestBundleSHA256,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DraftProblem{}, ErrInvalidLifecycleTransition
+	}
+
+	return problem, err
+}
+
 func (store *PostgresStore) Close() {
 	if store.pool != nil {
 		store.pool.Close()
@@ -434,6 +520,10 @@ func (DisabledStore) GetDraftBySlug(context.Context, string, string, bool) (Draf
 }
 
 func (DisabledStore) UpdateDraft(context.Context, UpdateDraftInput) (DraftProblem, error) {
+	return DraftProblem{}, ErrStoreNotConfigured
+}
+
+func (DisabledStore) SubmitDraftForReview(context.Context, string, string) (DraftProblem, error) {
 	return DraftProblem{}, ErrStoreNotConfigured
 }
 

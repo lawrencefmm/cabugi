@@ -22,21 +22,6 @@
 ## Ready
 
 ## Backlog
-### DRAFT-API-03 - Add submit-for-review transition
-Description: Add the lifecycle transition that moves a user draft from `draft` to `in_review`.
-
-Expected Result: Draft problems can enter the moderation queue through an explicit API action.
-
-Acceptance Tests:
-- The OpenAPI document defines a submit-for-review route.
-- Draft owners can transition a draft to `in_review`.
-- Invalid lifecycle transitions are rejected.
-- Public problem endpoints continue to exclude `in_review` versions.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### MOD-API-01 - Add moderation queue and decision endpoints
 Description: Add moderator-only API routes to list drafts in review and approve, reject, or request changes.
 
@@ -98,6 +83,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### DRAFT-API-03 - Add submit-for-review transition
+Description: Add the lifecycle transition that moves a user draft from `draft` to `in_review`.
+
+Expected Result: Draft problems can enter the moderation queue through an explicit API action.
+
+Acceptance Tests:
+- The OpenAPI document defines a submit-for-review route.
+- Draft owners can transition a draft to `in_review`.
+- Invalid lifecycle transitions are rejected.
+- Public problem endpoints continue to exclude `in_review` versions.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding `POST /v1/problem-drafts/{slug}/submit-for-review` and a store transition that moves an owned draft from `draft` to `in_review` while preserving the validated hidden bundle metadata.
+- The transition now rejects submissions that are already in review or still missing hidden bundle metadata so incomplete drafts cannot enter moderation.
+- Kept public problem reads unchanged so only `published` versions continue to appear through the public API.
+- Verified `go test ./...` in `services/api`.
 
 ### DRAFT-API-02 - Add hidden test bundle registration and validation
 Description: Add draft-problem support for registering hidden test bundle metadata and validating bundle references before review.

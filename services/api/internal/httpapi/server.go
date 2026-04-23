@@ -37,6 +37,7 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
 	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore, bundleValidator)))
+	mux.Handle("POST /v1/problem-drafts/{slug}/submit-for-review", auth.RequireAuth(verifier, submitProblemDraftForReviewHandler(userStore, problemStore)))
 	mux.Handle("GET /v1/submissions", auth.RequireAuth(verifier, listSubmissionsHandler(userStore, submissionStore)))
 	mux.Handle("POST /v1/submissions", auth.RequireAuth(verifier, createSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/submissions/{id}", auth.RequireAuth(verifier, getSubmissionHandler(userStore, submissionStore)))
@@ -263,6 +264,23 @@ func updateProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 	})
 }
 
+func submitProblemDraftForReviewHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		problem, err := problemStore.SubmitDraftForReview(request.Context(), request.PathValue("slug"), user.ID)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, problem)
+	})
+}
+
 func listSubmissionsHandler(userStore users.Store, submissionStore submissions.Store) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		principal, ok := auth.PrincipalFromContext(request.Context())
@@ -414,6 +432,10 @@ func writeProblemStoreError(writer http.ResponseWriter, err error) {
 		writeError(writer, http.StatusConflict, "problem_slug_taken")
 	case errors.Is(err, problems.ErrDraftNotFound):
 		writeError(writer, http.StatusNotFound, "problem_draft_not_found")
+	case errors.Is(err, problems.ErrInvalidLifecycleTransition):
+		writeError(writer, http.StatusConflict, "invalid_problem_lifecycle_transition")
+	case errors.Is(err, problems.ErrDraftNotReadyForReview):
+		writeError(writer, http.StatusConflict, "problem_draft_not_ready_for_review")
 	case errors.Is(err, problems.ErrBundleValidatorNotConfigured):
 		writeError(writer, http.StatusServiceUnavailable, "hidden_test_bundle_validator_not_configured")
 	case errors.Is(err, problems.ErrBundleNotFound), errors.Is(err, problems.ErrBundleChecksumMismatch), errors.Is(err, problems.ErrInvalidBundleChecksum):
