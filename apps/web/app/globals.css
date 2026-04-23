@@ -494,7 +494,8 @@ a {
   margin-top: 1rem;
 }
 
-.draft-layout {
+.draft-layout,
+.moderation-layout {
   display: grid;
   gap: 1.5rem;
   align-items: start;
@@ -504,11 +505,17 @@ a {
   grid-template-columns: minmax(0, 1fr) 300px;
 }
 
+.moderation-layout {
+  grid-template-columns: 320px minmax(0, 1fr);
+}
+
 .draft-sidebar {
   top: 5.5rem;
 }
 
-.draft-form {
+.draft-form,
+.moderation-sections,
+.moderation-notes {
   display: grid;
   gap: 1rem;
 }
@@ -526,7 +533,8 @@ a {
 }
 
 .draft-field__label,
-.draft-status-line__label {
+.draft-status-line__label,
+.moderation-queue__meta {
   color: var(--text-muted);
   font-size: 0.92rem;
 }
@@ -553,7 +561,8 @@ a {
   resize: vertical;
 }
 
-.draft-actions {
+.draft-actions,
+.moderation-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
@@ -599,8 +608,45 @@ a {
   gap: 0.35rem;
 }
 
-.draft-status-line__value {
+.draft-status-line__value,
+.moderation-queue__title {
   font-weight: 700;
+}
+
+.moderation-queue__list {
+  display: grid;
+  gap: 0.85rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.moderation-queue__button {
+  width: 100%;
+  display: grid;
+  gap: 0.45rem;
+  text-align: left;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: rgba(2, 6, 23, 0.4);
+  color: inherit;
+  cursor: pointer;
+}
+
+.moderation-queue__button--active {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(91, 33, 182, 0.22);
+}
+
+.moderation-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.moderation-section:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .workspace-button--secondary {
@@ -608,6 +654,11 @@ a {
   color: var(--text);
   border: 1px solid var(--border);
   box-shadow: none;
+}
+
+.workspace-button--danger {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+  box-shadow: 0 18px 38px rgba(239, 68, 68, 0.22);
 }
 
 .submission-detail {
@@ -692,7 +743,8 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .draft-layout {
+  .draft-layout,
+  .moderation-layout {
     grid-template-columns: 1fr;
   }
 

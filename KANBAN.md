@@ -22,21 +22,6 @@
 ## Ready
 
 ## Backlog
-### WEB-06 - Build moderation UI
-Description: Add moderator web screens for reviewing queued drafts and applying moderation decisions.
-
-Expected Result: Moderators can review and publish user-created problems from the browser.
-
-Acceptance Tests:
-- Moderators can view the review queue in the UI.
-- Moderators can approve, reject, or request changes.
-- Non-moderators cannot access the moderation screens.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Not started.
-
 ### SEED-01 - Seed official starter problems
 Description: Add a small official set of published starter problems with verified hidden tests so the platform is immediately usable.
 
@@ -52,6 +37,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### WEB-06 - Build moderation UI
+Description: Add moderator web screens for reviewing queued drafts and applying moderation decisions.
+
+Expected Result: Moderators can review and publish user-created problems from the browser.
+
+Acceptance Tests:
+- Moderators can view the review queue in the UI.
+- Moderators can approve, reject, or request changes.
+- Non-moderators cannot access the moderation screens.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by adding `/moderation/problem-drafts` with a moderator queue, selected-draft detail view, moderation notes input, and decision actions for approve, reject, and request changes.
+- The page now handles moderator access through API-driven `403` responses instead of guessing roles client-side, so non-moderators get a clear forbidden state.
+- Added a `Moderation` link to the main header so the review queue is reachable from the app shell.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
 
 ### WEB-05 - Build problem authoring UI
 Description: Add authenticated web screens for creating and editing draft problems, including statement fields, limits, and hidden test bundle metadata.

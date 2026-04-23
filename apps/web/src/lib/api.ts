@@ -31,6 +31,13 @@ export type ProblemDraft = {
   hiddenTestBundleSha256: string;
 };
 
+export type ModerationQueueItem = {
+  slug: string;
+  versionNumber: number;
+  title: string;
+  submittedForReviewAt: string;
+};
+
 export type SubmissionStatus =
   | "queued"
   | "running"
@@ -68,6 +75,10 @@ type PublishedProblemsResponse = {
   problems: PublishedProblemSummary[];
 };
 
+type ModerationQueueResponse = {
+  drafts: ModerationQueueItem[];
+};
+
 type SubmissionsResponse = {
   submissions: Submission[];
 };
@@ -87,6 +98,8 @@ export type ProblemDraftCreateInput = {
 };
 
 export type ProblemDraftUpdateInput = Omit<ProblemDraftCreateInput, "slug">;
+
+export type ModerationDecision = "approve" | "reject" | "request_changes";
 
 type CreateSubmissionInput = {
   problemSlug: string;
@@ -185,6 +198,26 @@ export async function submitProblemDraftForReview(slug: string, token: string) {
   });
 }
 
+export async function fetchModerationProblemDrafts(token: string) {
+  const response = await fetchJSON<ModerationQueueResponse>("/v1/moderation/problem-drafts", {
+    token,
+  });
+
+  return response.drafts;
+}
+
+export async function applyModerationDecision(
+  slug: string,
+  input: { decision: ModerationDecision; moderationNotes: string },
+  token: string,
+) {
+  return fetchJSON<ProblemDraft>(`/v1/moderation/problem-drafts/${slug}/decision`, {
+    method: "POST",
+    token,
+    body: input,
+  });
+}
+
 export async function createSubmission(input: CreateSubmissionInput, token: string) {
   return fetchJSON<Submission>("/v1/submissions", {
     method: "POST",
@@ -238,6 +271,19 @@ export function formatDraftError(error: unknown, missingMessage: string) {
   }
 
   return "Unable to save draft changes right now.";
+}
+
+export function formatModerationError(error: unknown, forbiddenMessage: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 403) {
+      return forbiddenMessage;
+    }
+    if (error.status === 404) {
+      return "The selected draft is no longer available.";
+    }
+  }
+
+  return "Unable to load moderation data from the Cabugi API right now.";
 }
 
 export function formatTimeLimit(timeLimitMs: number) {
