@@ -68,6 +68,12 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
 
+Seed official starter problems into PostgreSQL and object storage:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
 ## API Service
 Run the bootstrap API locally from `services/api`:
 
@@ -148,3 +154,21 @@ One-shot judge worker command from `services/judge`:
 ```bash
 go run ./cmd/judge --once
 ```
+
+## Local MVP Smoke Test
+1. Start shared infrastructure:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres minio
+```
+
+2. Seed starter problems and hidden bundles:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
+3. Start the API from `services/api` and the judge worker from `services/judge`.
+4. Start the web app from the repository root.
+5. Open the web app, sign in, open a seeded published problem, submit a solution, and confirm the verdict updates.
+6. Open `/drafts/new`, create a draft, submit it for review, then open `/moderation/problem-drafts` with a moderator account and publish or reject it.

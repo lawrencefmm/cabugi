@@ -22,10 +22,13 @@
 ## Ready
 
 ## Backlog
+
+## Done
+
 ### SEED-01 - Seed official starter problems
 Description: Add a small official set of published starter problems with verified hidden tests so the platform is immediately usable.
 
-Expected Result: The public problem list contains a starter set of official problems that can be solved and judged successfully.
+Expected Result: The public problem list contains a starter set of published problems that can be solved and judged successfully.
 
 Acceptance Tests:
 - At least a small starter set of published problems exists in development or seed data.
@@ -34,9 +37,10 @@ Acceptance Tests:
 - Relevant verification commands pass.
 
 Notes:
-- Not started.
-
-## Done
+- Completed by adding a repeatable Go seed command in `services/api/cmd/seed-starter-problems` plus `./db/scripts/seed_official_starter_problems.sh` to upload hidden bundles and populate published starter problems.
+- Seeded the first official published starter problems `a-plus-b` and `reverse-string` with object-stored hidden tests and deterministic checksums.
+- Verified locally that `GET /v1/problems` returned the seeded problems and that a real authenticated submission against `a-plus-b` reached final `accepted` through the judge worker path.
+- Verified `go test ./...` in `services/api`.
 
 ### WEB-06 - Build moderation UI
 Description: Add moderator web screens for reviewing queued drafts and applying moderation decisions.
