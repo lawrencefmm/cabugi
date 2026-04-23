@@ -22,21 +22,6 @@
 ## Ready
 
 ## Backlog
-### MOD-API-01 - Add moderation queue and decision endpoints
-Description: Add moderator-only API routes to list drafts in review and approve, reject, or request changes.
-
-Expected Result: Moderators can control the publish flow for user-created problems.
-
-Acceptance Tests:
-- The OpenAPI document defines moderation queue and decision endpoints.
-- Non-moderators are denied access to moderation routes.
-- Moderators can approve, reject, and request changes.
-- Approval results in one published version for the problem.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Not started.
-
 ### WEB-05 - Build problem authoring UI
 Description: Add authenticated web screens for creating and editing draft problems, including statement fields, limits, and hidden test bundle metadata.
 
@@ -83,6 +68,24 @@ Notes:
 - Not started.
 
 ## Done
+
+### MOD-API-01 - Add moderation queue and decision endpoints
+Description: Add moderator-only API routes to list drafts in review and approve, reject, or request changes.
+
+Expected Result: Moderators can control the publish flow for user-created problems.
+
+Acceptance Tests:
+- The OpenAPI document defines moderation queue and decision endpoints.
+- Non-moderators are denied access to moderation routes.
+- Moderators can approve, reject, and request changes.
+- Approval results in one published version for the problem.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding moderator-only queue and decision routes that read from `in_review` problem versions and apply `approve`, `reject`, or `request_changes` transitions.
+- The moderation decision flow now maps to existing lifecycle states: `approve -> published`, `request_changes -> draft`, and `reject -> archived`.
+- Reused the staff role lookup introduced for draft editing so non-moderators receive `403` on moderation routes while staff can still read in-review draft detail through the existing draft read path.
+- Verified `go test ./...` in `services/api`.
 
 ### DRAFT-API-03 - Add submit-for-review transition
 Description: Add the lifecycle transition that moves a user draft from `draft` to `in_review`.

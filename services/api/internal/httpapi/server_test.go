@@ -35,6 +35,8 @@ type stubProblemStore struct {
 	getDraftErr         error
 	updateErr           error
 	submitForReviewErr  error
+	listModerationErr   error
+	decisionErr         error
 	createDraftInput    problems.CreateDraftInput
 	updateDraftInput    problems.UpdateDraftInput
 	getDraftSlug        string
@@ -42,6 +44,11 @@ type stubProblemStore struct {
 	getDraftAllowStaff  bool
 	submitSlug          string
 	submitOwnerUserID   string
+	moderationItems     []problems.ModerationQueueItem
+	decisionSlug        string
+	decisionReviewerID  string
+	decisionValue       problems.ModerationDecision
+	decisionNotes       string
 }
 
 type stubUserStore struct {
@@ -101,6 +108,18 @@ func (store *stubProblemStore) SubmitDraftForReview(_ context.Context, slug stri
 	store.submitSlug = slug
 	store.submitOwnerUserID = ownerUserID
 	return store.draft, store.submitForReviewErr
+}
+
+func (store stubProblemStore) ListDraftsInReview(context.Context) ([]problems.ModerationQueueItem, error) {
+	return store.moderationItems, store.listModerationErr
+}
+
+func (store *stubProblemStore) ApplyModerationDecision(_ context.Context, slug string, reviewerUserID string, decision problems.ModerationDecision, moderationNotes string) (problems.DraftProblem, error) {
+	store.decisionSlug = slug
+	store.decisionReviewerID = reviewerUserID
+	store.decisionValue = decision
+	store.decisionNotes = moderationNotes
+	return store.draft, store.decisionErr
 }
 
 func (store stubUserStore) GetOrCreateBySubject(context.Context, string) (users.User, error) {
@@ -203,6 +222,12 @@ func TestOpenAPIHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, "/v1/problem-drafts/{slug}/submit-for-review:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/{slug}/submit-for-review path")
+	}
+	if !strings.Contains(body, "/v1/moderation/problem-drafts:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/moderation/problem-drafts path")
+	}
+	if !strings.Contains(body, "/v1/moderation/problem-drafts/{slug}/decision:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/moderation/problem-drafts/{slug}/decision path")
 	}
 	if got := recorder.Header().Get("Content-Type"); got != "application/yaml" {
 		t.Fatalf("GET /openapi/v1.yaml content type = %q, want %q", got, "application/yaml")
@@ -535,6 +560,81 @@ func TestSubmitProblemDraftForReviewRejectsInvalidLifecycleTransition(t *testing
 
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("POST /v1/problem-drafts/{slug}/submit-for-review invalid transition status = %d, want %d", recorder.Code, http.StatusConflict)
+	}
+}
+
+func TestModerationQueueRejectsNonModerators(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/moderation/problem-drafts", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}, hasRole: false}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("GET /v1/moderation/problem-drafts non-moderator status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
+func TestModerationQueueReturnsInReviewDraftsForModerators(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/moderation/problem-drafts", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	store := &stubProblemStore{moderationItems: []problems.ModerationQueueItem{{Slug: "two-sum-user", VersionNumber: 1, Title: "Two Sum User", SubmittedForReviewAt: time.Now().UTC()}}}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "moderator-id", Subject: "user_123", Handle: "moderator_abcd", DisplayName: "Moderator abcd"}, hasRole: true}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/moderation/problem-drafts status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	var response struct {
+		Drafts []problems.ModerationQueueItem `json:"drafts"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(response.Drafts) != 1 || response.Drafts[0].Slug != "two-sum-user" {
+		t.Fatalf("GET /v1/moderation/problem-drafts returned unexpected drafts: %#v", response.Drafts)
+	}
+}
+
+func TestModerationDecisionAllowsApproveRejectAndRequestChanges(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		decision string
+		status   string
+	}{
+		{name: "approve", decision: "approve", status: "published"},
+		{name: "reject", decision: "reject", status: "archived"},
+		{name: "request changes", decision: "request_changes", status: "draft"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/v1/moderation/problem-drafts/two-sum-user/decision", strings.NewReader(`{"decision":"`+tc.decision+`","moderationNotes":"looks good"}`))
+			request.Header.Set("Authorization", "Bearer good-token")
+			recorder := httptest.NewRecorder()
+
+			store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: tc.status, Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256}}
+			NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "moderator-id", Subject: "user_123", Handle: "moderator_abcd", DisplayName: "Moderator abcd"}, hasRole: true}, nil).ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("POST /v1/moderation/problem-drafts/{slug}/decision status = %d, want %d", recorder.Code, http.StatusOK)
+			}
+			if store.decisionSlug != "two-sum-user" || store.decisionReviewerID != "moderator-id" || string(store.decisionValue) != tc.decision {
+				t.Fatalf("POST /v1/moderation/problem-drafts/{slug}/decision used unexpected input: %#v", store)
+			}
+		})
+	}
+}
+
+func TestModerationDecisionRejectsNonModerators(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/moderation/problem-drafts/two-sum-user/decision", strings.NewReader(`{"decision":"approve","moderationNotes":"looks good"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}, hasRole: false}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("POST /v1/moderation/problem-drafts/{slug}/decision non-moderator status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
 }
 

@@ -16,6 +16,7 @@ var (
 	ErrProblemSlugTaken           = errors.New("problem slug already exists")
 	ErrInvalidLifecycleTransition = errors.New("invalid problem lifecycle transition")
 	ErrDraftNotReadyForReview     = errors.New("problem draft not ready for review")
+	ErrInvalidModerationDecision  = errors.New("invalid moderation decision")
 	ErrStoreNotConfigured         = errors.New("problem store not configured")
 )
 
@@ -107,6 +108,8 @@ type Store interface {
 	GetDraftBySlug(context.Context, string, string, bool) (DraftProblem, error)
 	UpdateDraft(context.Context, UpdateDraftInput) (DraftProblem, error)
 	SubmitDraftForReview(context.Context, string, string) (DraftProblem, error)
+	ListDraftsInReview(context.Context) ([]ModerationQueueItem, error)
+	ApplyModerationDecision(context.Context, string, string, ModerationDecision, string) (DraftProblem, error)
 }
 
 type DisabledStore struct{}
@@ -243,6 +246,146 @@ UPDATE problem_versions pv
 SET
   lifecycle_status = 'in_review',
   submitted_for_review_at = NOW(),
+  updated_at = NOW()
+FROM target_version, problems p
+WHERE pv.id = target_version.id AND p.id = pv.problem_id
+RETURNING
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.statement_markdown,
+  pv.input_markdown,
+  pv.output_markdown,
+  pv.constraints_markdown,
+  pv.notes_markdown,
+  pv.time_limit_ms,
+  pv.memory_limit_mb,
+  pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256
+`
+
+const listDraftsInReviewSQL = `
+SELECT
+  p.slug,
+  pv.version_number,
+  pv.title,
+  pv.submitted_for_review_at
+FROM problem_versions pv
+JOIN problems p ON p.id = pv.problem_id
+WHERE pv.lifecycle_status = 'in_review'
+ORDER BY pv.submitted_for_review_at ASC, p.slug ASC
+`
+
+const getProblemVersionBySlugForModerationSQL = `
+SELECT
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.statement_markdown,
+  pv.input_markdown,
+  pv.output_markdown,
+  pv.constraints_markdown,
+  pv.notes_markdown,
+  pv.time_limit_ms,
+  pv.memory_limit_mb,
+  pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256
+FROM problem_versions pv
+JOIN problems p ON p.id = pv.problem_id
+WHERE p.slug = $1
+ORDER BY pv.version_number DESC
+LIMIT 1
+`
+
+const approveModerationDecisionSQL = `
+WITH target_version AS (
+  SELECT pv.id
+  FROM problem_versions pv
+  JOIN problems p ON p.id = pv.problem_id
+  WHERE p.slug = $1 AND pv.lifecycle_status = 'in_review'
+  ORDER BY pv.version_number DESC
+  LIMIT 1
+)
+UPDATE problem_versions pv
+SET
+  lifecycle_status = 'published',
+  reviewer_user_id = $2::uuid,
+  moderation_notes = $3,
+  published_at = NOW(),
+  archived_at = NULL,
+  updated_at = NOW()
+FROM target_version, problems p
+WHERE pv.id = target_version.id AND p.id = pv.problem_id
+RETURNING
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.statement_markdown,
+  pv.input_markdown,
+  pv.output_markdown,
+  pv.constraints_markdown,
+  pv.notes_markdown,
+  pv.time_limit_ms,
+  pv.memory_limit_mb,
+  pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256
+`
+
+const rejectModerationDecisionSQL = `
+WITH target_version AS (
+  SELECT pv.id
+  FROM problem_versions pv
+  JOIN problems p ON p.id = pv.problem_id
+  WHERE p.slug = $1 AND pv.lifecycle_status = 'in_review'
+  ORDER BY pv.version_number DESC
+  LIMIT 1
+)
+UPDATE problem_versions pv
+SET
+  lifecycle_status = 'archived',
+  reviewer_user_id = $2::uuid,
+  moderation_notes = $3,
+  published_at = NULL,
+  archived_at = NOW(),
+  updated_at = NOW()
+FROM target_version, problems p
+WHERE pv.id = target_version.id AND p.id = pv.problem_id
+RETURNING
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.statement_markdown,
+  pv.input_markdown,
+  pv.output_markdown,
+  pv.constraints_markdown,
+  pv.notes_markdown,
+  pv.time_limit_ms,
+  pv.memory_limit_mb,
+  pv.hidden_test_bundle_key,
+  pv.hidden_test_bundle_sha256
+`
+
+const requestChangesModerationDecisionSQL = `
+WITH target_version AS (
+  SELECT pv.id
+  FROM problem_versions pv
+  JOIN problems p ON p.id = pv.problem_id
+  WHERE p.slug = $1 AND pv.lifecycle_status = 'in_review'
+  ORDER BY pv.version_number DESC
+  LIMIT 1
+)
+UPDATE problem_versions pv
+SET
+  lifecycle_status = 'draft',
+  reviewer_user_id = $2::uuid,
+  moderation_notes = $3,
+  submitted_for_review_at = NULL,
+  published_at = NULL,
+  archived_at = NULL,
   updated_at = NOW()
 FROM target_version, problems p
 WHERE pv.id = target_version.id AND p.id = pv.problem_id
@@ -497,6 +640,89 @@ func (store *PostgresStore) SubmitDraftForReview(ctx context.Context, slug strin
 	return problem, err
 }
 
+func (store *PostgresStore) ListDraftsInReview(ctx context.Context) ([]ModerationQueueItem, error) {
+	rows, err := store.db.Query(ctx, listDraftsInReviewSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]ModerationQueueItem, 0)
+	for rows.Next() {
+		var item ModerationQueueItem
+		if err := rows.Scan(&item.Slug, &item.VersionNumber, &item.Title, &item.SubmittedForReviewAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
+func (store *PostgresStore) ApplyModerationDecision(ctx context.Context, slug string, reviewerUserID string, decision ModerationDecision, moderationNotes string) (DraftProblem, error) {
+	current, err := store.getProblemVersionForModeration(ctx, slug)
+	if err != nil {
+		return DraftProblem{}, err
+	}
+	if current.LifecycleStatus != "in_review" {
+		return DraftProblem{}, ErrInvalidLifecycleTransition
+	}
+
+	query := moderationDecisionSQL(decision)
+	if query == "" {
+		return DraftProblem{}, ErrInvalidModerationDecision
+	}
+
+	var problem DraftProblem
+	err = store.db.QueryRow(ctx, query, slug, reviewerUserID, moderationNotes).Scan(
+		&problem.Slug,
+		&problem.VersionNumber,
+		&problem.LifecycleStatus,
+		&problem.Title,
+		&problem.StatementMarkdown,
+		&problem.InputMarkdown,
+		&problem.OutputMarkdown,
+		&problem.ConstraintsMarkdown,
+		&problem.NotesMarkdown,
+		&problem.TimeLimitMs,
+		&problem.MemoryLimitMB,
+		&problem.HiddenTestBundleKey,
+		&problem.HiddenTestBundleSHA256,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DraftProblem{}, ErrInvalidLifecycleTransition
+	}
+
+	return problem, err
+}
+
+func (store *PostgresStore) getProblemVersionForModeration(ctx context.Context, slug string) (DraftProblem, error) {
+	var problem DraftProblem
+	err := store.db.QueryRow(ctx, getProblemVersionBySlugForModerationSQL, slug).Scan(
+		&problem.Slug,
+		&problem.VersionNumber,
+		&problem.LifecycleStatus,
+		&problem.Title,
+		&problem.StatementMarkdown,
+		&problem.InputMarkdown,
+		&problem.OutputMarkdown,
+		&problem.ConstraintsMarkdown,
+		&problem.NotesMarkdown,
+		&problem.TimeLimitMs,
+		&problem.MemoryLimitMB,
+		&problem.HiddenTestBundleKey,
+		&problem.HiddenTestBundleSHA256,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DraftProblem{}, ErrDraftNotFound
+	}
+
+	return problem, err
+}
+
 func (store *PostgresStore) Close() {
 	if store.pool != nil {
 		store.pool.Close()
@@ -527,6 +753,14 @@ func (DisabledStore) SubmitDraftForReview(context.Context, string, string) (Draf
 	return DraftProblem{}, ErrStoreNotConfigured
 }
 
+func (DisabledStore) ListDraftsInReview(context.Context) ([]ModerationQueueItem, error) {
+	return nil, ErrStoreNotConfigured
+}
+
+func (DisabledStore) ApplyModerationDecision(context.Context, string, string, ModerationDecision, string) (DraftProblem, error) {
+	return DraftProblem{}, ErrStoreNotConfigured
+}
+
 func isProblemSlugConflict(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -534,4 +768,17 @@ func isProblemSlugConflict(err error) bool {
 	}
 
 	return false
+}
+
+func moderationDecisionSQL(decision ModerationDecision) string {
+	switch decision {
+	case DecisionApprove:
+		return approveModerationDecisionSQL
+	case DecisionReject:
+		return rejectModerationDecisionSQL
+	case DecisionRequestChanges:
+		return requestChangesModerationDecisionSQL
+	default:
+		return ""
+	}
 }
