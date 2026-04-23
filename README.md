@@ -23,4 +23,10 @@ docker compose -f infra/docker-compose.yml up -d postgres minio
 
 Open MinIO Console at `http://localhost:9001`.
 
+Seed the official starter problems after the shared services are up:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
 For more details, see `docs/DEVELOPMENT.md`.
