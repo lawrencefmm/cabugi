@@ -80,9 +80,14 @@ a {
 .app-nav {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+.app-nav a:hover {
+  color: var(--text);
 }
 
 .app-main {
@@ -489,6 +494,122 @@ a {
   margin-top: 1rem;
 }
 
+.draft-layout {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.draft-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.draft-sidebar {
+  top: 5.5rem;
+}
+
+.draft-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.draft-grid,
+.draft-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.draft-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.draft-field__label,
+.draft-status-line__label {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.draft-field input,
+.draft-field textarea {
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text);
+  font: inherit;
+}
+
+.draft-field input:disabled,
+.draft-field textarea:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.draft-field textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.draft-success {
+  margin: 0;
+  color: var(--success);
+  line-height: 1.6;
+}
+
+.draft-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+  font-weight: 700;
+}
+
+.draft-status--draft,
+.draft-status--in_review {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.draft-status--published {
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.draft-status--archived {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.draft-checklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.draft-status-line {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.draft-status-line__value {
+  font-weight: 700;
+}
+
+.workspace-button--secondary {
+  background: rgba(15, 23, 42, 0.96);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
 .submission-detail {
   display: grid;
   gap: 1rem;
@@ -568,6 +689,10 @@ a {
 
 @media (max-width: 900px) {
   .problem-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-layout {
     grid-template-columns: 1fr;
   }
 

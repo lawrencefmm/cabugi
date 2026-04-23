@@ -22,22 +22,6 @@
 ## Ready
 
 ## Backlog
-### WEB-05 - Build problem authoring UI
-Description: Add authenticated web screens for creating and editing draft problems, including statement fields, limits, and hidden test bundle metadata.
-
-Expected Result: Users can create and edit draft problems from the browser.
-
-Acceptance Tests:
-- Authenticated users can create a draft problem from the UI.
-- Users can edit statement fields, limits, and hidden test bundle metadata.
-- Users can submit a draft for review from the UI.
-- The UI shows loading and validation error states.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Not started.
-
 ### WEB-06 - Build moderation UI
 Description: Add moderator web screens for reviewing queued drafts and applying moderation decisions.
 
@@ -68,6 +52,25 @@ Notes:
 - Not started.
 
 ## Done
+
+### WEB-05 - Build problem authoring UI
+Description: Add authenticated web screens for creating and editing draft problems, including statement fields, limits, and hidden test bundle metadata.
+
+Expected Result: Users can create and edit draft problems from the browser.
+
+Acceptance Tests:
+- Authenticated users can create a draft problem from the UI.
+- Users can edit statement fields, limits, and hidden test bundle metadata.
+- Users can submit a draft for review from the UI.
+- The UI shows loading and validation error states.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by adding `/drafts/new` and `/drafts/[slug]` plus a shared authenticated authoring page that handles draft creation, draft editing, and submit-for-review from the browser.
+- Added draft API client helpers and authoring form state for statement fields, limits, and hidden bundle metadata, including inline error handling for server-side validation failures.
+- Added a `Drafts` link to the main header so the new authoring flow is discoverable from the app shell.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
 
 ### MOD-API-01 - Add moderation queue and decision endpoints
 Description: Add moderator-only API routes to list drafts in review and approve, reject, or request changes.
