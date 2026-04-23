@@ -13,6 +13,24 @@ export type PublishedProblemDetail = PublishedProblemSummary & {
   notesMarkdown: string;
 };
 
+export type ProblemDraftLifecycleStatus = "draft" | "in_review" | "published" | "archived";
+
+export type ProblemDraft = {
+  slug: string;
+  versionNumber: number;
+  lifecycleStatus: ProblemDraftLifecycleStatus;
+  title: string;
+  statementMarkdown: string;
+  inputMarkdown: string;
+  outputMarkdown: string;
+  constraintsMarkdown: string;
+  notesMarkdown: string;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  hiddenTestBundleKey: string;
+  hiddenTestBundleSha256: string;
+};
+
 export type SubmissionStatus =
   | "queued"
   | "running"
@@ -54,6 +72,22 @@ type SubmissionsResponse = {
   submissions: Submission[];
 };
 
+export type ProblemDraftCreateInput = {
+  slug: string;
+  title: string;
+  statementMarkdown: string;
+  inputMarkdown: string;
+  outputMarkdown: string;
+  constraintsMarkdown: string;
+  notesMarkdown: string;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  hiddenTestBundleKey?: string;
+  hiddenTestBundleSha256?: string;
+};
+
+export type ProblemDraftUpdateInput = Omit<ProblemDraftCreateInput, "slug">;
+
 type CreateSubmissionInput = {
   problemSlug: string;
   language: "cpp17" | "python";
@@ -62,11 +96,13 @@ type CreateSubmissionInput = {
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -78,7 +114,7 @@ function apiBaseUrl() {
 
 type FetchJSONOptions = {
   signal?: AbortSignal;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH";
   token?: string;
   body?: object;
 };
@@ -97,7 +133,17 @@ async function fetchJSON<T>(path: string, options: FetchJSONOptions = {}): Promi
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `API request failed for ${path}`);
+    let code: string | undefined;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (typeof payload.error === "string") {
+        code = payload.error;
+      }
+    } catch {
+      code = undefined;
+    }
+
+    throw new ApiError(response.status, code ?? `API request failed for ${path}`, code);
   }
 
   return response.json() as Promise<T>;
@@ -110,6 +156,33 @@ export async function fetchPublishedProblems(signal?: AbortSignal) {
 
 export async function fetchPublishedProblem(slug: string, signal?: AbortSignal) {
   return fetchJSON<PublishedProblemDetail>(`/v1/problems/${slug}`, { signal });
+}
+
+export async function createProblemDraft(input: ProblemDraftCreateInput, token: string) {
+  return fetchJSON<ProblemDraft>("/v1/problem-drafts", {
+    method: "POST",
+    token,
+    body: input,
+  });
+}
+
+export async function fetchProblemDraft(slug: string, token: string) {
+  return fetchJSON<ProblemDraft>(`/v1/problem-drafts/${slug}`, { token });
+}
+
+export async function updateProblemDraft(slug: string, input: ProblemDraftUpdateInput, token: string) {
+  return fetchJSON<ProblemDraft>(`/v1/problem-drafts/${slug}`, {
+    method: "PATCH",
+    token,
+    body: input,
+  });
+}
+
+export async function submitProblemDraftForReview(slug: string, token: string) {
+  return fetchJSON<ProblemDraft>(`/v1/problem-drafts/${slug}/submit-for-review`, {
+    method: "POST",
+    token,
+  });
 }
 
 export async function createSubmission(input: CreateSubmissionInput, token: string) {
@@ -140,6 +213,31 @@ export function formatProblemFetchError(error: unknown, missingMessage: string) 
   }
 
   return "Unable to load data from the Cabugi API right now.";
+}
+
+export function formatDraftError(error: unknown, missingMessage: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 404) {
+      return missingMessage;
+    }
+    if (error.code === "problem_slug_taken") {
+      return "A problem draft with that slug already exists. Choose a different slug.";
+    }
+    if (error.code === "invalid_hidden_test_bundle") {
+      return "Hidden test bundle metadata is invalid or does not match the stored object.";
+    }
+    if (error.code === "problem_draft_not_ready_for_review") {
+      return "Add valid hidden test bundle metadata before submitting this draft for review.";
+    }
+    if (error.code === "invalid_problem_lifecycle_transition") {
+      return "This draft cannot be transitioned from its current state.";
+    }
+    if (error.status === 400) {
+      return "Check the required fields, limits, and bundle metadata, then try again.";
+    }
+  }
+
+  return "Unable to save draft changes right now.";
 }
 
 export function formatTimeLimit(timeLimitMs: number) {

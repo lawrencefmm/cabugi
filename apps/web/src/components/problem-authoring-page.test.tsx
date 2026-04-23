@@ -1,0 +1,265 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ReactNode } from "react";
+
+import { ProblemAuthoringPage } from "./problem-authoring-page";
+
+let mockAuthState: {
+  getToken: () => Promise<string | null>;
+  isLoaded: boolean;
+  isSignedIn: boolean;
+};
+
+const pushMock = vi.fn();
+
+vi.mock("@clerk/nextjs", () => ({
+  SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useAuth: () => mockAuthState,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
+function renderAuthoring(ui: ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
+afterEach(() => {
+  pushMock.mockReset();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("ProblemAuthoringPage", () => {
+  it("renders a sign-in prompt when the user is signed out", () => {
+    mockAuthState = {
+      getToken: async () => null,
+      isLoaded: true,
+      isSignedIn: false,
+    };
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled />);
+
+    expect(screen.getByRole("button", { name: "Sign in to continue" })).toBeInTheDocument();
+  });
+
+  it("creates a draft and redirects to the edit page", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        slug: "two-sum-user",
+        versionNumber: 1,
+        lifecycleStatus: "draft",
+        title: "Two Sum User",
+        statementMarkdown: "Solve it",
+        inputMarkdown: "Input",
+        outputMarkdown: "Output",
+        constraintsMarkdown: "Constraints",
+        notesMarkdown: "Notes",
+        timeLimitMs: 1000,
+        memoryLimitMb: 256,
+        hiddenTestBundleKey: "",
+        hiddenTestBundleSha256: "",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled />);
+
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "two-sum-user" } });
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Two Sum User" } });
+    fireEvent.change(screen.getByLabelText("Statement Markdown"), { target: { value: "Solve it" } });
+    fireEvent.change(screen.getByLabelText("Input Markdown"), { target: { value: "Input" } });
+    fireEvent.change(screen.getByLabelText("Output Markdown"), { target: { value: "Output" } });
+    fireEvent.change(screen.getByLabelText("Constraints Markdown"), { target: { value: "Constraints" } });
+    fireEvent.change(screen.getByLabelText("Notes Markdown"), { target: { value: "Notes" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+      expect(pushMock).toHaveBeenCalledWith("/drafts/two-sum-user");
+    });
+
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts");
+    expect(options.method).toBe("POST");
+  });
+
+  it("loads and saves an existing draft", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          slug: "two-sum-user",
+          versionNumber: 1,
+          lifecycleStatus: "draft",
+          title: "Two Sum User",
+          statementMarkdown: "Solve it",
+          inputMarkdown: "Input",
+          outputMarkdown: "Output",
+          constraintsMarkdown: "Constraints",
+          notesMarkdown: "Notes",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          hiddenTestBundleKey: "bundles/two-sum.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          slug: "two-sum-user",
+          versionNumber: 1,
+          lifecycleStatus: "draft",
+          title: "Updated Title",
+          statementMarkdown: "Solve it",
+          inputMarkdown: "Input",
+          outputMarkdown: "Output",
+          constraintsMarkdown: "Constraints",
+          notesMarkdown: "Notes",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          hiddenTestBundleKey: "bundles/two-sum.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled slug="two-sum-user" />);
+
+    expect(await screen.findByDisplayValue("Two Sum User")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Updated Title" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const [url, options] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts/two-sum-user");
+    expect(options.method).toBe("PATCH");
+  });
+
+  it("submits a draft for review from the edit page", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          slug: "two-sum-user",
+          versionNumber: 1,
+          lifecycleStatus: "draft",
+          title: "Two Sum User",
+          statementMarkdown: "Solve it",
+          inputMarkdown: "Input",
+          outputMarkdown: "Output",
+          constraintsMarkdown: "Constraints",
+          notesMarkdown: "Notes",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          hiddenTestBundleKey: "bundles/two-sum.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          slug: "two-sum-user",
+          versionNumber: 1,
+          lifecycleStatus: "in_review",
+          title: "Two Sum User",
+          statementMarkdown: "Solve it",
+          inputMarkdown: "Input",
+          outputMarkdown: "Output",
+          constraintsMarkdown: "Constraints",
+          notesMarkdown: "Notes",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          hiddenTestBundleKey: "bundles/two-sum.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled slug="two-sum-user" />);
+
+    expect(await screen.findByRole("button", { name: "Submit for review" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit for review" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const [url, options] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts/two-sum-user/submit-for-review");
+    expect(options.method).toBe("POST");
+  });
+
+  it("shows validation errors returned by the API", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "invalid_hidden_test_bundle" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled />);
+
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "two-sum-user" } });
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Two Sum User" } });
+    fireEvent.change(screen.getByLabelText("Statement Markdown"), { target: { value: "Solve it" } });
+    fireEvent.change(screen.getByLabelText("Input Markdown"), { target: { value: "Input" } });
+    fireEvent.change(screen.getByLabelText("Output Markdown"), { target: { value: "Output" } });
+    fireEvent.change(screen.getByLabelText("Constraints Markdown"), { target: { value: "Constraints" } });
+    fireEvent.change(screen.getByLabelText("Notes Markdown"), { target: { value: "Notes" } });
+    fireEvent.change(screen.getByLabelText("Hidden test bundle key"), { target: { value: "bundles/two-sum.json" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Hidden test bundle metadata is invalid or does not match the stored object.",
+    );
+  });
+});
