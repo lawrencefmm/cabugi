@@ -38,6 +38,8 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
 	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("POST /v1/problem-drafts/{slug}/submit-for-review", auth.RequireAuth(verifier, submitProblemDraftForReviewHandler(userStore, problemStore)))
+	mux.Handle("GET /v1/moderation/problem-drafts", auth.RequireAuth(verifier, listModerationProblemDraftsHandler(userStore, problemStore)))
+	mux.Handle("POST /v1/moderation/problem-drafts/{slug}/decision", auth.RequireAuth(verifier, applyModerationDecisionHandler(userStore, problemStore)))
 	mux.Handle("GET /v1/submissions", auth.RequireAuth(verifier, listSubmissionsHandler(userStore, submissionStore)))
 	mux.Handle("POST /v1/submissions", auth.RequireAuth(verifier, createSubmissionHandler(userStore, submissionStore)))
 	mux.Handle("GET /v1/submissions/{id}", auth.RequireAuth(verifier, getSubmissionHandler(userStore, submissionStore)))
@@ -281,6 +283,55 @@ func submitProblemDraftForReviewHandler(userStore users.Store, problemStore prob
 	})
 }
 
+func listModerationProblemDraftsHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		_, ok := currentModeratorFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		items, err := problemStore.ListDraftsInReview(request.Context())
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, map[string]any{"drafts": items})
+	})
+}
+
+func applyModerationDecisionHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		moderator, ok := currentModeratorFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		var body struct {
+			Decision        string `json:"decision"`
+			ModerationNotes string `json:"moderationNotes"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+			return
+		}
+
+		decision := problems.ModerationDecision(strings.TrimSpace(body.Decision))
+		if decision != problems.DecisionApprove && decision != problems.DecisionReject && decision != problems.DecisionRequestChanges {
+			writeError(writer, http.StatusBadRequest, "invalid_moderation_decision")
+			return
+		}
+
+		problem, err := problemStore.ApplyModerationDecision(request.Context(), request.PathValue("slug"), moderator.ID, decision, body.ModerationNotes)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, problem)
+	})
+}
+
 func listSubmissionsHandler(userStore users.Store, submissionStore submissions.Store) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		principal, ok := auth.PrincipalFromContext(request.Context())
@@ -394,6 +445,24 @@ func currentUserCanManageDrafts(writer http.ResponseWriter, request *http.Reques
 	return hasRole, true
 }
 
+func currentModeratorFromRequest(writer http.ResponseWriter, request *http.Request, userStore users.Store) (users.User, bool) {
+	user, ok := currentUserFromRequest(writer, request, userStore)
+	if !ok {
+		return users.User{}, false
+	}
+
+	hasRole, ok := currentUserCanManageDrafts(writer, request, userStore, user.ID)
+	if !ok {
+		return users.User{}, false
+	}
+	if !hasRole {
+		writeError(writer, http.StatusForbidden, "forbidden")
+		return users.User{}, false
+	}
+
+	return user, true
+}
+
 func resolveDraftBundleMetadata(ctx context.Context, bundleValidator problems.BundleValidator, existing *problems.DraftProblem, keyValue *string, checksumValue *string) (string, string, error) {
 	bundleKey := ""
 	bundleChecksum := ""
@@ -436,6 +505,8 @@ func writeProblemStoreError(writer http.ResponseWriter, err error) {
 		writeError(writer, http.StatusConflict, "invalid_problem_lifecycle_transition")
 	case errors.Is(err, problems.ErrDraftNotReadyForReview):
 		writeError(writer, http.StatusConflict, "problem_draft_not_ready_for_review")
+	case errors.Is(err, problems.ErrInvalidModerationDecision):
+		writeError(writer, http.StatusBadRequest, "invalid_moderation_decision")
 	case errors.Is(err, problems.ErrBundleValidatorNotConfigured):
 		writeError(writer, http.StatusServiceUnavailable, "hidden_test_bundle_validator_not_configured")
 	case errors.Is(err, problems.ErrBundleNotFound), errors.Is(err, problems.ErrBundleChecksumMismatch), errors.Is(err, problems.ErrInvalidBundleChecksum):

@@ -70,6 +70,8 @@ components:
           enum:
             - draft
             - in_review
+            - published
+            - archived
         title:
           type: string
         statementMarkdown:
@@ -86,6 +88,23 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+    ModerationQueueItem:
+      type: object
+      required:
+        - slug
+        - versionNumber
+        - title
+        - submittedForReviewAt
+      properties:
+        slug:
+          type: string
+        versionNumber:
+          type: integer
+        title:
+          type: string
+        submittedForReviewAt:
+          type: string
+          format: date-time
         hiddenTestBundleKey:
           type: string
         hiddenTestBundleSha256:
@@ -447,6 +466,80 @@ paths:
           description: No owned draft problem exists for the requested slug.
         '409':
           description: The draft cannot be submitted for review from its current state.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/moderation/problem-drafts:
+    get:
+      summary: List draft problems in moderation review
+      operationId: listModerationProblemDrafts
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: Draft problems currently waiting for moderation.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - drafts
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModerationQueueItem'
+        '401':
+          description: Missing or invalid session token.
+        '403':
+          description: The current user is not allowed to access moderation routes.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/moderation/problem-drafts/{slug}/decision:
+    post:
+      summary: Apply a moderation decision to an in-review draft
+      operationId: applyModerationDecision
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - reject
+                    - request_changes
+                moderationNotes:
+                  type: string
+      responses:
+        '200':
+          description: Moderation decision applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid moderation decision request.
+        '401':
+          description: Missing or invalid session token.
+        '403':
+          description: The current user is not allowed to access moderation routes.
+        '404':
+          description: No draft problem exists for the requested slug.
+        '409':
+          description: The draft cannot transition from its current lifecycle state.
         '503':
           description: Draft problem dependencies are not configured.
   /v1/submissions:
