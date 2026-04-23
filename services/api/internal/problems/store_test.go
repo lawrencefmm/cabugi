@@ -154,7 +154,7 @@ func TestGetDraftBySlugReturnsOwnerDraft(t *testing.T) {
 
 	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
 		AddRow("two-sum-user", 1, "draft", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "", "")
-	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status = 'draft' AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status IN \('draft', 'in_review'\) AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
 		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001").
 		WillReturnRows(rows)
 
@@ -223,5 +223,77 @@ func TestUpdateDraftReturnsNotFoundForUnownedDraft(t *testing.T) {
 	})
 	if err != ErrDraftNotFound {
 		t.Fatalf("UpdateDraft() error = %v, want %v", err, ErrDraftNotFound)
+	}
+}
+
+func TestSubmitDraftForReviewTransitionsOwnedDraftToInReview(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	currentRows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "draft", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "bundles/two-sum.json", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status IN \('draft', 'in_review'\) AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(currentRows)
+
+	updatedRows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "in_review", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "bundles/two-sum.json", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	mock.ExpectQuery(`WITH target_version AS \((.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status = 'draft' AND pv.created_by_user_id = \$2::uuid(.|\n)*UPDATE problem_versions pv`).
+		WithArgs("two-sum-user", "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(updatedRows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	problem, err := store.SubmitDraftForReview(context.Background(), "two-sum-user", "00000000-0000-0000-0000-000000000001")
+	if err != nil {
+		t.Fatalf("SubmitDraftForReview() error = %v", err)
+	}
+	if problem.LifecycleStatus != "in_review" {
+		t.Fatalf("SubmitDraftForReview() returned unexpected lifecycle status: %#v", problem)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
+
+func TestSubmitDraftForReviewRejectsInvalidLifecycleTransition(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "in_review", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "bundles/two-sum.json", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status IN \('draft', 'in_review'\) AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	_, err = store.SubmitDraftForReview(context.Background(), "two-sum-user", "00000000-0000-0000-0000-000000000001")
+	if err != ErrInvalidLifecycleTransition {
+		t.Fatalf("SubmitDraftForReview() error = %v, want %v", err, ErrInvalidLifecycleTransition)
+	}
+}
+
+func TestSubmitDraftForReviewRejectsDraftMissingBundleMetadata(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "statement_markdown", "input_markdown", "output_markdown", "constraints_markdown", "notes_markdown", "time_limit_ms", "memory_limit_mb", "hidden_test_bundle_key", "hidden_test_bundle_sha256"}).
+		AddRow("two-sum-user", 1, "draft", "Two Sum User", "Solve it", "Input", "Output", "Constraints", "Notes", 1000, 256, "", "")
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE p.slug = \$1 AND pv.lifecycle_status IN \('draft', 'in_review'\) AND \(\$2 OR pv.created_by_user_id = \$3::uuid\)(.|\n)*ORDER BY pv.version_number DESC`).
+		WithArgs("two-sum-user", false, "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	_, err = store.SubmitDraftForReview(context.Background(), "two-sum-user", "00000000-0000-0000-0000-000000000001")
+	if err != ErrDraftNotReadyForReview {
+		t.Fatalf("SubmitDraftForReview() error = %v, want %v", err, ErrDraftNotReadyForReview)
 	}
 }
