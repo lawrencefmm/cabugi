@@ -33,11 +33,12 @@
 | Service observability is available for production operations | API tests cover structured request logs and metrics snapshots; judge tests cover claim, completion, retry, terminal failure counters, and heartbeat freshness |
 | Deployable service packaging remains valid | CI verifies runtime packaging metadata and builds the web, API, and judge container images |
 | Production database changes are recoverable | Migration workflow verification applies migrations idempotently to a temporary database and proves backup plus restore preserves schema history and data |
+| CI protects the production path | CI builds the production web app, runs API backing-service smoke verification, and executes dependency security checks for Go services |
 
 ## Current Gaps
 - Automated test commands now exist for the frontend workspace, both Go services, database schema verification, database migration or recovery verification, and runtime packaging verification.
-- The database schema now has a repeatable verification script, but higher-level integration tests across the API and judge pipeline do not exist yet.
-- Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
+- Higher-level integration tests across the API and judge pipeline still do not exist yet.
+- End-to-end tests for the browser flow, moderation flow, and judge completion loop still do not exist yet.
 - The judge worker now uses a stricter sandbox runner than the original local spike path, but broader cross-host hardening and production operations still need additional integration coverage.
-- CI still needs broader integration, deployable artifact publishing, and security scanning beyond the current test and image-build coverage.
+- CI still needs deeper end-to-end coverage, image scanning, and deployable artifact publishing beyond the current smoke and dependency checks.
 - This file should be updated whenever a new project rule, security constraint, or core product behavior is introduced.

@@ -171,11 +171,14 @@ GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml`
 Current CI checks:
 - `pnpm --filter web typecheck`
 - `pnpm --filter web test --run`
+- `pnpm --filter web build`
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
 - `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
+- `./infra/scripts/verify_api_runtime_smoke.sh`
+- `./infra/scripts/verify_go_vulnerabilities.sh`
 - Docker image builds for `apps/web`, `services/api`, and `services/judge`
 
 Judge spike command from `services/judge`:
