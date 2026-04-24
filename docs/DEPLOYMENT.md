@@ -75,6 +75,8 @@ Baseline CI also builds all three service images to catch Dockerfile regressions
 
 CI also runs `./infra/scripts/verify_api_runtime_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, applies migrations, seeds starter problems, boots the API with backing services required, and verifies the published-problem HTTP surface.
 
+CI also runs `./infra/scripts/verify_platform_integration.sh`, which exercises the authenticated API and judge flow against temporary PostgreSQL, MinIO, and local JWKS fixtures by creating a moderated problem, keeping it hidden until approval, and verifying an accepted submission plus per-test results after publication.
+
 CI also runs `./infra/scripts/verify_e2e_workflow_smoke.sh`, which uses the checked-in local JWKS fixture plus the web app's test-only local auth adapter to exercise the browser author, moderation, publication, and submission flows end to end. The Playwright browser step runs inside the official Playwright Docker image so the smoke stays reproducible across CI and local Linux environments without extra host browser packages.
 
 Go dependency security checks run through `./infra/scripts/verify_go_vulnerabilities.sh`, which installs and runs `govulncheck` against the API and judge modules.

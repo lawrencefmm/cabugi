@@ -76,9 +76,18 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
 - `./db/scripts/verify_migration_workflow.sh`
+- `./infra/scripts/verify_platform_integration.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 - `./infra/scripts/verify_api_runtime_smoke.sh`
 - `./infra/scripts/verify_e2e_workflow_smoke.sh`
+
+Run the API and judge integration verification from the repository root:
+
+```bash
+pnpm verify:integration
+```
+
+This command starts temporary PostgreSQL and MinIO containers, serves the local JWKS fixture, boots the API and judge worker, creates and moderates a user-authored problem through the real API, then verifies an accepted submission plus per-test results against the published draft.
 
 Run the browser end-to-end smoke from the repository root:
 
@@ -197,6 +206,7 @@ Current CI checks:
 - `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 - `./infra/scripts/verify_api_runtime_smoke.sh`
+- `./infra/scripts/verify_platform_integration.sh`
 - `./infra/scripts/verify_e2e_workflow_smoke.sh`
 - `./infra/scripts/verify_go_vulnerabilities.sh`
 - Docker image builds for `apps/web`, `services/api`, and `services/judge`

@@ -10,6 +10,7 @@
     "test:judge": "cd services/judge && go test ./...",
     "verify:db": "./db/scripts/verify_initial_schema.sh",
     "verify:db-ops": "./db/scripts/verify_migration_workflow.sh",
+    "verify:integration": "./infra/scripts/verify_platform_integration.sh",
     "verify:runtime": "./infra/scripts/verify_runtime_packaging.sh",
     "verify:smoke:api": "./infra/scripts/verify_api_runtime_smoke.sh",
     "verify:smoke:e2e": "./infra/scripts/verify_e2e_workflow_smoke.sh",
