@@ -24,6 +24,14 @@ Current development credentials:
 - MinIO user: `minioadmin`
 - MinIO password: `minioadmin`
 
+Run the full local application runtime instead of only shared infrastructure:
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
+```
+
+See `docs/DEPLOYMENT.md` for image build commands, runtime environment variables, and Docker socket notes for the local judge worker.
+
 ## Repository Structure
 - `apps/web`: frontend workspace.
 - `services/api`: Go API service.
@@ -67,6 +75,7 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+- `./infra/scripts/verify_runtime_packaging.sh`
 
 Seed official starter problems into PostgreSQL and object storage:
 
@@ -157,6 +166,8 @@ Current CI checks:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+- `./infra/scripts/verify_runtime_packaging.sh`
+- Docker image builds for `apps/web`, `services/api`, and `services/judge`
 
 Judge spike command from `services/judge`:
 

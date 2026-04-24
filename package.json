@@ -8,6 +8,10 @@
     "typecheck:web": "pnpm --filter web typecheck",
     "test:api": "cd services/api && go test ./...",
     "test:judge": "cd services/judge && go test ./...",
-    "verify:db": "./db/scripts/verify_initial_schema.sh"
+    "verify:db": "./db/scripts/verify_initial_schema.sh",
+    "verify:runtime": "./infra/scripts/verify_runtime_packaging.sh",
+    "build:image:web": "docker build -t cabugi-web -f apps/web/Dockerfile .",
+    "build:image:api": "docker build -t cabugi-api -f services/api/Dockerfile services/api",
+    "build:image:judge": "docker build -t cabugi-judge -f services/judge/Dockerfile services/judge"
   }
 }

@@ -11,6 +11,12 @@ go run ./cmd/api
 
 The API listens on `127.0.0.1:8080` by default. Override with `API_ADDRESS`.
 
+Build the deployable API image from the repository root:
+
+```bash
+pnpm build:image:api
+```
+
 Available bootstrap routes:
 - `GET /healthz`
 - `GET /readyz`
