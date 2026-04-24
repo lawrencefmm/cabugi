@@ -36,7 +36,7 @@ Restore requires explicit confirmation because it replaces objects in the target
 CONFIRM_RESTORE=yes DATABASE_URL="postgres://..." ./db/scripts/restore.sh /secure/backups/cabugi-YYYYMMDDTHHMMSSZ.dump
 ```
 
-The scripts use local PostgreSQL client tools when available and fall back to the `postgres:17-alpine` Docker image for local and CI verification.
+The scripts use local PostgreSQL client tools when available and fall back to the `postgres:17-alpine` Docker image. Set `POSTGRES_TOOLS_MODE=docker` to force Docker-based client tools when local PostgreSQL client versions do not match the server.
 
 ## Verification
 Run the initial schema verification from the repository root:

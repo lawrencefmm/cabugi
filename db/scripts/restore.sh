@@ -2,6 +2,7 @@
 set -euo pipefail
 
 POSTGRES_TOOLS_IMAGE="${POSTGRES_TOOLS_IMAGE:-postgres:17-alpine}"
+POSTGRES_TOOLS_MODE="${POSTGRES_TOOLS_MODE:-auto}"
 backup_path="${1:-}"
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -22,7 +23,7 @@ fi
 backup_dir="$(cd "$(dirname "${backup_path}")" && pwd)"
 backup_name="$(basename "${backup_path}")"
 
-if command -v pg_restore >/dev/null 2>&1; then
+if [[ "${POSTGRES_TOOLS_MODE}" != "docker" ]] && command -v pg_restore >/dev/null 2>&1; then
   pg_restore --dbname "${DATABASE_URL}" --clean --if-exists --no-owner --no-acl --single-transaction "${backup_dir}/${backup_name}"
 else
   docker run --rm --network host -v "${backup_dir}:/backup:ro" "${POSTGRES_TOOLS_IMAGE}" \
