@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+**/node_modules
+**/.next
+**/coverage
+**/dist
+**/tmp
+opencode.json

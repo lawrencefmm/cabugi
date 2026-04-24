@@ -1,14 +1,89 @@
+name: cabugi
+
 services:
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8080}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8080}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+  api:
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile
+    environment:
+      API_ADDRESS: 0.0.0.0:8080
+      DATABASE_URL: postgres://cabugi:${POSTGRES_PASSWORD:-cabugi}@postgres:5432/cabugi?sslmode=disable
+      WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-http://127.0.0.1:3000,http://localhost:3000}
+      CLERK_PEM_PUBLIC_KEY: ${CLERK_PEM_PUBLIC_KEY:-}
+      CLERK_ALLOWED_PARTIES: ${CLERK_ALLOWED_PARTIES:-http://localhost:3000,http://127.0.0.1:3000}
+      API_REQUIRE_AUTH: ${API_REQUIRE_AUTH:-false}
+      API_REQUIRE_DATABASE: ${API_REQUIRE_DATABASE:-false}
+      API_REQUIRE_HIDDEN_BUNDLE_VALIDATION: ${API_REQUIRE_HIDDEN_BUNDLE_VALIDATION:-false}
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cabugi-hidden-tests}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-minioadmin}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_USE_PATH_STYLE: "true"
+    depends_on:
+      - postgres
+      - minio
+    ports:
+      - "8080:8080"
+
+  judge:
+    build:
+      context: ../services/judge
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://cabugi:${POSTGRES_PASSWORD:-cabugi}@postgres:5432/cabugi?sslmode=disable
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cabugi-hidden-tests}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-minioadmin}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_USE_PATH_STYLE: "true"
+      JUDGE_OBSERVABILITY_ADDRESS: 0.0.0.0:8082
+      JUDGE_MAX_JOB_ATTEMPTS: ${JUDGE_MAX_JOB_ATTEMPTS:-3}
+      JUDGE_JOB_LEASE_DURATION: ${JUDGE_JOB_LEASE_DURATION:-30s}
+      JUDGE_JOB_LEASE_RENEW_INTERVAL: ${JUDGE_JOB_LEASE_RENEW_INTERVAL:-10s}
+      JUDGE_POLL_INTERVAL: ${JUDGE_POLL_INTERVAL:-3s}
+      JUDGE_RETRY_DELAY: ${JUDGE_RETRY_DELAY:-5s}
+      TMPDIR: /tmp/cabugi-judge-workspaces
+    depends_on:
+      - postgres
+      - minio
+    ports:
+      - "8082:8082"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/cabugi-judge-workspaces:/tmp/cabugi-judge-workspaces
+
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: cabugi
       POSTGRES_USER: cabugi
-      POSTGRES_PASSWORD: cabugi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cabugi}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cabugi -d cabugi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z

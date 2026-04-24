@@ -62,3 +62,21 @@ jobs:
 
       - name: Verify initial schema
         run: ./db/scripts/verify_initial_schema.sh
+
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify runtime packaging definitions
+        run: ./infra/scripts/verify_runtime_packaging.sh
+
+      - name: Build API image
+        run: docker build -t cabugi-api-ci -f services/api/Dockerfile services/api
+
+      - name: Build judge image
+        run: docker build -t cabugi-judge-ci -f services/judge/Dockerfile services/judge
+
+      - name: Build web image
+        run: docker build -t cabugi-web-ci -f apps/web/Dockerfile .

@@ -31,11 +31,12 @@
 | Verdict reporting is trustworthy | Tests cover final verdict aggregation from per-test results, owner-scoped submission detail reads, and verdict rendering for `Accepted`, `Wrong Answer`, `Compile Error`, `Runtime Error`, and `Time Limit Exceeded` |
 | Role-based access is enforced | API or service tests cover `user`, `moderator`, and `admin` permissions for protected actions |
 | Service observability is available for production operations | API tests cover structured request logs and metrics snapshots; judge tests cover claim, completion, retry, terminal failure counters, and heartbeat freshness |
+| Deployable service packaging remains valid | CI verifies runtime packaging metadata and builds the web, API, and judge container images |
 
 ## Current Gaps
-- Initial automated test commands now exist for the frontend workspace and both Go services.
+- Automated test commands now exist for the frontend workspace, both Go services, database schema verification, and runtime packaging verification.
 - The database schema now has a repeatable verification script, but higher-level integration tests across the API and judge pipeline do not exist yet.
 - Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
 - The judge worker now uses a stricter sandbox runner than the original local spike path, but broader cross-host hardening and production operations still need additional integration coverage.
-- CI still needs to be added so the documented verification commands run automatically on every push or pull request.
+- CI still needs broader integration, deployable artifact publishing, and security scanning beyond the current test and image-build coverage.
 - This file should be updated whenever a new project rule, security constraint, or core product behavior is introduced.

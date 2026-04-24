@@ -23,20 +23,6 @@
 
 ## Backlog
 
-### OPS-01 - Add deployment packaging and full-stack runtime definitions
-Description: Add production-oriented packaging for the web, API, and judge services plus a full local runtime definition that matches the intended service boundaries.
-
-Expected Result: The repository can build deployable artifacts consistently and run the full application stack through checked-in runtime definitions.
-
-Acceptance Tests:
-- Dockerfiles or equivalent build definitions exist for `apps/web`, `services/api`, and `services/judge`.
-- A checked-in local runtime definition exists for `web`, `api`, `judge`, `postgres`, and object storage.
-- Developer-facing docs list the required environment variables and secret inputs for the full stack.
-- The new build or runtime commands are exercised in CI or have a recorded follow-up if CI execution is not yet practical.
-
-Notes:
-- Pending.
-
 ### DB-OPS-01 - Add production-safe migration and recovery workflow
 Description: Add a documented and repeatable database migration process for deploys, including rollback guidance and backup or restore procedures.
 
@@ -160,6 +146,24 @@ Notes:
 - Pending.
 
 ## Done
+
+### OPS-01 - Add deployment packaging and full-stack runtime definitions
+Description: Add production-oriented packaging for the web, API, and judge services plus a full local runtime definition that matches the intended service boundaries.
+
+Expected Result: The repository can build deployable artifacts consistently and run the full application stack through checked-in runtime definitions.
+
+Acceptance Tests:
+- Dockerfiles or equivalent build definitions exist for `apps/web`, `services/api`, and `services/judge`.
+- A checked-in local runtime definition exists for `web`, `api`, `judge`, `postgres`, and object storage.
+- Developer-facing docs list the required environment variables and secret inputs for the full stack.
+- The new build or runtime commands are exercised in CI or have a recorded follow-up if CI execution is not yet practical.
+
+Notes:
+- Completed by adding Dockerfiles for `apps/web`, `services/api`, and `services/judge`, plus root package scripts for image builds.
+- Expanded `infra/docker-compose.yml` into a full local runtime for `web`, `api`, `judge`, `postgres`, and MinIO object storage, with `infra/full-stack.env.example` documenting local defaults.
+- Added `docs/DEPLOYMENT.md` and updated development and service docs with runtime inputs, secret requirements, image build commands, and local judge Docker socket caveats.
+- Added `./infra/scripts/verify_runtime_packaging.sh` and a CI `packaging` job that validates runtime packaging metadata and builds all three service images.
+- Verified `./infra/scripts/verify_runtime_packaging.sh`, `docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example config`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `pnpm --filter web build`, `go test ./...` in `services/api`, `go test ./...` in `services/judge`, and local Docker builds for the web, API, and judge images.
 
 ### OBS-01 - Add structured observability for API and judge
 Description: Add structured logs, service health signals, and metrics so operators can monitor request flow, queue health, worker progress, and failure modes in production.

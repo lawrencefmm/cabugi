@@ -15,6 +15,12 @@ Process at most one queued submission from `services/judge`:
 go run ./cmd/judge --once
 ```
 
+Build the deployable judge image from the repository root:
+
+```bash
+pnpm build:image:judge
+```
+
 Current local worker behavior:
 - claims one queued submission job from PostgreSQL
 - assigns each claimed job a renewable lease so abandoned claims can be recovered after worker loss
