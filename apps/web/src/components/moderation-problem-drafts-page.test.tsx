@@ -10,7 +10,7 @@ let mockAuthState: {
   isSignedIn: boolean;
 };
 
-vi.mock("@clerk/nextjs", () => ({
+vi.mock("./auth", () => ({
   SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => mockAuthState,
 }));

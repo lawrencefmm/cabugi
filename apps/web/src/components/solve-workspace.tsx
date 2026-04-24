@@ -1,13 +1,24 @@
 "use client";
 
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import Editor from "@monaco-editor/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { createSubmission, fetchSubmission, isTerminalSubmissionStatus, type Submission } from "../lib/api";
 import { starterCodeTemplates, type SubmissionLanguage } from "../lib/starter-code";
+import { SignInButton, useAuth } from "./auth";
 import { VerdictBadge } from "./verdict-badge";
+
+declare global {
+  interface Window {
+    __CABUGI_E2E__?: {
+      solveWorkspace?: {
+        setLanguage: (language: SubmissionLanguage) => void;
+        setSourceCode: (sourceCode: string) => void;
+      };
+    };
+  }
+}
 
 type SolveWorkspaceProps = {
   authEnabled: boolean;
@@ -33,7 +44,8 @@ export function SolveWorkspace({ authEnabled, pollIntervalMs = 1500, problemSlug
 }
 
 function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollIntervalMs: number; problemSlug: string }) {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const auth = useAuth();
+  const { getToken, isLoaded, isSignedIn } = auth;
   const [language, setLanguage] = useState<SubmissionLanguage>("cpp17");
   const [sourceCode, setSourceCode] = useState(starterCodeTemplates.cpp17);
   const [activeSubmission, setActiveSubmission] = useState<Submission | null>(null);
@@ -41,6 +53,26 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
   useEffect(() => {
     setSourceCode(starterCodeTemplates[language]);
   }, [language]);
+
+  useEffect(() => {
+    if (auth.mode !== "local_test") {
+      return;
+    }
+
+    if (!window.__CABUGI_E2E__) {
+      window.__CABUGI_E2E__ = {};
+    }
+    window.__CABUGI_E2E__.solveWorkspace = {
+      setLanguage,
+      setSourceCode,
+    };
+
+    return () => {
+      if (window.__CABUGI_E2E__) {
+        delete window.__CABUGI_E2E__.solveWorkspace;
+      }
+    };
+  }, [auth.mode]);
 
   const submissionQuery = useQuery({
     enabled: isSignedIn && activeSubmission !== null,

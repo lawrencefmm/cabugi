@@ -1,4 +1,5 @@
 import { ProblemDetailPage } from "../../../src/components/problem-detail-page";
+import { frontendAuthEnabled } from "../../../src/lib/runtime";
 
 type ProblemPageProps = {
   params: Promise<{
@@ -8,5 +9,5 @@ type ProblemPageProps = {
 
 export default async function ProblemPage({ params }: ProblemPageProps) {
   const { slug } = await params;
-  return <ProblemDetailPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} slug={slug} />;
+  return <ProblemDetailPage authEnabled={frontendAuthEnabled()} slug={slug} />;
 }

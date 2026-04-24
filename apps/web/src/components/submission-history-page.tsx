@@ -1,9 +1,9 @@
 "use client";
 
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchSubmissions, formatQueuedAt, formatSubmissionLanguage, type Submission } from "../lib/api";
+import { SignInButton, useAuth } from "./auth";
 import { VerdictBadge } from "./verdict-badge";
 
 type SubmissionHistoryPageProps = {

@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "kid": "cabugi-local-test-key-1",
+      "use": "sig",
+      "alg": "RS256",
+      "n": "x6dXtLfQmM2j0iJbvfpQWZWVCXVcGSESpbP1-vFP9Z5hg-fEkwXRFmTQzg2bSfylONEyFWutPmhq3TCoCqVCvVQBkF2fUL7ro7ChvfALguas7dSp43tFDwQISKbL5OP8UrAlD4I07UV29oieiwRb3qyLRK8YJsJTzMsODrNWGN5RRo_tsPtxe9vza4rrSfJ7NB0NPUUWbk0yCLFXdtBx_up86pYWD1BtEUOCru5ySfzV8nYL4PHcoF7RYZ4Xv0CnxuekGEqpC9ooqHHZRc86M1KCccrEySxcgTnWXBrA3eleJf3WsWR9ZKvr12waiinY_wT5qYMcIbLMsLAb920JvQ",
+      "e": "AQAB"
+    }
+  ]
+}

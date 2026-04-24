@@ -1,6 +1,5 @@
 "use client";
 
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
@@ -17,6 +16,7 @@ import {
   uploadProblemDraftHiddenTestBundle,
   updateProblemDraft,
 } from "../lib/api";
+import { SignInButton, useAuth } from "./auth";
 
 type ProblemAuthoringPageProps = {
   authEnabled: boolean;

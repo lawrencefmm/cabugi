@@ -12,7 +12,7 @@ let mockAuthState: {
 
 const pushMock = vi.fn();
 
-vi.mock("@clerk/nextjs", () => ({
+vi.mock("./auth", () => ({
   SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => mockAuthState,
 }));

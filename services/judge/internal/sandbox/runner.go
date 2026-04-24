@@ -195,7 +195,7 @@ func (r Runner) containerArgs(workspace string, containerName string, image stri
 		"--tmpfs", "/var/tmp:rw,noexec,nosuid,size=64m",
 		"--env", "HOME=/tmp",
 		"--env", "PYTHONDONTWRITEBYTECODE=1",
-		"--mount", fmt.Sprintf("type=bind,src=%s,dst=/workspace,rw", workspace),
+		"--mount", fmt.Sprintf("type=bind,src=%s,dst=/workspace", workspace),
 		"-w", "/workspace",
 		image,
 	}

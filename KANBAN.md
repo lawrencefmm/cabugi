@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### E2E-01 - Add end-to-end workflow smoke tests
-Description: Add end-to-end smoke coverage for the core user and moderation workflows across the real local stack.
-
-Expected Result: The repository has repeatable smoke tests that prove the main product loops work across `web`, `api`, `postgres`, `object-storage`, and `judge`.
-
-Acceptance Tests:
-- A documented command exists to run the end-to-end smoke suite locally.
-- The suite proves a signed-in user can open a published problem, submit code, and reach a final verdict.
-- The suite proves a signed-in user can create a draft and submit it for review.
-- The suite proves a moderator can approve a reviewed draft and make it visible in the public problem list.
-- The suite runs in CI or has a follow-up task recorded if CI execution is not yet practical.
-
-Notes:
-- Pending.
-
 ### QUAL-02 - Add integration coverage and refresh testing rules
 Description: Add higher-level integration verification for the core platform flows and refresh `TESTING_RULES.md` so it matches the current project state.
 
@@ -102,6 +87,25 @@ Notes:
 - Pending.
 
 ## Done
+
+### E2E-01 - Add end-to-end workflow smoke tests
+Description: Add end-to-end smoke coverage for the core user and moderation workflows across the real local stack.
+
+Expected Result: The repository has repeatable smoke tests that prove the main product loops work across `web`, `api`, `postgres`, `object-storage`, and `judge`.
+
+Acceptance Tests:
+- A documented command exists to run the end-to-end smoke suite locally.
+- The suite proves a signed-in user can open a published problem, submit code, and reach a final verdict.
+- The suite proves a signed-in user can create a draft and submit it for review.
+- The suite proves a moderator can approve a reviewed draft and make it visible in the public problem list.
+- The suite runs in CI or has a follow-up task recorded if CI execution is not yet practical.
+
+Notes:
+- Completed by adding `./infra/scripts/verify_e2e_workflow_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, serves a local JWKS fixture, boots the API and judge worker, builds and starts the web app, and runs the browser smoke through the official Playwright Docker image.
+- Added a test-only local web auth adapter gated by `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED` so the real Next.js app can exercise signed-in author and moderator flows without depending on an external Clerk environment.
+- Added checked-in local auth fixtures under `infra/testdata/local_test_auth/` plus `infra/scripts/run_e2e_smoke.mjs`, which proves published problem browsing, draft creation, submit-for-review, moderator approval, public visibility, and final-verdict submission behavior.
+- While implementing the smoke, fixed the judge sandbox bind-mount flag so worker submissions no longer fail with an invalid Docker `--mount` argument, and fixed problem draft creation to return rows reliably by joining the `inserted_problem` CTE instead of the base `problems` table.
+- Wired the browser smoke into `.github/workflows/ci.yml` and documented the local command in `docs/DEVELOPMENT.md` and `docs/DEPLOYMENT.md`.
 
 ### AUTH-OPS-01 - Harden production auth validation and transport rules
 Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.

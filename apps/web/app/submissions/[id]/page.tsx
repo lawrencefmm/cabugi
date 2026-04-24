@@ -1,4 +1,5 @@
 import { SubmissionSummaryPage } from "../../../src/components/submission-summary-page";
+import { frontendAuthEnabled } from "../../../src/lib/runtime";
 
 type SubmissionPageProps = {
   params: Promise<{
@@ -8,5 +9,5 @@ type SubmissionPageProps = {
 
 export default async function SubmissionPage({ params }: SubmissionPageProps) {
   const { id } = await params;
-  return <SubmissionSummaryPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} submissionId={id} />;
+  return <SubmissionSummaryPage authEnabled={frontendAuthEnabled()} submissionId={id} />;
 }
