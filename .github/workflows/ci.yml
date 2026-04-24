@@ -107,6 +107,9 @@ jobs:
       - name: Run API runtime smoke
         run: ./infra/scripts/verify_api_runtime_smoke.sh
 
+      - name: Run platform integration verification
+        run: ./infra/scripts/verify_platform_integration.sh
+
   end-to-end-smoke:
     runs-on: ubuntu-latest
     steps:

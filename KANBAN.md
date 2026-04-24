@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### QUAL-02 - Add integration coverage and refresh testing rules
-Description: Add higher-level integration verification for the core platform flows and refresh `TESTING_RULES.md` so it matches the current project state.
-
-Expected Result: The testing policy reflects current capabilities, and the repository gains integration coverage for important cross-service behavior.
-
-Acceptance Tests:
-- `TESTING_RULES.md` no longer lists stale gaps that have already been addressed.
-- The requirement coverage map includes the current moderation, hidden bundle, and judge failure behaviors.
-- New integration checks cover at least one cross-service submission flow and one hidden-test or moderation rule.
-- The new integration verification command is documented in developer-facing docs.
-- Relevant verification commands pass.
-
-Notes:
-- Pending.
-
 ### JUDGE-05 - Store and expose compile and runtime artifacts
 Description: Persist useful compile and runtime artifacts from the judge so users and staff can inspect failures without accessing judge hosts directly.
 
@@ -106,6 +91,24 @@ Notes:
 - Added checked-in local auth fixtures under `infra/testdata/local_test_auth/` plus `infra/scripts/run_e2e_smoke.mjs`, which proves published problem browsing, draft creation, submit-for-review, moderator approval, public visibility, and final-verdict submission behavior.
 - While implementing the smoke, fixed the judge sandbox bind-mount flag so worker submissions no longer fail with an invalid Docker `--mount` argument, and fixed problem draft creation to return rows reliably by joining the `inserted_problem` CTE instead of the base `problems` table.
 - Wired the browser smoke into `.github/workflows/ci.yml` and documented the local command in `docs/DEVELOPMENT.md` and `docs/DEPLOYMENT.md`.
+
+### QUAL-02 - Add integration coverage and refresh testing rules
+Description: Add higher-level integration verification for the core platform flows and refresh `TESTING_RULES.md` so it matches the current project state.
+
+Expected Result: The testing policy reflects current capabilities, and the repository gains integration coverage for important cross-service behavior.
+
+Acceptance Tests:
+- `TESTING_RULES.md` no longer lists stale gaps that have already been addressed.
+- The requirement coverage map includes the current moderation, hidden bundle, and judge failure behaviors.
+- New integration checks cover at least one cross-service submission flow and one hidden-test or moderation rule.
+- The new integration verification command is documented in developer-facing docs.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding `./infra/scripts/verify_platform_integration.sh` plus the root command `pnpm verify:integration`, which starts temporary PostgreSQL and MinIO containers, serves the checked-in JWKS fixture, boots the API and judge worker, and verifies a moderated problem plus accepted submission through the real services.
+- The new integration flow proves an in-review draft stays out of the public problem list until moderator approval, then becomes visible and can be solved through the authenticated submission pipeline with persisted per-test results.
+- Updated `.github/workflows/ci.yml` so the existing `integration-smoke` job now runs both the API runtime smoke and the higher-level platform integration verification.
+- Refreshed `TESTING_RULES.md` so the requirement map now reflects current moderation visibility checks, hidden bundle handling, browser smoke coverage, and the remaining gap around full multi-service lease-recovery or `judge_failed` integration coverage.
 
 ### AUTH-OPS-01 - Harden production auth validation and transport rules
 Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
