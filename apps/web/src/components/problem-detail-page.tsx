@@ -84,13 +84,17 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
     <main className="app-main">
       <section className="page-hero">
         <a className="status-note" href="/">
-          Back to problem list
+          Problems / {problem.slug}
         </a>
         <span className="page-kicker">Problem</span>
         <h1 className="page-title">{problem.title}</h1>
-        <p className="page-subtitle">
-          Read the statement carefully, check the limits, and prepare your solution. Submission tools arrive in the next task.
-        </p>
+        <p className="page-subtitle">Read the statement, inspect the limits for this published version, then move directly into the solve workspace.</p>
+        <div className="meta-strip" aria-label="Problem metadata overview">
+          <span className="meta-chip mono">{problem.slug}</span>
+          <span className="meta-chip mono">{formatTimeLimit(problem.timeLimitMs)}</span>
+          <span className="meta-chip mono">{formatMemoryLimit(problem.memoryLimitMb)}</span>
+          <span className="meta-chip mono">C++17 / Python</span>
+        </div>
       </section>
 
       <section className="problem-layout">

@@ -23,7 +23,7 @@
 | Rule or Requirement | Minimum Verification Expectation |
 | --- | --- |
 | Only the `judge` service may run untrusted code | Service and integration tests prove `web` and `api` never execute submissions directly, and judge execution is delegated through the async flow |
-| Submission evaluation is asynchronous | Integration tests cover `queued -> running -> final verdict` state transitions plus terminal `judge_failed` handling after repeated worker failures |
+| Submission evaluation is asynchronous | Integration and worker tests cover `queued -> running -> final verdict` state transitions, lease-based recovery of abandoned jobs, plus terminal `judge_failed` handling after repeated worker failures |
 | Published problems are judged against stable versions | Database or service tests prove submissions reference immutable published problem versions |
 | Hidden tests remain private | API and storage integration tests prove hidden test bundles are not exposed through public endpoints or frontend assets, API draft validation rejects missing or mismatched bundle metadata, and judge-side storage tests verify object-fetched bundle checksums before execution |
 | Moderated user-created problems follow lifecycle rules | Tests cover `draft`, `in_review`, `published`, and `archived` transitions and permission checks |

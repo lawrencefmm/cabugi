@@ -23,7 +23,9 @@ psql_exec() {
 }
 
 docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null
-docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 < db/migrations/0001_initial_schema.sql >/dev/null
+for migration in db/migrations/*.sql; do
+  docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 < "$migration" >/dev/null
+done
 
 assert_equals() {
   local actual="$1"
@@ -41,6 +43,7 @@ assert_equals "$(psql_exec "SELECT to_regclass('public.user_roles') IS NOT NULL"
 assert_equals "$(psql_exec "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE typname = 'problem_version_status'")" "draft,in_review,published,archived" "problem version lifecycle enum must match MVP states"
 assert_equals "$(psql_exec "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE typname = 'submission_status'")" "queued,running,accepted,wrong_answer,compile_error,runtime_error,time_limit_exceeded,judge_failed" "submission status enum must include judge failure handling"
 assert_equals "$(psql_exec "SELECT COUNT(*) FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = 'submissions' AND kcu.column_name = 'problem_version_id' AND ccu.table_name = 'problem_versions' AND ccu.column_name = 'id'")" "1" "submissions must reference problem_versions"
+assert_equals "$(psql_exec "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'submission_jobs' AND column_name IN ('lease_token', 'lease_expires_at')")" "2" "submission_jobs must include lease tracking columns"
 assert_equals "$(psql_exec "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('contests', 'contest_registrations', 'contest_submissions', 'standings')")" "0" "contest tables must not exist in the MVP schema"
 
 printf 'initial schema verification passed\n'

@@ -3,7 +3,8 @@
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchSubmissions, formatQueuedAt, formatSubmissionLanguage, formatSubmissionStatus, type Submission } from "../lib/api";
+import { fetchSubmissions, formatQueuedAt, formatSubmissionLanguage, type Submission } from "../lib/api";
+import { VerdictBadge } from "./verdict-badge";
 
 type SubmissionHistoryPageProps = {
   authEnabled: boolean;
@@ -43,11 +44,9 @@ function AuthenticatedSubmissionHistoryPage() {
   return (
     <main className="app-main">
       <section className="page-hero">
-        <span className="page-kicker">Submission History</span>
-        <h1 className="page-title">Track every recent attempt.</h1>
-        <p className="page-subtitle">
-          Review queued, running, and finished submissions in one place so you can move between problems without losing context.
-        </p>
+        <span className="page-kicker">Submissions</span>
+        <h1 className="page-title">Recent attempts</h1>
+        <p className="page-subtitle">Review queued, running, and finished submissions in a single dense history view.</p>
       </section>
 
       {!isLoaded ? (
@@ -92,31 +91,47 @@ function AuthenticatedSubmissionHistoryPage() {
 
 function SubmissionHistoryList({ submissions }: { submissions: Submission[] }) {
   return (
-    <section className="history-list" aria-label="Submission history">
-      {submissions.map((submission) => (
-        <article className="history-card" key={submission.id}>
-          <div className="history-card__header">
-            <div>
-              <a className="history-card__problem-link" href={`/problems/${submission.problemSlug}`}>
-                {submission.problemSlug}
-              </a>
-              <p className="history-card__meta">{formatSubmissionLanguage(submission.language)}</p>
-            </div>
+    <section className="table-shell">
+      <div className="panel-toolbar">
+        <span className="panel-toolbar__meta mono">{submissions.length} submissions</span>
+      </div>
 
-            <a className="history-card__detail-link" href={`/submissions/${submission.id}`}>
-              View submission
-            </a>
-          </div>
-
-          <div className="history-card__footer">
-            <span className={`workspace-status workspace-status--${submission.status}`}>
-              <span className="workspace-status__label">Status</span>
-              <span className="workspace-status__value">{formatSubmissionStatus(submission.status)}</span>
-            </span>
-            <span className="history-card__timestamp">{formatQueuedAt(submission.queuedAt)}</span>
-          </div>
-        </article>
-      ))}
+      <div className="table-wrap">
+        <table className="data-table" aria-label="Submission history">
+          <thead>
+            <tr>
+              <th scope="col">Submission</th>
+              <th scope="col">Problem</th>
+              <th scope="col">Language</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Queued</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {submissions.map((submission) => (
+              <tr key={submission.id}>
+                <td className="table-code">{submission.id}</td>
+                <td>
+                  <a className="table-link" href={`/problems/${submission.problemSlug}`}>
+                    {submission.problemSlug}
+                  </a>
+                </td>
+                <td className="table-code">{formatSubmissionLanguage(submission.language)}</td>
+                <td>
+                  <VerdictBadge verdict={submission.status} />
+                </td>
+                <td className="table-code">{formatQueuedAt(submission.queuedAt)}</td>
+                <td className="table-actions">
+                  <a className="table-link" href={`/submissions/${submission.id}`}>
+                    View submission
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

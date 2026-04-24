@@ -52,11 +52,9 @@ export function ProblemListPage() {
   return (
     <main className="app-main">
       <section className="page-hero">
-        <span className="page-kicker">Published Problems</span>
-        <h1 className="page-title">Train on problems that feel contest-ready.</h1>
-        <p className="page-subtitle">
-          Cabugi focuses on a clean practice flow: browse a curated problem set, read complete statements, and step straight into solving.
-        </p>
+        <span className="page-kicker">Problemset</span>
+        <h1 className="page-title">Published problems</h1>
+        <p className="page-subtitle">Browse the current set, inspect the limits, and open the solve workspace for any published problem.</p>
       </section>
 
       {state.kind === "loading" ? (
@@ -81,17 +79,37 @@ export function ProblemListPage() {
       ) : null}
 
       {state.kind === "ready" && state.problems.length > 0 ? (
-        <section className="problem-grid" aria-label="Published problems">
-          {state.problems.map((problem) => (
-            <a className="problem-card" href={`/problems/${problem.slug}`} key={problem.slug}>
-              <div className="problem-card__slug">{problem.slug}</div>
-              <h2 className="problem-card__title">{problem.title}</h2>
-              <div className="problem-card__meta">
-                <span>{formatTimeLimit(problem.timeLimitMs)}</span>
-                <span>{formatMemoryLimit(problem.memoryLimitMb)}</span>
-              </div>
-            </a>
-          ))}
+        <section className="table-shell">
+          <div className="panel-toolbar">
+            <span className="panel-toolbar__meta mono">{state.problems.length} published</span>
+          </div>
+
+          <div className="table-wrap">
+            <table className="data-table" aria-label="Published problems">
+              <thead>
+                <tr>
+                  <th scope="col">Slug</th>
+                  <th scope="col">Title</th>
+                  <th scope="col">Time</th>
+                  <th scope="col">Memory</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.problems.map((problem) => (
+                  <tr key={problem.slug}>
+                    <td className="table-code">{problem.slug}</td>
+                    <td>
+                      <a className="table-link" href={`/problems/${problem.slug}`}>
+                        {problem.title}
+                      </a>
+                    </td>
+                    <td className="table-code">{formatTimeLimit(problem.timeLimitMs)}</td>
+                    <td className="table-code">{formatMemoryLimit(problem.memoryLimitMb)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : null}
     </main>

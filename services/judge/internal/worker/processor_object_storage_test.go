@@ -33,6 +33,7 @@ func TestProcessOneCompletesSubmissionUsingObjectStoredBundle(t *testing.T) {
 
 	store := &stubStore{job: SubmissionJob{
 		SubmissionID: "submission-id",
+		LeaseToken:   "lease-token",
 		Language:     "cpp17",
 		SourceCode:   "int main() {}",
 		BundleKey:    "bundles/two-sum.json",
@@ -40,7 +41,7 @@ func TestProcessOneCompletesSubmissionUsingObjectStoredBundle(t *testing.T) {
 		TimeLimit:    time.Second,
 	}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictAccepted, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictAccepted, Duration: 25 * time.Millisecond}}}}
-	processor := NewProcessor(store, loader, runner)
+	processor := NewProcessor(store, loader, runner, time.Second)
 
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {

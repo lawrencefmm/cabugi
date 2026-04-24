@@ -21,10 +21,13 @@ var defaultAllowedOrigins = []string{
 }
 
 type Config struct {
-	Address        string
-	DatabaseURL    string
-	AllowedOrigins []string
-	ObjectStorage  ObjectStorageConfig
+	Address                       string
+	DatabaseURL                   string
+	AllowedOrigins                []string
+	ObjectStorage                 ObjectStorageConfig
+	RequireAuth                   bool
+	RequireDatabase               bool
+	RequireHiddenBundleValidation bool
 }
 
 type ObjectStorageConfig struct {
@@ -72,6 +75,9 @@ func Load() Config {
 			SecretAccessKey: envOrDefault("OBJECT_STORAGE_SECRET_ACCESS_KEY", defaultObjectStorageSecretKey),
 			UsePathStyle:    boolEnvOrDefault("OBJECT_STORAGE_USE_PATH_STYLE", defaultObjectStorageUsePathStyle),
 		},
+		RequireAuth:                   boolEnvOrDefault("API_REQUIRE_AUTH", false),
+		RequireDatabase:               boolEnvOrDefault("API_REQUIRE_DATABASE", false),
+		RequireHiddenBundleValidation: boolEnvOrDefault("API_REQUIRE_HIDDEN_BUNDLE_VALIDATION", false),
 	}
 }
 

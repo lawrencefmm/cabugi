@@ -104,6 +104,86 @@ describe("ProblemAuthoringPage", () => {
     expect(options.method).toBe("POST");
   });
 
+  it("uploads a hidden bundle and includes the returned metadata when creating a draft", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          hiddenTestBundleKey: "problem-drafts/user-id/uploaded-bundle.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          slug: "two-sum-user",
+          versionNumber: 1,
+          lifecycleStatus: "draft",
+          title: "Two Sum User",
+          statementMarkdown: "Solve it",
+          inputMarkdown: "Input",
+          outputMarkdown: "Output",
+          constraintsMarkdown: "Constraints",
+          notesMarkdown: "Notes",
+          timeLimitMs: 1000,
+          memoryLimitMb: 256,
+          hiddenTestBundleKey: "problem-drafts/user-id/uploaded-bundle.json",
+          hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAuthoring(<ProblemAuthoringPage authEnabled />);
+
+    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "two-sum-user" } });
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Two Sum User" } });
+    fireEvent.change(screen.getByLabelText("Statement Markdown"), { target: { value: "Solve it" } });
+    fireEvent.change(screen.getByLabelText("Input Markdown"), { target: { value: "Input" } });
+    fireEvent.change(screen.getByLabelText("Output Markdown"), { target: { value: "Output" } });
+    fireEvent.change(screen.getByLabelText("Constraints Markdown"), { target: { value: "Constraints" } });
+    fireEvent.change(screen.getByLabelText("Notes Markdown"), { target: { value: "Notes" } });
+
+    const bundleFile = new File([`{"cases":[{"input":"1\n","expectedOutput":"2\n"}]}`], "bundle.json", {
+      type: "application/json",
+    });
+    fireEvent.change(screen.getByLabelText("Hidden test bundle file"), {
+      target: { files: [bundleFile] },
+    });
+    fireEvent.click(screen.getByText("Upload bundle"));
+
+    expect(await screen.findByDisplayValue("problem-drafts/user-id/uploaded-bundle.json")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const [uploadUrl, uploadOptions] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(uploadUrl).toBe("http://127.0.0.1:8080/v1/problem-drafts/hidden-test-bundles");
+    expect(uploadOptions.method).toBe("POST");
+    expect(uploadOptions.headers).toMatchObject({
+      Authorization: "Bearer session-token",
+    });
+    expect(uploadOptions.body).toBeInstanceOf(FormData);
+
+    const [createUrl, createOptions] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(createUrl).toBe("http://127.0.0.1:8080/v1/problem-drafts");
+    expect(JSON.parse(String(createOptions.body))).toMatchObject({
+      hiddenTestBundleKey: "problem-drafts/user-id/uploaded-bundle.json",
+      hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    });
+  });
+
   it("loads and saves an existing draft", async () => {
     mockAuthState = {
       getToken: async () => "session-token",
@@ -232,7 +312,7 @@ describe("ProblemAuthoringPage", () => {
     expect(options.method).toBe("POST");
   });
 
-  it("shows validation errors returned by the API", async () => {
+  it("shows upload validation errors returned by the API", async () => {
     mockAuthState = {
       getToken: async () => "session-token",
       isLoaded: true,
@@ -242,24 +322,20 @@ describe("ProblemAuthoringPage", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
-      json: async () => ({ error: "invalid_hidden_test_bundle" }),
+      json: async () => ({ error: "invalid_hidden_test_bundle_upload" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
     renderAuthoring(<ProblemAuthoringPage authEnabled />);
 
-    fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "two-sum-user" } });
-    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Two Sum User" } });
-    fireEvent.change(screen.getByLabelText("Statement Markdown"), { target: { value: "Solve it" } });
-    fireEvent.change(screen.getByLabelText("Input Markdown"), { target: { value: "Input" } });
-    fireEvent.change(screen.getByLabelText("Output Markdown"), { target: { value: "Output" } });
-    fireEvent.change(screen.getByLabelText("Constraints Markdown"), { target: { value: "Constraints" } });
-    fireEvent.change(screen.getByLabelText("Notes Markdown"), { target: { value: "Notes" } });
-    fireEvent.change(screen.getByLabelText("Hidden test bundle key"), { target: { value: "bundles/two-sum.json" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
+    const bundleFile = new File([`{"cases":[]}`], "bundle.json", {
+      type: "application/json",
+    });
+    fireEvent.change(screen.getByLabelText("Hidden test bundle file"), {
+      target: { files: [bundleFile] },
+    });
+    fireEvent.click(screen.getByText("Upload bundle"));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Hidden test bundle metadata is invalid or does not match the stored object.",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Hidden test bundle files must be valid JSON with at least one test case.");
   });
 });

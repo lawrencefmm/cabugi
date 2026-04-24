@@ -15,6 +15,8 @@ const (
 	defaultObjectStorageSecretKey    = "minioadmin"
 	defaultObjectStorageUsePathStyle = true
 	defaultMaxJobAttempts            = 3
+	defaultJobLeaseDuration          = 30 * time.Second
+	defaultJobLeaseRenewInterval     = 10 * time.Second
 	defaultWorkerPollInterval        = 3 * time.Second
 	defaultWorkerRetryDelay          = 5 * time.Second
 )
@@ -32,11 +34,22 @@ type Config struct {
 	DatabaseURL        string
 	ObjectStorage      ObjectStorageConfig
 	MaxJobAttempts     int
+	JobLeaseDuration   time.Duration
+	JobLeaseRenewAfter time.Duration
 	WorkerPollInterval time.Duration
 	WorkerRetryDelay   time.Duration
 }
 
 func Load() Config {
+	jobLeaseDuration := durationEnvOrDefault("JUDGE_JOB_LEASE_DURATION", defaultJobLeaseDuration)
+	jobLeaseRenewAfter := durationEnvOrDefault("JUDGE_JOB_LEASE_RENEW_INTERVAL", defaultJobLeaseRenewInterval)
+	if jobLeaseRenewAfter >= jobLeaseDuration {
+		jobLeaseRenewAfter = jobLeaseDuration / 2
+		if jobLeaseRenewAfter <= 0 {
+			jobLeaseRenewAfter = defaultJobLeaseRenewInterval
+		}
+	}
+
 	return Config{
 		DatabaseURL: envOrDefault("DATABASE_URL", defaultDatabaseURL),
 		ObjectStorage: ObjectStorageConfig{
@@ -48,6 +61,8 @@ func Load() Config {
 			UsePathStyle:    boolEnvOrDefault("OBJECT_STORAGE_USE_PATH_STYLE", defaultObjectStorageUsePathStyle),
 		},
 		MaxJobAttempts:     intEnvOrDefault("JUDGE_MAX_JOB_ATTEMPTS", defaultMaxJobAttempts),
+		JobLeaseDuration:   jobLeaseDuration,
+		JobLeaseRenewAfter: jobLeaseRenewAfter,
 		WorkerPollInterval: durationEnvOrDefault("JUDGE_POLL_INTERVAL", defaultWorkerPollInterval),
 		WorkerRetryDelay:   durationEnvOrDefault("JUDGE_RETRY_DELAY", defaultWorkerRetryDelay),
 	}

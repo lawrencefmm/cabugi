@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -70,9 +72,14 @@ type stubSubmissionStore struct {
 }
 
 type stubBundleValidator struct {
-	err      error
-	key      string
-	checksum string
+	err       error
+	key       string
+	checksum  string
+	uploadErr error
+	uploaded  problems.UploadedBundle
+	userID    string
+	fileName  string
+	contents  []byte
 }
 
 func (verifier stubVerifier) Verify(context.Context, string) (auth.Principal, error) {
@@ -149,6 +156,13 @@ func (validator *stubBundleValidator) ValidateBundle(_ context.Context, key stri
 	return validator.err
 }
 
+func (validator *stubBundleValidator) UploadBundle(_ context.Context, userID string, fileName string, contents []byte) (problems.UploadedBundle, error) {
+	validator.userID = userID
+	validator.fileName = fileName
+	validator.contents = contents
+	return validator.uploaded, validator.uploadErr
+}
+
 func TestHealthzHandler(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	recorder := httptest.NewRecorder()
@@ -164,6 +178,35 @@ func TestHealthzHandler(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("GET /healthz content type = %q, want %q", got, "application/json")
+	}
+}
+
+func TestReadyzHandlerReportsConfiguredDependencies(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, &stubProblemStore{}, stubUserStore{}, &stubSubmissionStore{}, &stubBundleValidator{}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /readyz status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if !strings.Contains(recorder.Body.String(), `"status":"ready"`) {
+		t.Fatalf("GET /readyz body = %q, want ready status", recorder.Body.String())
+	}
+}
+
+func TestReadyzHandlerReportsMissingDependencies(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+
+	NewMux(nil, nil, nil, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET /readyz status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"auth":false`) || !strings.Contains(body, `"database":false`) || !strings.Contains(body, `"hiddenTestBundleValidation":false`) {
+		t.Fatalf("GET /readyz body = %q, want all dependency readiness flags", body)
 	}
 }
 
@@ -198,6 +241,29 @@ func TestCORSHandlesPreflightRequests(t *testing.T) {
 	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:3000" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, "http://localhost:3000")
 	}
+	if got := recorder.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPatch) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want PATCH to be allowed", got)
+	}
+}
+
+func TestNewServerSetsHTTPTimeouts(t *testing.T) {
+	server := NewServer("127.0.0.1:8080", stubVerifier{}, &stubProblemStore{}, stubUserStore{}, &stubSubmissionStore{}, nil, &stubBundleValidator{})
+
+	if server.ReadTimeout != defaultReadTimeout {
+		t.Fatalf("ReadTimeout = %s, want %s", server.ReadTimeout, defaultReadTimeout)
+	}
+	if server.ReadHeaderTimeout != defaultReadHeaderTimeout {
+		t.Fatalf("ReadHeaderTimeout = %s, want %s", server.ReadHeaderTimeout, defaultReadHeaderTimeout)
+	}
+	if server.WriteTimeout != defaultWriteTimeout {
+		t.Fatalf("WriteTimeout = %s, want %s", server.WriteTimeout, defaultWriteTimeout)
+	}
+	if server.IdleTimeout != defaultIdleTimeout {
+		t.Fatalf("IdleTimeout = %s, want %s", server.IdleTimeout, defaultIdleTimeout)
+	}
+	if server.MaxHeaderBytes != defaultMaxHeaderBytes {
+		t.Fatalf("MaxHeaderBytes = %d, want %d", server.MaxHeaderBytes, defaultMaxHeaderBytes)
+	}
 }
 
 func TestOpenAPIHandler(t *testing.T) {
@@ -214,6 +280,9 @@ func TestOpenAPIHandler(t *testing.T) {
 	if !strings.Contains(body, "openapi: 3.1.0") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include OpenAPI version header")
 	}
+	if !strings.Contains(body, "/readyz:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /readyz path")
+	}
 	if !strings.Contains(body, "/v1/problems/{slug}:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problems/{slug} path")
 	}
@@ -222,6 +291,9 @@ func TestOpenAPIHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, "/v1/problem-drafts/{slug}/submit-for-review:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/{slug}/submit-for-review path")
+	}
+	if !strings.Contains(body, "/v1/problem-drafts/hidden-test-bundles:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problem-drafts/hidden-test-bundles path")
 	}
 	if !strings.Contains(body, "/v1/moderation/problem-drafts:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/moderation/problem-drafts path")
@@ -232,6 +304,77 @@ func TestOpenAPIHandler(t *testing.T) {
 	if got := recorder.Header().Get("Content-Type"); got != "application/yaml" {
 		t.Fatalf("GET /openapi/v1.yaml content type = %q, want %q", got, "application/yaml")
 	}
+}
+
+func TestUploadProblemDraftBundleRejectsMissingFile(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts/hidden-test-bundles", &bytes.Buffer{})
+	request.Header.Set("Authorization", "Bearer good-token")
+	request.Header.Set("Content-Type", "multipart/form-data; boundary=test-boundary")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, &stubBundleValidator{}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/problem-drafts/hidden-test-bundles missing file status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+}
+
+func TestUploadProblemDraftBundleRejectsInvalidBundleContents(t *testing.T) {
+	request := newMultipartUploadRequest(t, []byte(`{"cases":[]}`), "bundle.json")
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{uploadErr: problems.ErrInvalidBundleContents}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/problem-drafts/hidden-test-bundles invalid upload status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if validator.userID != "user-id" || validator.fileName != "bundle.json" {
+		t.Fatalf("UploadBundle() received unexpected metadata: %#v", validator)
+	}
+}
+
+func TestUploadProblemDraftBundleReturnsUploadedMetadata(t *testing.T) {
+	request := newMultipartUploadRequest(t, []byte(`{"cases":[{"input":"1\n","expectedOutput":"2\n"}]}`), "bundle.json")
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	validator := &stubBundleValidator{uploaded: problems.UploadedBundle{Key: "problem-drafts/user-id/bundle.json", SHA256: strings.Repeat("a", 64)}}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, validator).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST /v1/problem-drafts/hidden-test-bundles status = %d, want %d", recorder.Code, http.StatusCreated)
+	}
+
+	var response problems.UploadedBundle
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if response.Key != validator.uploaded.Key || response.SHA256 != validator.uploaded.SHA256 {
+		t.Fatalf("POST /v1/problem-drafts/hidden-test-bundles returned unexpected response: %#v", response)
+	}
+}
+
+func newMultipartUploadRequest(t *testing.T, contents []byte, fileName string) *http.Request {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("bundle", fileName)
+	if err != nil {
+		t.Fatalf("CreateFormFile() error = %v", err)
+	}
+	if _, err := part.Write(contents); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts/hidden-test-bundles", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
 }
 
 func TestProtectedRouteRejectsMissingToken(t *testing.T) {
@@ -504,6 +647,22 @@ func TestCreateProblemDraftStoresValidatedHiddenBundleMetadata(t *testing.T) {
 	}
 }
 
+func TestCreateProblemDraftRejectsOversizedBody(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/problem-drafts", strings.NewReader(`{"slug":"two-sum-user","title":"Two Sum User","statementMarkdown":"`+strings.Repeat("a", maxProblemDraftBodyBytes)+`","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	store := &stubProblemStore{}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil, &stubBundleValidator{}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/problem-drafts oversized body status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if store.createDraftInput.Slug != "" {
+		t.Fatalf("create draft should not run for oversized request, got %#v", store.createDraftInput)
+	}
+}
+
 func TestUpdateProblemDraftPreservesExistingHiddenBundleMetadataWhenOmitted(t *testing.T) {
 	store := &stubProblemStore{draft: problems.DraftProblem{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", TimeLimitMs: 1000, MemoryLimitMB: 256, HiddenTestBundleKey: "bundles/two-sum.json", HiddenTestBundleSHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}
 	request := httptest.NewRequest(http.MethodPatch, "/v1/problem-drafts/two-sum-user", strings.NewReader(`{"title":"Updated Title","statementMarkdown":"Solve it","inputMarkdown":"Input","outputMarkdown":"Output","constraintsMarkdown":"Constraints","notesMarkdown":"Notes","timeLimitMs":1000,"memoryLimitMb":256}`))
@@ -646,6 +805,22 @@ func TestCreateSubmissionRejectsMissingToken(t *testing.T) {
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("POST /v1/submissions without token status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestCreateSubmissionRejectsOversizedBody(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/v1/submissions", strings.NewReader(`{"problemSlug":"two-sum","language":"cpp17","sourceCode":"`+strings.Repeat("a", maxSubmissionBodyBytes)+`"}`))
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	store := &stubSubmissionStore{}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, store).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/submissions oversized body status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if store.createInput.ProblemSlug != "" {
+		t.Fatalf("create submission should not run for oversized request, got %#v", store.createInput)
 	}
 }
 

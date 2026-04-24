@@ -19,8 +19,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <header className="app-header">
           <div className="app-header__inner">
             <a className="app-brand" href="/">
-              <span className="app-brand__mark">C</span>
-              <span>Cabugi</span>
+              <span className="app-brand__mark">&lt;/&gt;</span>
+              <span className="app-brand__text">cabugi</span>
             </a>
 
             <nav className="app-nav" aria-label="Primary">
