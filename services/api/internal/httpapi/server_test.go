@@ -474,13 +474,19 @@ func TestProtectedRouteAcceptsVerifiedClerkToken(t *testing.T) {
 	}
 
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyBytes})
-	verifier, err := auth.NewClerkVerifier(auth.ClerkConfig{PublicKeyPEM: string(publicKeyPEM)})
+	verifier, err := auth.NewClerkVerifier(auth.ClerkConfig{
+		PublicKeyPEM:     string(publicKeyPEM),
+		Issuer:           "https://clerk.example.com",
+		AllowedAudiences: []string{"cabugi-web"},
+	})
 	if err != nil {
 		t.Fatalf("NewClerkVerifier() error = %v", err)
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"sub": "user_456",
+		"iss": "https://clerk.example.com",
+		"aud": []string{"cabugi-web"},
 		"exp": time.Now().Add(time.Hour).Unix(),
 		"nbf": time.Now().Add(-time.Minute).Unix(),
 	})
@@ -497,6 +503,18 @@ func TestProtectedRouteAcceptsVerifiedClerkToken(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/me with verified Clerk token status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestProtectedRouteAcceptsSessionCookieToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
+	request.AddCookie(&http.Cookie{Name: "__session", Value: "cookie-token"})
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/me with session cookie status = %d, want %d", recorder.Code, http.StatusOK)
 	}
 }
 

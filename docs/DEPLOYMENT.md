@@ -41,8 +41,11 @@ Required production secrets and environment inputs:
 - `DATABASE_URL`: API and judge PostgreSQL connection string in deployed environments.
 - `NEXT_PUBLIC_API_BASE_URL`: browser-visible API base URL compiled into the web image.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk frontend publishable key.
+- `CLERK_ISSUER`: required expected issuer for Clerk session tokens.
+- `CLERK_JWKS_URL`: optional explicit JWKS endpoint for signing-key rotation; defaults from `CLERK_ISSUER`.
 - `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key for API auth.
 - `CLERK_ALLOWED_PARTIES`: comma-separated allowed Clerk `azp` values.
+- `CLERK_ALLOWED_AUDIENCES`: comma-separated allowed Clerk `aud` values.
 - `WEB_ALLOWED_ORIGINS`: comma-separated origins accepted by API CORS.
 - `OBJECT_STORAGE_ENDPOINT`: private object storage endpoint for hidden test bundles.
 - `OBJECT_STORAGE_REGION`: object storage region.
@@ -58,6 +61,8 @@ Required production secrets and environment inputs:
 - `JUDGE_OBSERVABILITY_ADDRESS`: judge health and metrics bind address.
 
 Local defaults live in `infra/full-stack.env.example`; do not commit real production secrets.
+
+For production auth, set `CLERK_ISSUER` and at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`. Prefer the JWKS path for deployed environments so key rotation does not require a static PEM rollout. The API accepts either bearer headers or the `__session` cookie; if both are sent, the bearer header is authoritative.
 
 ## Verification
 Verify packaging metadata without building images:

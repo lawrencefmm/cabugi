@@ -34,6 +34,7 @@
 | Deployable service packaging remains valid | CI verifies runtime packaging metadata and builds the web, API, and judge container images |
 | Production database changes are recoverable | Migration workflow verification applies migrations idempotently to a temporary database and proves backup plus restore preserves schema history and data |
 | CI protects the production path | CI builds the production web app, runs API backing-service smoke verification, and executes dependency security checks for Go services |
+| Production auth validation is explicit | API auth tests cover cookie transport, header precedence, invalid issuer or audience rejection, and JWKS-backed signing-key refresh |
 
 ## Current Gaps
 - Automated test commands now exist for the frontend workspace, both Go services, database schema verification, database migration or recovery verification, and runtime packaging verification.

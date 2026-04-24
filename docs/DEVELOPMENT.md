@@ -111,11 +111,19 @@ Current bootstrap API routes:
 - `GET /v1/submissions/{id}`
 
 Clerk environment variables for protected API routes:
-- `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
+- `CLERK_ISSUER`: required expected `iss` claim for Clerk session tokens when auth verification is enabled.
+- `CLERK_JWKS_URL`: optional explicit JWKS endpoint. Defaults to `<CLERK_ISSUER>/.well-known/jwks.json`.
+- `CLERK_PEM_PUBLIC_KEY`: optional static Clerk JWT verification public key in PEM format.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed frontend origins used to validate the `azp` claim.
+- `CLERK_ALLOWED_AUDIENCES`: optional comma-separated allowed token audiences used to validate the `aud` claim.
 - `API_REQUIRE_AUTH`: when `true`, the API refuses to start unless Clerk auth verification is configured.
 - `API_REQUIRE_DATABASE`: when `true`, the API refuses to start unless the PostgreSQL-backed stores can connect successfully.
 - `API_REQUIRE_HIDDEN_BUNDLE_VALIDATION`: when `true`, the API refuses to start unless hidden test bundle validation can reach the configured object storage bucket.
+
+Browser auth transport:
+- The API accepts bearer tokens from the `Authorization` header and from the `__session` cookie.
+- If both are present, the `Authorization` header takes precedence.
+- Production auth should set `CLERK_ISSUER` plus at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`.
 
 Database environment for API routes backed by PostgreSQL:
 - `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
