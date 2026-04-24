@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+coverage/
+*.tsbuildinfo
+services/judge/testdata/**/program
+
+bin/
+tmp/
+
+.DS_Store
+.env
+.env.*

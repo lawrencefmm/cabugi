@@ -32,7 +32,7 @@
 
 ### postgres
 - Stores canonical application data.
-- Stores submission lifecycle state such as `queued`, `running`, `accepted`, `wrong_answer`, `compile_error`, `runtime_error`, and `time_limit_exceeded`.
+- Stores submission lifecycle state such as `queued`, `running`, `accepted`, `wrong_answer`, `compile_error`, `runtime_error`, `time_limit_exceeded`, and terminal worker failures like `judge_failed`.
 - Stores structured verdict summaries and per-test metadata needed by the product UI.
 
 ### object-storage

@@ -1,0 +1,683 @@
+openapi: 3.1.0
+info:
+  title: Cabugi API
+  version: 1.0.0
+  description: Initial Cabugi API surface for health checks and published problem access.
+components:
+  schemas:
+    PublishedProblemSummary:
+      type: object
+      required:
+        - slug
+        - title
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
+    PublishedProblemDetail:
+      allOf:
+        - $ref: '#/components/schemas/PublishedProblemSummary'
+        - type: object
+          required:
+            - statementMarkdown
+            - inputMarkdown
+            - outputMarkdown
+            - constraintsMarkdown
+            - notesMarkdown
+          properties:
+            statementMarkdown:
+              type: string
+            inputMarkdown:
+              type: string
+            outputMarkdown:
+              type: string
+            constraintsMarkdown:
+              type: string
+            notesMarkdown:
+              type: string
+    ProblemDraft:
+      type: object
+      required:
+        - slug
+        - versionNumber
+        - lifecycleStatus
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        versionNumber:
+          type: integer
+        lifecycleStatus:
+          type: string
+          enum:
+            - draft
+            - in_review
+            - published
+            - archived
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+    ModerationQueueItem:
+      type: object
+      required:
+        - slug
+        - versionNumber
+        - title
+        - submittedForReviewAt
+      properties:
+        slug:
+          type: string
+        versionNumber:
+          type: integer
+        title:
+          type: string
+        submittedForReviewAt:
+          type: string
+          format: date-time
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
+    ProblemDraftCreateInput:
+      type: object
+      required:
+        - slug
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
+    ProblemDraftUpdateInput:
+      type: object
+      required:
+        - title
+        - statementMarkdown
+        - inputMarkdown
+        - outputMarkdown
+        - constraintsMarkdown
+        - notesMarkdown
+        - timeLimitMs
+        - memoryLimitMb
+      properties:
+        title:
+          type: string
+        statementMarkdown:
+          type: string
+        inputMarkdown:
+          type: string
+        outputMarkdown:
+          type: string
+        constraintsMarkdown:
+          type: string
+        notesMarkdown:
+          type: string
+        timeLimitMs:
+          type: integer
+        memoryLimitMb:
+          type: integer
+    UploadedProblemDraftBundle:
+      type: object
+      required:
+        - hiddenTestBundleKey
+        - hiddenTestBundleSha256
+      properties:
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
+    Submission:
+      type: object
+      required:
+        - id
+        - problemSlug
+        - language
+        - status
+        - queuedAt
+      properties:
+        id:
+          type: string
+        problemSlug:
+          type: string
+        language:
+          type: string
+          enum:
+            - cpp17
+            - python
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - accepted
+            - wrong_answer
+            - compile_error
+            - runtime_error
+            - time_limit_exceeded
+            - judge_failed
+        queuedAt:
+          type: string
+          format: date-time
+    SubmissionResult:
+      type: object
+      required:
+        - testIndex
+        - verdict
+        - executionTimeMs
+        - memoryBytes
+        - stdoutExcerpt
+        - stderrExcerpt
+      properties:
+        testIndex:
+          type: integer
+        verdict:
+          type: string
+          enum:
+            - accepted
+            - wrong_answer
+            - runtime_error
+            - time_limit_exceeded
+        executionTimeMs:
+          type: integer
+        memoryBytes:
+          type: integer
+        stdoutExcerpt:
+          type: string
+        stderrExcerpt:
+          type: string
+    SubmissionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Submission'
+        - type: object
+          required:
+            - totalTests
+            - passedTests
+            - results
+          properties:
+            totalTests:
+              type: integer
+            passedTests:
+              type: integer
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubmissionResult'
+  securitySchemes:
+    clerkSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /healthz:
+    get:
+      summary: API health check
+      operationId: getHealthz
+      responses:
+        '200':
+          description: API is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+  /readyz:
+    get:
+      summary: API readiness check
+      operationId: getReadyz
+      responses:
+        '200':
+          description: All required dependencies are ready.
+        '503':
+          description: One or more dependencies are not ready.
+  /openapi/v1.yaml:
+    get:
+      summary: Versioned OpenAPI document
+      operationId: getOpenAPIV1
+      responses:
+        '200':
+          description: OpenAPI contract for the v1 HTTP surface.
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /v1/me:
+    get:
+      summary: Current authenticated user
+      operationId: getCurrentUser
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: The current authenticated app user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - subject
+                  - handle
+                  - displayName
+                properties:
+                  id:
+                    type: string
+                  subject:
+                    type: string
+                  handle:
+                    type: string
+                  displayName:
+                    type: string
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Authentication or user bootstrap dependencies are not configured on the API server.
+  /v1/problems:
+    get:
+      summary: List published problems
+      operationId: listPublishedProblems
+      responses:
+        '200':
+          description: Published problems visible to users.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - problems
+                properties:
+                  problems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublishedProblemSummary'
+        '503':
+          description: The problem store is not configured.
+  /v1/problems/{slug}:
+    get:
+      summary: Get a published problem by slug
+      operationId: getPublishedProblemBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Published problem detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedProblemDetail'
+        '404':
+          description: No published problem exists for the slug.
+        '503':
+          description: The problem store is not configured.
+  /v1/problem-drafts:
+    post:
+      summary: Create a draft problem
+      operationId: createProblemDraft
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemDraftCreateInput'
+      responses:
+        '201':
+          description: Draft problem created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid draft problem request.
+        '401':
+          description: Missing or invalid session token.
+        '409':
+          description: A problem with the requested slug already exists.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/problem-drafts/hidden-test-bundles:
+    post:
+      summary: Upload a hidden test bundle for a draft problem
+      operationId: uploadProblemDraftHiddenTestBundle
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - bundle
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Hidden test bundle uploaded and validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedProblemDraftBundle'
+        '400':
+          description: Invalid hidden test bundle upload.
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Hidden test bundle upload dependencies are not configured.
+  /v1/problem-drafts/{slug}:
+    get:
+      summary: Get an owned draft problem by slug
+      operationId: getProblemDraftBySlug
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft problem detail for the owner or staff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '503':
+          description: Draft problem dependencies are not configured.
+    patch:
+      summary: Update an owned draft problem by slug
+      operationId: updateProblemDraft
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProblemDraftUpdateInput'
+      responses:
+        '200':
+          description: Draft problem updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid draft problem update request.
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/problem-drafts/{slug}/submit-for-review:
+    post:
+      summary: Submit an owned draft problem for review
+      operationId: submitProblemDraftForReview
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft problem moved into review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No owned draft problem exists for the requested slug.
+        '409':
+          description: The draft cannot be submitted for review from its current state.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/moderation/problem-drafts:
+    get:
+      summary: List draft problems in moderation review
+      operationId: listModerationProblemDrafts
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: Draft problems currently waiting for moderation.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - drafts
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModerationQueueItem'
+        '401':
+          description: Missing or invalid session token.
+        '403':
+          description: The current user is not allowed to access moderation routes.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/moderation/problem-drafts/{slug}/decision:
+    post:
+      summary: Apply a moderation decision to an in-review draft
+      operationId: applyModerationDecision
+      security:
+        - clerkSession: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - reject
+                    - request_changes
+                moderationNotes:
+                  type: string
+      responses:
+        '200':
+          description: Moderation decision applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDraft'
+        '400':
+          description: Invalid moderation decision request.
+        '401':
+          description: Missing or invalid session token.
+        '403':
+          description: The current user is not allowed to access moderation routes.
+        '404':
+          description: No draft problem exists for the requested slug.
+        '409':
+          description: The draft cannot transition from its current lifecycle state.
+        '503':
+          description: Draft problem dependencies are not configured.
+  /v1/submissions:
+    get:
+      summary: List submissions for the current user
+      operationId: listSubmissions
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: Submission history for the current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - submissions
+                properties:
+                  submissions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Submission'
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Submission dependencies are not configured.
+    post:
+      summary: Create a submission for a published problem
+      operationId: createSubmission
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - problemSlug
+                - language
+                - sourceCode
+              properties:
+                problemSlug:
+                  type: string
+                language:
+                  type: string
+                  enum:
+                    - cpp17
+                    - python
+                sourceCode:
+                  type: string
+      responses:
+        '201':
+          description: Submission created and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submission'
+        '400':
+          description: Invalid submission request.
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No published problem exists for the requested slug.
+        '503':
+          description: Submission dependencies are not configured.
+  /v1/submissions/{id}:
+    get:
+      summary: Get a submission by id for the current user
+      operationId: getSubmissionByID
+      security:
+        - clerkSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stored submission for the current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionDetail'
+        '401':
+          description: Missing or invalid session token.
+        '404':
+          description: No submission exists for the current user and requested id.
+        '503':
+          description: Submission dependencies are not configured.

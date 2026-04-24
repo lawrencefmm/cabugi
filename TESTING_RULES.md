@@ -23,15 +23,18 @@
 | Rule or Requirement | Minimum Verification Expectation |
 | --- | --- |
 | Only the `judge` service may run untrusted code | Service and integration tests prove `web` and `api` never execute submissions directly, and judge execution is delegated through the async flow |
-| Submission evaluation is asynchronous | Integration tests cover `queued -> running -> final verdict` state transitions |
+| Submission evaluation is asynchronous | Integration and worker tests cover `queued -> running -> final verdict` state transitions, lease-based recovery of abandoned jobs, plus terminal `judge_failed` handling after repeated worker failures |
 | Published problems are judged against stable versions | Database or service tests prove submissions reference immutable published problem versions |
-| Hidden tests remain private | API and storage integration tests prove hidden test bundles are not exposed through public endpoints or frontend assets |
+| Hidden tests remain private | API and storage integration tests prove hidden test bundles are not exposed through public endpoints or frontend assets, API draft validation rejects missing or mismatched bundle metadata, and judge-side storage tests verify object-fetched bundle checksums before execution |
 | Moderated user-created problems follow lifecycle rules | Tests cover `draft`, `in_review`, `published`, and `archived` transitions and permission checks |
 | Supported languages are `C++17` and `Python` | Judge tests cover successful execution and common failure verdicts for both languages |
-| Verdict reporting is trustworthy | Tests cover final verdict aggregation from per-test results, including `Accepted`, `Wrong Answer`, `Compile Error`, `Runtime Error`, and `Time Limit Exceeded` |
+| Verdict reporting is trustworthy | Tests cover final verdict aggregation from per-test results, owner-scoped submission detail reads, and verdict rendering for `Accepted`, `Wrong Answer`, `Compile Error`, `Runtime Error`, and `Time Limit Exceeded` |
 | Role-based access is enforced | API or service tests cover `user`, `moderator`, and `admin` permissions for protected actions |
 
 ## Current Gaps
-- There is no application code yet, so there are no runnable automated tests or verified test commands.
-- The first implementation tasks must establish test tooling for the frontend, API, and judge services and document the exact commands once they exist.
+- Initial automated test commands now exist for the frontend workspace and both Go services.
+- The database schema now has a repeatable verification script, but higher-level integration tests across the API and judge pipeline do not exist yet.
+- Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
+- The judge worker now uses a stricter sandbox runner than the original local spike path, but broader cross-host hardening and production operations still need additional integration coverage.
+- CI still needs to be added so the documented verification commands run automatically on every push or pull request.
 - This file should be updated whenever a new project rule, security constraint, or core product behavior is introduced.
