@@ -68,6 +68,10 @@ pnpm verify:runtime
 
 Baseline CI also builds all three service images to catch Dockerfile regressions.
 
+CI also runs `./infra/scripts/verify_api_runtime_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, applies migrations, seeds starter problems, boots the API with backing services required, and verifies the published-problem HTTP surface.
+
+Go dependency security checks run through `./infra/scripts/verify_go_vulnerabilities.sh`, which installs and runs `govulncheck` against the API and judge modules.
+
 ## Database Migrations And Recovery
 Production migrations use the non-destructive runner in `db/scripts/migrate.sh`. This is separate from `db/scripts/verify_initial_schema.sh`, which is destructive verification logic and intentionally runs only against an isolated temporary database container.
 

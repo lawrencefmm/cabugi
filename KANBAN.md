@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### CI-03 - Expand CI for builds, integration, and security checks
-Description: Extend CI beyond unit tests so it verifies deployable builds, integration behavior, and basic security hygiene for the production path.
-
-Expected Result: CI covers the most important production regressions before changes reach shared branches.
-
-Acceptance Tests:
-- CI builds the production web app.
-- CI builds the API and judge deployable artifacts.
-- CI runs at least one integration or end-to-end smoke job against backing services.
-- CI runs dependency or image security checks, or records an explicit follow-up if that is not yet practical.
-- Workflow docs stay aligned with the new CI behavior.
-
-Notes:
-- Pending.
-
 ### AUTH-OPS-01 - Harden production auth validation and transport rules
 Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
 
@@ -132,6 +117,25 @@ Notes:
 - Pending.
 
 ## Done
+
+### CI-03 - Expand CI for builds, integration, and security checks
+Description: Extend CI beyond unit tests so it verifies deployable builds, integration behavior, and basic security hygiene for the production path.
+
+Expected Result: CI covers the most important production regressions before changes reach shared branches.
+
+Acceptance Tests:
+- CI builds the production web app.
+- CI builds the API and judge deployable artifacts.
+- CI runs at least one integration or end-to-end smoke job against backing services.
+- CI runs dependency or image security checks, or records an explicit follow-up if that is not yet practical.
+- Workflow docs stay aligned with the new CI behavior.
+
+Notes:
+- Completed by extending `.github/workflows/ci.yml` to build the production web app, run the existing image packaging job, add an API backing-services smoke job, and add a Go dependency security job.
+- Added `infra/scripts/verify_api_runtime_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, applies migrations, seeds starter problems, boots the API with required backing services enabled, and verifies published problem reads.
+- Added `infra/scripts/verify_go_vulnerabilities.sh`, which installs and runs `govulncheck` against the API and judge Go modules.
+- Updated package scripts and developer-facing docs so the smoke and security checks are reproducible outside CI.
+- Verified `./infra/scripts/verify_api_runtime_smoke.sh`, `./infra/scripts/verify_go_vulnerabilities.sh`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `pnpm --filter web build`.
 
 ### DB-OPS-01 - Add production-safe migration and recovery workflow
 Description: Add a documented and repeatable database migration process for deploys, including rollback guidance and backup or restore procedures.
