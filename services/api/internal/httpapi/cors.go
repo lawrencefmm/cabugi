@@ -13,7 +13,7 @@ func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 		if allowed {
 			writer.Header().Set("Access-Control-Allow-Origin", origin)
 			writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-			writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 			writer.Header().Set("Vary", "Origin")
 		}
 

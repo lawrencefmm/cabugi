@@ -31,6 +31,11 @@ export type ProblemDraft = {
   hiddenTestBundleSha256: string;
 };
 
+export type UploadedProblemDraftBundle = {
+  hiddenTestBundleKey: string;
+  hiddenTestBundleSha256: string;
+};
+
 export type ModerationQueueItem = {
   slug: string;
   versionNumber: number;
@@ -146,20 +151,24 @@ async function fetchJSON<T>(path: string, options: FetchJSONOptions = {}): Promi
   });
 
   if (!response.ok) {
-    let code: string | undefined;
-    try {
-      const payload = (await response.json()) as { error?: string };
-      if (typeof payload.error === "string") {
-        code = payload.error;
-      }
-    } catch {
-      code = undefined;
-    }
-
-    throw new ApiError(response.status, code ?? `API request failed for ${path}`, code);
+    throw await toApiError(response, path);
   }
 
   return response.json() as Promise<T>;
+}
+
+async function toApiError(response: Response, path: string) {
+  let code: string | undefined;
+  try {
+    const payload = (await response.json()) as { error?: string };
+    if (typeof payload.error === "string") {
+      code = payload.error;
+    }
+  } catch {
+    code = undefined;
+  }
+
+  return new ApiError(response.status, code ?? `API request failed for ${path}`, code);
 }
 
 export async function fetchPublishedProblems(signal?: AbortSignal) {
@@ -177,6 +186,26 @@ export async function createProblemDraft(input: ProblemDraftCreateInput, token: 
     token,
     body: input,
   });
+}
+
+export async function uploadProblemDraftHiddenTestBundle(file: File, token: string) {
+  const formData = new FormData();
+  formData.append("bundle", file);
+
+  const response = await fetch(`${apiBaseUrl()}/v1/problem-drafts/hidden-test-bundles`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw await toApiError(response, "/v1/problem-drafts/hidden-test-bundles");
+  }
+
+  return response.json() as Promise<UploadedProblemDraftBundle>;
 }
 
 export async function fetchProblemDraft(slug: string, token: string) {
@@ -258,6 +287,12 @@ export function formatDraftError(error: unknown, missingMessage: string) {
     }
     if (error.code === "invalid_hidden_test_bundle") {
       return "Hidden test bundle metadata is invalid or does not match the stored object.";
+    }
+    if (error.code === "missing_hidden_test_bundle_file") {
+      return "Choose a hidden test bundle file before uploading.";
+    }
+    if (error.code === "invalid_hidden_test_bundle_upload") {
+      return "Hidden test bundle files must be valid JSON with at least one test case.";
     }
     if (error.code === "problem_draft_not_ready_for_review") {
       return "Add valid hidden test bundle metadata before submitting this draft for review.";

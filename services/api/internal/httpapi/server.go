@@ -4,14 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
 	"github.com/lawrencefmm/cabugi/services/api/internal/submissions"
 	"github.com/lawrencefmm/cabugi/services/api/internal/users"
 	openapiasset "github.com/lawrencefmm/cabugi/services/api/openapi"
+)
+
+const maxHiddenBundleUploadBytes = 1 << 20
+
+const (
+	maxProblemDraftBodyBytes       = 1 << 20
+	maxSubmissionBodyBytes         = 256 << 10
+	maxModerationDecisionBodyBytes = 64 << 10
+	defaultReadTimeout             = 15 * time.Second
+	defaultReadHeaderTimeout       = 5 * time.Second
+	defaultWriteTimeout            = 30 * time.Second
+	defaultIdleTimeout             = 60 * time.Second
+	defaultMaxHeaderBytes          = 16 << 10
 )
 
 func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, bundleValidators ...problems.BundleValidator) *http.ServeMux {
@@ -31,9 +46,11 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthzHandler)
+	mux.HandleFunc("GET /readyz", readyzHandler(verifier, problemStore, userStore, submissionStore, bundleValidator))
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
+	mux.Handle("POST /v1/problem-drafts/hidden-test-bundles", auth.RequireAuth(verifier, uploadProblemDraftBundleHandler(userStore, bundleValidator)))
 	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
 	mux.Handle("PATCH /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, updateProblemDraftHandler(userStore, problemStore, bundleValidator)))
@@ -50,13 +67,40 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 
 func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string, bundleValidators ...problems.BundleValidator) *http.Server {
 	return &http.Server{
-		Addr:    address,
-		Handler: withCORS(NewMux(verifier, problemStore, userStore, submissionStore, bundleValidators...), allowedOrigins),
+		Addr:              address,
+		Handler:           withCORS(NewMux(verifier, problemStore, userStore, submissionStore, bundleValidators...), allowedOrigins),
+		ReadTimeout:       defaultReadTimeout,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		WriteTimeout:      defaultWriteTimeout,
+		IdleTimeout:       defaultIdleTimeout,
+		MaxHeaderBytes:    defaultMaxHeaderBytes,
 	}
 }
 
 func healthzHandler(writer http.ResponseWriter, _ *http.Request) {
 	writeJSON(writer, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func readyzHandler(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, bundleValidator problems.BundleValidator) http.HandlerFunc {
+	return func(writer http.ResponseWriter, _ *http.Request) {
+		dependencies := map[string]bool{
+			"auth":                       authDependencyReady(verifier),
+			"database":                   databaseDependencyReady(problemStore, userStore, submissionStore),
+			"hiddenTestBundleValidation": bundleValidationDependencyReady(bundleValidator),
+		}
+
+		status := http.StatusOK
+		state := "ready"
+		for _, ready := range dependencies {
+			if !ready {
+				status = http.StatusServiceUnavailable
+				state = "not_ready"
+				break
+			}
+		}
+
+		writeJSON(writer, status, map[string]any{"status": state, "dependencies": dependencies})
+	}
 }
 
 func openAPIHandler(writer http.ResponseWriter, _ *http.Request) {
@@ -112,6 +156,42 @@ func getPublishedProblemHandler(problemStore problems.Store) http.HandlerFunc {
 	}
 }
 
+func uploadProblemDraftBundleHandler(userStore users.Store, bundleValidator problems.BundleValidator) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		request.Body = http.MaxBytesReader(writer, request.Body, maxHiddenBundleUploadBytes+1024)
+		if err := request.ParseMultipartForm(maxHiddenBundleUploadBytes); err != nil {
+			writeError(writer, http.StatusBadRequest, "invalid_hidden_test_bundle_upload")
+			return
+		}
+
+		bundleFile, header, err := request.FormFile("bundle")
+		if err != nil {
+			writeError(writer, http.StatusBadRequest, "missing_hidden_test_bundle_file")
+			return
+		}
+		defer bundleFile.Close()
+
+		contents, err := io.ReadAll(bundleFile)
+		if err != nil {
+			writeError(writer, http.StatusBadRequest, "invalid_hidden_test_bundle_upload")
+			return
+		}
+
+		uploadedBundle, err := bundleValidator.UploadBundle(request.Context(), user.ID, header.Filename, contents)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusCreated, uploadedBundle)
+	})
+}
+
 func createProblemDraftHandler(userStore users.Store, problemStore problems.Store, bundleValidator problems.BundleValidator) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		user, ok := currentUserFromRequest(writer, request, userStore)
@@ -132,8 +212,7 @@ func createProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 			HiddenTestBundleKey *string `json:"hiddenTestBundleKey"`
 			HiddenTestBundleSHA *string `json:"hiddenTestBundleSha256"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		if !decodeJSONBody(writer, request, maxProblemDraftBodyBytes, &body) {
 			return
 		}
 
@@ -225,8 +304,7 @@ func updateProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 			HiddenTestBundleKey *string `json:"hiddenTestBundleKey"`
 			HiddenTestBundleSHA *string `json:"hiddenTestBundleSha256"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		if !decodeJSONBody(writer, request, maxProblemDraftBodyBytes, &body) {
 			return
 		}
 
@@ -311,8 +389,7 @@ func applyModerationDecisionHandler(userStore users.Store, problemStore problems
 			Decision        string `json:"decision"`
 			ModerationNotes string `json:"moderationNotes"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		if !decodeJSONBody(writer, request, maxModerationDecisionBodyBytes, &body) {
 			return
 		}
 
@@ -375,8 +452,7 @@ func createSubmissionHandler(userStore users.Store, submissionStore submissions.
 			Language    string `json:"language"`
 			SourceCode  string `json:"sourceCode"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		if !decodeJSONBody(writer, request, maxSubmissionBodyBytes, &body) {
 			return
 		}
 
@@ -509,6 +585,10 @@ func writeProblemStoreError(writer http.ResponseWriter, err error) {
 		writeError(writer, http.StatusBadRequest, "invalid_moderation_decision")
 	case errors.Is(err, problems.ErrBundleValidatorNotConfigured):
 		writeError(writer, http.StatusServiceUnavailable, "hidden_test_bundle_validator_not_configured")
+	case errors.Is(err, problems.ErrBundleUploaderNotConfigured):
+		writeError(writer, http.StatusServiceUnavailable, "hidden_test_bundle_uploader_not_configured")
+	case errors.Is(err, problems.ErrInvalidBundleContents):
+		writeError(writer, http.StatusBadRequest, "invalid_hidden_test_bundle_upload")
 	case errors.Is(err, problems.ErrBundleNotFound), errors.Is(err, problems.ErrBundleChecksumMismatch), errors.Is(err, problems.ErrInvalidBundleChecksum):
 		writeError(writer, http.StatusBadRequest, "invalid_hidden_test_bundle")
 	case errors.Is(err, problems.ErrNotFound):
@@ -542,6 +622,47 @@ func writeSubmissionStoreError(writer http.ResponseWriter, err error) {
 
 func writeError(writer http.ResponseWriter, status int, message string) {
 	writeJSON(writer, status, map[string]string{"error": message})
+}
+
+func decodeJSONBody(writer http.ResponseWriter, request *http.Request, limit int64, target any) bool {
+	request.Body = http.MaxBytesReader(writer, request.Body, limit)
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		return false
+	}
+
+	var extra struct{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		writeError(writer, http.StatusBadRequest, "invalid_request_body")
+		return false
+	}
+
+	return true
+}
+
+func authDependencyReady(verifier auth.Verifier) bool {
+	if verifier == nil {
+		return false
+	}
+	_, disabled := verifier.(auth.DisabledVerifier)
+	return !disabled
+}
+
+func databaseDependencyReady(problemStore problems.Store, userStore users.Store, submissionStore submissions.Store) bool {
+	_, problemDisabled := problemStore.(problems.DisabledStore)
+	_, userDisabled := userStore.(users.DisabledStore)
+	_, submissionDisabled := submissionStore.(submissions.DisabledStore)
+	return !problemDisabled && !userDisabled && !submissionDisabled
+}
+
+func bundleValidationDependencyReady(bundleValidator problems.BundleValidator) bool {
+	if bundleValidator == nil {
+		return false
+	}
+	_, disabled := bundleValidator.(problems.DisabledBundleValidator)
+	return !disabled
 }
 
 func writeJSON(writer http.ResponseWriter, status int, payload any) {

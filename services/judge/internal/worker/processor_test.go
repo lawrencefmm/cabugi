@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +14,10 @@ import (
 type stubStore struct {
 	job              SubmissionJob
 	claimErr         error
+	leaseRenewCalls  int
+	leaseRenewErr    error
+	leaseRenewedID   string
+	leaseRenewedWith string
 	runningID        string
 	failedID         string
 	failedError      string
@@ -34,8 +40,23 @@ type stubRunner struct {
 	err     error
 }
 
+type blockingRunner struct {
+	started chan struct{}
+	release chan struct{}
+	result  spike.Result
+	err     error
+	once    sync.Once
+}
+
 func (store *stubStore) ClaimNextJob(context.Context) (SubmissionJob, error) {
 	return store.job, store.claimErr
+}
+
+func (store *stubStore) RenewJobLease(_ context.Context, submissionID string, leaseToken string) error {
+	store.leaseRenewCalls++
+	store.leaseRenewedID = submissionID
+	store.leaseRenewedWith = leaseToken
+	return store.leaseRenewErr
 }
 
 func (store *stubStore) MarkSubmissionRunning(_ context.Context, submissionID string) error {
@@ -43,13 +64,13 @@ func (store *stubStore) MarkSubmissionRunning(_ context.Context, submissionID st
 	return nil
 }
 
-func (store *stubStore) HandleJobFailure(_ context.Context, submissionID string, lastError string) error {
+func (store *stubStore) HandleJobFailure(_ context.Context, submissionID string, _ string, lastError string) error {
 	store.failedID = submissionID
 	store.failedError = lastError
 	return store.handleFailureErr
 }
 
-func (store *stubStore) CompleteSubmission(_ context.Context, submissionID string, status string, results []CaseResult) error {
+func (store *stubStore) CompleteSubmission(_ context.Context, submissionID string, _ string, status string, results []CaseResult) error {
 	store.completedID = submissionID
 	store.completedStatus = status
 	store.completedResults = results
@@ -67,8 +88,21 @@ func (runner *stubRunner) Evaluate(_ context.Context, request spike.Request) (sp
 	return runner.result, runner.err
 }
 
+func (runner *blockingRunner) Evaluate(ctx context.Context, _ spike.Request) (spike.Result, error) {
+	runner.once.Do(func() {
+		close(runner.started)
+	})
+
+	select {
+	case <-runner.release:
+		return runner.result, runner.err
+	case <-ctx.Done():
+		return spike.Result{}, ctx.Err()
+	}
+}
+
 func TestProcessOneReturnsFalseWhenNoJobsExist(t *testing.T) {
-	processor := NewProcessor(&stubStore{claimErr: ErrNoJobs}, &stubLoader{}, &stubRunner{})
+	processor := NewProcessor(&stubStore{claimErr: ErrNoJobs}, &stubLoader{}, &stubRunner{}, time.Second)
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessOne() error = %v", err)
@@ -79,10 +113,10 @@ func TestProcessOneReturnsFalseWhenNoJobsExist(t *testing.T) {
 }
 
 func TestProcessOneClaimsRunsAndCompletesSubmission(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundles/two-sum.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundles/two-sum.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictAccepted, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictAccepted, Duration: 25 * time.Millisecond}}}}
 	loader := &stubLoader{cases: []spike.TestCase{{Input: "21\n", ExpectedOutput: "42\n"}}}
-	processor := NewProcessor(store, loader, runner)
+	processor := NewProcessor(store, loader, runner, time.Second)
 
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -112,9 +146,9 @@ func TestProcessOneClaimsRunsAndCompletesSubmission(t *testing.T) {
 }
 
 func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "broken", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "cpp17", SourceCode: "broken", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictCompileError}}
-	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner, time.Second)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -126,9 +160,9 @@ func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneMapsWrongAnswerToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "wrong", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "cpp17", SourceCode: "wrong", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictWrongAnswer, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictWrongAnswer, Duration: 10 * time.Millisecond}}}}
-	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner, time.Second)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -140,9 +174,9 @@ func TestProcessOneMapsWrongAnswerToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneMapsTimeLimitExceededToFinalSubmissionStatus(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "python", SourceCode: "while True: pass", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "python", SourceCode: "while True: pass", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictTimeLimitExceeded, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictTimeLimitExceeded, Duration: 1500 * time.Millisecond}}}}
-	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner)
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "2\n"}}}, runner, time.Second)
 
 	_, err := processor.ProcessOne(context.Background())
 	if err != nil {
@@ -154,8 +188,8 @@ func TestProcessOneMapsTimeLimitExceededToFinalSubmissionStatus(t *testing.T) {
 }
 
 func TestProcessOneReturnsLoaderErrors(t *testing.T) {
-	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
-	processor := NewProcessor(store, &stubLoader{err: errors.New("missing bundle")}, &stubRunner{})
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "cpp17", SourceCode: "int main() {}", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	processor := NewProcessor(store, &stubLoader{err: errors.New("missing bundle")}, &stubRunner{}, time.Second)
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {
 		t.Fatalf("ProcessOne() error = %v", err)
@@ -168,5 +202,91 @@ func TestProcessOneReturnsLoaderErrors(t *testing.T) {
 	}
 	if store.failedError == "" {
 		t.Fatal("HandleJobFailure() should receive a failure message")
+	}
+}
+
+func TestProcessOneRenewsLeaseWhileRunningLongSubmission(t *testing.T) {
+	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "python", SourceCode: "print(42)", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
+	runner := &blockingRunner{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+		result:  spike.Result{Verdict: spike.VerdictAccepted, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictAccepted, Duration: 5 * time.Millisecond}}},
+	}
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner, 5*time.Millisecond)
+
+	done := make(chan struct{})
+	go func() {
+		_, err := processor.ProcessOne(context.Background())
+		if err != nil {
+			t.Errorf("ProcessOne() error = %v", err)
+		}
+		close(done)
+	}()
+
+	<-runner.started
+	time.Sleep(20 * time.Millisecond)
+	close(runner.release)
+	<-done
+
+	if store.leaseRenewCalls == 0 {
+		t.Fatal("ProcessOne() should renew the lease while a job is still running")
+	}
+	if store.leaseRenewedID != "submission-id" || store.leaseRenewedWith != "lease-token" {
+		t.Fatalf("RenewJobLease() received id=%q token=%q", store.leaseRenewedID, store.leaseRenewedWith)
+	}
+}
+
+func TestProcessOneStopsWhenLeaseIsLost(t *testing.T) {
+	store := &stubStore{
+		job:           SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "python", SourceCode: "print(42)", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second},
+		leaseRenewErr: ErrJobLeaseLost,
+	}
+	runner := &blockingRunner{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner, 5*time.Millisecond)
+
+	processed, err := processor.ProcessOne(context.Background())
+	if err != nil {
+		t.Fatalf("ProcessOne() error = %v", err)
+	}
+	if !processed {
+		t.Fatal("ProcessOne() should report that a claimed job was handled")
+	}
+	if store.completedID != "" {
+		t.Fatalf("CompleteSubmission() should not be called after lease loss, got %q", store.completedID)
+	}
+	if store.failedID != "" {
+		t.Fatalf("HandleJobFailure() should not be called after lease loss, got %q", store.failedID)
+	}
+	if store.leaseRenewCalls == 0 {
+		t.Fatal("RenewJobLease() should be attempted before lease loss is handled")
+	}
+}
+
+func TestProcessOneRecordsHeartbeatFailures(t *testing.T) {
+	store := &stubStore{
+		job:           SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "python", SourceCode: "print(42)", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second},
+		leaseRenewErr: errors.New("db unavailable"),
+	}
+	runner := &blockingRunner{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner, 5*time.Millisecond)
+
+	processed, err := processor.ProcessOne(context.Background())
+	if err != nil {
+		t.Fatalf("ProcessOne() error = %v", err)
+	}
+	if !processed {
+		t.Fatal("ProcessOne() should report that a claimed job was handled")
+	}
+	if store.failedID != "submission-id" {
+		t.Fatalf("HandleJobFailure() received %q, want %q", store.failedID, "submission-id")
+	}
+	if !strings.Contains(store.failedError, "renew submission job lease") {
+		t.Fatalf("HandleJobFailure() error = %q, want lease renewal context", store.failedError)
 	}
 }

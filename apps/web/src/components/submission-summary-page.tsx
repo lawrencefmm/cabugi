@@ -3,7 +3,8 @@
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchSubmission, formatQueuedAt, formatSubmissionLanguage, formatSubmissionStatus, type SubmissionDetail, type SubmissionStatus } from "../lib/api";
+import { fetchSubmission, formatQueuedAt, formatSubmissionLanguage, type SubmissionDetail, type SubmissionStatus } from "../lib/api";
+import { VerdictBadge } from "./verdict-badge";
 
 type SubmissionSummaryPageProps = {
   authEnabled: boolean;
@@ -45,10 +46,11 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
     <main className="app-main">
       <section className="page-hero">
         <a className="status-note" href="/submissions">
-          Back to submission history
+          Submissions / {submissionId}
         </a>
         <span className="page-kicker">Submission</span>
-        <h1 className="page-title">{submissionId}</h1>
+        <h1 className="page-title submission-identifier">{submissionId}</h1>
+        <p className="page-subtitle">Inspect the stored verdict, aggregate counts, and per-test output for this submission.</p>
       </section>
 
       {!isLoaded ? (
@@ -86,21 +88,23 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
       ) : null}
 
       {submissionQuery.data ? (
-        <section className="history-card submission-detail">
-          <div className="history-card__header">
+        <section className="table-shell submission-detail">
+          <div className="submission-detail__header">
             <div>
-              <a className="history-card__problem-link" href={`/problems/${submissionQuery.data.problemSlug}`}>
+              <a className="table-link" href={`/problems/${submissionQuery.data.problemSlug}`}>
                 {submissionQuery.data.problemSlug}
               </a>
-              <p className="history-card__meta">{formatSubmissionLanguage(submissionQuery.data.language)}</p>
+              <p className="detail-meta mono">{formatSubmissionLanguage(submissionQuery.data.language)} • Queued {formatQueuedAt(submissionQuery.data.queuedAt)}</p>
             </div>
+
+            <VerdictBadge verdict={submissionQuery.data.status} />
           </div>
 
           <div className="submission-stats" aria-label="Submission summary">
             <article className="submission-stat">
               <p className="submission-stat__label">Final verdict</p>
-              <div className={`workspace-status workspace-status--${submissionQuery.data.status}`}>
-                <span className="workspace-status__value">{formatSubmissionStatus(submissionQuery.data.status)}</span>
+              <div className="submission-stat__value">
+                <VerdictBadge verdict={submissionQuery.data.status} />
               </div>
             </article>
 
@@ -113,10 +117,6 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
               <p className="submission-stat__label">Total tests</p>
               <p className="submission-stat__value">{submissionQuery.data.totalTests}</p>
             </article>
-          </div>
-
-          <div className="history-card__footer">
-            <span className="history-card__timestamp">Queued {formatQueuedAt(submissionQuery.data.queuedAt)}</span>
           </div>
 
           <SubmissionResults submission={submissionQuery.data} />
@@ -145,12 +145,10 @@ function SubmissionResults({ submission }: { submission: SubmissionDetail }) {
             <div className="submission-result__header">
               <div>
                 <p className="submission-result__title">Test {result.testIndex + 1}</p>
-                <p className="submission-result__meta">Execution time: {result.executionTimeMs} ms</p>
+                <p className="submission-result__meta mono">Execution time: {result.executionTimeMs} ms</p>
               </div>
 
-              <span className={`workspace-status workspace-status--${result.verdict}`}>
-                <span className="workspace-status__value">{formatSubmissionStatus(result.verdict)}</span>
-              </span>
+              <VerdictBadge verdict={result.verdict} />
             </div>
 
             {result.stdoutExcerpt ? (

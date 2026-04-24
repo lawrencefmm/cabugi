@@ -172,6 +172,16 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+    UploadedProblemDraftBundle:
+      type: object
+      required:
+        - hiddenTestBundleKey
+        - hiddenTestBundleSha256
+      properties:
+        hiddenTestBundleKey:
+          type: string
+        hiddenTestBundleSha256:
+          type: string
     Submission:
       type: object
       required:
@@ -274,6 +284,15 @@ paths:
                     type: string
                     enum:
                       - ok
+  /readyz:
+    get:
+      summary: API readiness check
+      operationId: getReadyz
+      responses:
+        '200':
+          description: All required dependencies are ready.
+        '503':
+          description: One or more dependencies are not ready.
   /openapi/v1.yaml:
     get:
       summary: Versioned OpenAPI document
@@ -384,6 +403,37 @@ paths:
           description: A problem with the requested slug already exists.
         '503':
           description: Draft problem dependencies are not configured.
+  /v1/problem-drafts/hidden-test-bundles:
+    post:
+      summary: Upload a hidden test bundle for a draft problem
+      operationId: uploadProblemDraftHiddenTestBundle
+      security:
+        - clerkSession: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - bundle
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Hidden test bundle uploaded and validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedProblemDraftBundle'
+        '400':
+          description: Invalid hidden test bundle upload.
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Hidden test bundle upload dependencies are not configured.
   /v1/problem-drafts/{slug}:
     get:
       summary: Get an owned draft problem by slug

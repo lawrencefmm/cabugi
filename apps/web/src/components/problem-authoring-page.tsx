@@ -14,6 +14,7 @@ import {
   submitProblemDraftForReview,
   type ProblemDraft,
   type ProblemDraftCreateInput,
+  uploadProblemDraftHiddenTestBundle,
   updateProblemDraft,
 } from "../lib/api";
 
@@ -58,6 +59,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<DraftFormState>(emptyDraftForm);
+  const [bundleFile, setBundleFile] = useState<File | null>(null);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const isEditing = Boolean(slug);
 
@@ -113,6 +115,26 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
     },
   });
 
+  const uploadBundleMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      if (!token || !bundleFile) {
+        throw new Error("Missing hidden test bundle upload input");
+      }
+
+      return uploadProblemDraftHiddenTestBundle(bundleFile, token);
+    },
+    onSuccess: (uploadedBundle) => {
+      setForm((current) => ({
+        ...current,
+        hiddenTestBundleKey: uploadedBundle.hiddenTestBundleKey,
+        hiddenTestBundleSha256: uploadedBundle.hiddenTestBundleSha256,
+      }));
+      setBundleFile(null);
+      setDraftMessage("Hidden test bundle uploaded.");
+    },
+  });
+
   const submitForReviewMutation = useMutation({
     mutationFn: async () => {
       const token = await getToken();
@@ -131,7 +153,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
   const currentDraft = draftQuery.data;
   const canEditDraft = !isEditing || currentDraft?.lifecycleStatus === "draft";
   const actionError =
-    createDraftMutation.error ?? updateDraftMutation.error ?? submitForReviewMutation.error ?? draftQuery.error ?? null;
+    uploadBundleMutation.error ?? createDraftMutation.error ?? updateDraftMutation.error ?? submitForReviewMutation.error ?? draftQuery.error ?? null;
 
   if (!isLoaded) {
     return (
@@ -193,7 +215,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
         <span className="page-kicker">Problem Authoring</span>
         <h1 className="page-title">{isEditing ? form.title || slug : "Start a new problem draft."}</h1>
         <p className="page-subtitle">
-          Draft your statement, set the limits, add hidden bundle metadata, and hand off the problem to moderation when it is ready.
+          Draft your statement, set the limits, upload the hidden test bundle, and hand the problem off to moderation when it is ready.
         </p>
       </section>
 
@@ -204,7 +226,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
               <h2 className="workspace-panel__title">Draft Editor</h2>
               <p className="workspace-panel__subtitle">
                 {canEditDraft
-                  ? "Save incremental draft updates as you refine the statement and hidden test bundle metadata."
+                  ? "Save incremental draft updates as you refine the statement and upload the hidden test bundle used for judging."
                   : "This draft is no longer editable because it has already entered moderation."}
               </p>
             </div>
@@ -279,19 +301,47 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
             </div>
 
             <div className="draft-grid">
+              <DraftField label="Hidden test bundle file">
+                <input
+                  accept=".json,application/json"
+                  disabled={!canEditDraft || uploadBundleMutation.isPending}
+                  type="file"
+                  onChange={(event) => {
+                    setDraftMessage(null);
+                    setBundleFile(event.target.files?.[0] ?? null);
+                  }}
+                />
+              </DraftField>
+
+              <DraftField label="Bundle upload action">
+                <div className="draft-actions">
+                  <button
+                    className="workspace-button workspace-button--secondary"
+                    disabled={!canEditDraft || !bundleFile || uploadBundleMutation.isPending}
+                    onClick={() => uploadBundleMutation.mutate()}
+                    type="button"
+                  >
+                    {uploadBundleMutation.isPending ? "Uploading..." : "Upload bundle"}
+                  </button>
+                  <span className="workspace-auth-gate__text mono">{bundleFile?.name ?? (form.hiddenTestBundleKey ? "Bundle uploaded" : "No file selected")}</span>
+                </div>
+              </DraftField>
+            </div>
+
+            <div className="draft-grid">
               <DraftField label="Hidden test bundle key">
                 <input
+                  readOnly
                   type="text"
                   value={form.hiddenTestBundleKey ?? ""}
-                  onChange={(event) => updateField("hiddenTestBundleKey", event.target.value)}
                 />
               </DraftField>
 
               <DraftField label="Hidden test bundle SHA-256">
                 <input
+                  readOnly
                   type="text"
                   value={form.hiddenTestBundleSha256 ?? ""}
-                  onChange={(event) => updateField("hiddenTestBundleSha256", event.target.value)}
                 />
               </DraftField>
             </div>
@@ -302,7 +352,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
             <div className="draft-actions">
               <button
                 className="workspace-button"
-                disabled={!canEditDraft || createDraftMutation.isPending || updateDraftMutation.isPending}
+                disabled={!canEditDraft || uploadBundleMutation.isPending || createDraftMutation.isPending || updateDraftMutation.isPending}
                 type="submit"
               >
                 {isEditing ? (updateDraftMutation.isPending ? "Saving..." : "Save changes") : createDraftMutation.isPending ? "Creating..." : "Create draft"}
@@ -311,7 +361,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
               {isEditing ? (
                 <button
                   className="workspace-button workspace-button--secondary"
-                  disabled={!canEditDraft || submitForReviewMutation.isPending}
+                  disabled={!canEditDraft || uploadBundleMutation.isPending || submitForReviewMutation.isPending}
                   onClick={() => void handleSubmitForReview()}
                   type="button"
                 >
@@ -350,7 +400,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
           <div className="problem-sidebar__section">
             <h2 className="problem-sidebar__heading">Review Checklist</h2>
             <div className="draft-checklist">
-              <p className="workspace-auth-gate__text">Fill the statement fields, confirm the limits, and provide a validated hidden bundle before submitting for review.</p>
+              <p className="workspace-auth-gate__text">Fill the statement fields, confirm the limits, and upload a validated hidden bundle before submitting for review.</p>
             </div>
           </div>
         </aside>

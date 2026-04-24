@@ -83,10 +83,12 @@ go run ./cmd/api
 
 Current bootstrap API routes:
 - `GET /healthz`
+- `GET /readyz`
 - `GET /openapi/v1.yaml`
 - `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
 - `GET /v1/problems/{slug}`
+- `POST /v1/problem-drafts/hidden-test-bundles`
 - `POST /v1/problem-drafts`
 - `GET /v1/problem-drafts/{slug}`
 - `PATCH /v1/problem-drafts/{slug}`
@@ -100,6 +102,9 @@ Current bootstrap API routes:
 Clerk environment variables for protected API routes:
 - `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed frontend origins used to validate the `azp` claim.
+- `API_REQUIRE_AUTH`: when `true`, the API refuses to start unless Clerk auth verification is configured.
+- `API_REQUIRE_DATABASE`: when `true`, the API refuses to start unless the PostgreSQL-backed stores can connect successfully.
+- `API_REQUIRE_HIDDEN_BUNDLE_VALIDATION`: when `true`, the API refuses to start unless hidden test bundle validation can reach the configured object storage bucket.
 
 Database environment for API routes backed by PostgreSQL:
 - `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
@@ -111,6 +116,10 @@ Web environment:
 API browser access environment:
 - `WEB_ALLOWED_ORIGINS`: optional comma-separated origins the API should allow for browser requests. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
 
+Readiness endpoints:
+- `GET /healthz` reports process liveness only.
+- `GET /readyz` reports dependency readiness for auth, database-backed stores, and hidden test bundle validation, and returns `503` when any of them is unavailable.
+
 Judge object storage environment:
 - `OBJECT_STORAGE_ENDPOINT`: judge object storage endpoint. Defaults to `http://127.0.0.1:9000` for local MinIO.
 - `OBJECT_STORAGE_REGION`: object storage region. Defaults to `us-east-1`.
@@ -119,6 +128,8 @@ Judge object storage environment:
 - `OBJECT_STORAGE_SECRET_ACCESS_KEY`: object storage secret key. Defaults to `minioadmin`.
 - `OBJECT_STORAGE_USE_PATH_STYLE`: optional path-style toggle for S3-compatible APIs. Defaults to `true` for local MinIO.
 - `JUDGE_MAX_JOB_ATTEMPTS`: retry limit before the worker marks a submission as `judge_failed`. Defaults to `3`.
+- `JUDGE_JOB_LEASE_DURATION`: how long a claimed submission job remains owned without renewal before another worker may reclaim it. Defaults to `30s`.
+- `JUDGE_JOB_LEASE_RENEW_INTERVAL`: how often the active worker renews its current job lease. Defaults to `10s`.
 - `JUDGE_POLL_INTERVAL`: idle poll interval for the long-running worker loop. Defaults to `3s`.
 - `JUDGE_RETRY_DELAY`: delay before retrying a failed claimed job. Defaults to `5s`.
 

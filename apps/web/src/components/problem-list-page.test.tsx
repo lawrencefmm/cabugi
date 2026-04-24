@@ -30,7 +30,8 @@ describe("ProblemListPage", () => {
     render(<ProblemListPage />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading published problems");
-    expect(await screen.findByRole("heading", { name: "Two Sum" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Two Sum" })).toHaveAttribute("href", "/problems/two-sum");
+    expect(screen.getByRole("table", { name: "Published problems" })).toBeInTheDocument();
     expect(screen.getByText("two-sum")).toBeInTheDocument();
   });
 

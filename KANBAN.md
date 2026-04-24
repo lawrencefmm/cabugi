@@ -23,7 +23,256 @@
 
 ## Backlog
 
+### JUDGE-07 - Harden judge sandbox for production
+Description: Replace the current Docker-spike execution path with a production-ready sandbox model for untrusted code on dedicated judge hosts.
+
+Expected Result: The default judge worker path uses a hardened isolation boundary that is appropriate for hostile submissions in production rather than a local proof-of-concept runner.
+
+Acceptance Tests:
+- The default long-running worker path no longer depends directly on the local spike runner for production execution.
+- Submissions execute as a non-root user with network disabled and only a tightly scoped writable scratch area.
+- Runtime images, toolchains, or sandbox assets are pinned and prepared ahead of execution instead of being pulled opportunistically during job processing.
+- Sandbox assumptions and dedicated-host requirements are documented clearly.
+- Automated tests or reproducible local verification still prove `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded` handling.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Pending.
+
+### OBS-01 - Add structured observability for API and judge
+Description: Add structured logs, service health signals, and metrics so operators can monitor request flow, queue health, worker progress, and failure modes in production.
+
+Expected Result: Operators can understand what the API and judge are doing without debugging from inside hosts or databases directly.
+
+Acceptance Tests:
+- The API emits structured request logs that include method, path, status, latency, and a request identifier.
+- The judge emits structured logs for claim, retry, completion, and terminal failure paths.
+- Metrics or status endpoints expose at least API request counts, submission queue depth, worker outcomes, and worker heartbeat freshness.
+- Local development docs describe how to inspect the new logs and metrics.
+- Relevant verification commands pass.
+
+Notes:
+- Pending.
+
+### OPS-01 - Add deployment packaging and full-stack runtime definitions
+Description: Add production-oriented packaging for the web, API, and judge services plus a full local runtime definition that matches the intended service boundaries.
+
+Expected Result: The repository can build deployable artifacts consistently and run the full application stack through checked-in runtime definitions.
+
+Acceptance Tests:
+- Dockerfiles or equivalent build definitions exist for `apps/web`, `services/api`, and `services/judge`.
+- A checked-in local runtime definition exists for `web`, `api`, `judge`, `postgres`, and object storage.
+- Developer-facing docs list the required environment variables and secret inputs for the full stack.
+- The new build or runtime commands are exercised in CI or have a recorded follow-up if CI execution is not yet practical.
+
+Notes:
+- Pending.
+
+### DB-OPS-01 - Add production-safe migration and recovery workflow
+Description: Add a documented and repeatable database migration process for deploys, including rollback guidance and backup or restore procedures.
+
+Expected Result: Database changes can be applied and recovered safely in production without relying on destructive development verification scripts.
+
+Acceptance Tests:
+- A versioned migration workflow or runner is documented and checked into the repository.
+- Deployment docs define the production migration procedure separately from destructive local schema verification.
+- Backup and restore commands, scripts, or documented procedures exist and are verified locally.
+- Relevant verification commands pass.
+
+Notes:
+- Pending.
+
+### CI-03 - Expand CI for builds, integration, and security checks
+Description: Extend CI beyond unit tests so it verifies deployable builds, integration behavior, and basic security hygiene for the production path.
+
+Expected Result: CI covers the most important production regressions before changes reach shared branches.
+
+Acceptance Tests:
+- CI builds the production web app.
+- CI builds the API and judge deployable artifacts.
+- CI runs at least one integration or end-to-end smoke job against backing services.
+- CI runs dependency or image security checks, or records an explicit follow-up if that is not yet practical.
+- Workflow docs stay aligned with the new CI behavior.
+
+Notes:
+- Pending.
+
+### AUTH-OPS-01 - Harden production auth validation and transport rules
+Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
+
+Expected Result: Production authentication behavior is explicit, testable, and suitable for long-lived deployments.
+
+Acceptance Tests:
+- Production token validation checks the required issuer and expected authorized-party or audience claims.
+- The repository documents or implements a key-rotation strategy such as JWKS-backed verification.
+- Browser auth transport rules are explicit and consistent between header and cookie-based flows.
+- Automated tests cover invalid issuer or audience behavior if those checks are introduced.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Pending.
+
+### E2E-01 - Add end-to-end workflow smoke tests
+Description: Add end-to-end smoke coverage for the core user and moderation workflows across the real local stack.
+
+Expected Result: The repository has repeatable smoke tests that prove the main product loops work across `web`, `api`, `postgres`, `object-storage`, and `judge`.
+
+Acceptance Tests:
+- A documented command exists to run the end-to-end smoke suite locally.
+- The suite proves a signed-in user can open a published problem, submit code, and reach a final verdict.
+- The suite proves a signed-in user can create a draft and submit it for review.
+- The suite proves a moderator can approve a reviewed draft and make it visible in the public problem list.
+- The suite runs in CI or has a follow-up task recorded if CI execution is not yet practical.
+
+Notes:
+- Pending.
+
+### QUAL-02 - Add integration coverage and refresh testing rules
+Description: Add higher-level integration verification for the core platform flows and refresh `TESTING_RULES.md` so it matches the current project state.
+
+Expected Result: The testing policy reflects current capabilities, and the repository gains integration coverage for important cross-service behavior.
+
+Acceptance Tests:
+- `TESTING_RULES.md` no longer lists stale gaps that have already been addressed.
+- The requirement coverage map includes the current moderation, hidden bundle, and judge failure behaviors.
+- New integration checks cover at least one cross-service submission flow and one hidden-test or moderation rule.
+- The new integration verification command is documented in developer-facing docs.
+- Relevant verification commands pass.
+
+Notes:
+- Pending.
+
+### JUDGE-05 - Store and expose compile and runtime artifacts
+Description: Persist useful compile and runtime artifacts from the judge so users and staff can inspect failures without accessing judge hosts directly.
+
+Expected Result: Submission detail responses can include safe references or excerpts for compile and runtime diagnostics.
+
+Acceptance Tests:
+- The judge stores compile logs or runtime artifacts for failed submissions when useful output exists.
+- The API exposes safe artifact metadata or excerpts on owned submission detail reads.
+- The web submission detail UI renders compile-error or runtime diagnostics when present.
+- Hidden tests and other private data are not exposed through the new artifact flow.
+- `go test ./...` passes in `services/judge`.
+- `go test ./...` passes in `services/api`.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Pending.
+
+### ADMIN-01 - Add staff role bootstrap tooling
+Description: Add an operational path to assign and manage `moderator` and `admin` roles for local development and early production operations.
+
+Expected Result: Staff roles can be granted safely without manual database edits.
+
+Acceptance Tests:
+- A documented admin-only command, script, or endpoint exists to grant staff roles.
+- Local development setup documents how to bootstrap the first moderator or admin.
+- Non-admin users cannot grant privileged roles.
+- Automated tests cover the authorization behavior for staff role assignment if an API route is introduced.
+- Relevant verification commands pass.
+
+Notes:
+- Pending.
+
+### SEED-02 - Expand official starter problem set
+Description: Add more published official starter problems so new users can explore a broader range of supported problem types immediately.
+
+Expected Result: The public problem list contains a larger verified starter set with real hidden tests and varied verdict coverage.
+
+Acceptance Tests:
+- Additional official starter problems exist in repeatable seed data.
+- The seeded set covers more than the current starter problems and includes varied examples or difficulty.
+- Each added seeded problem has a verified hidden test bundle.
+- Public problem list endpoints return the expanded set.
+- Relevant verification commands pass.
+
+Notes:
+- Pending.
+
 ## Done
+
+### API-OPS-01 - Harden API startup, readiness, and HTTP limits
+Description: Make the API safer for deployed environments by failing fast on required dependency problems and adding readiness checks, explicit HTTP server timeouts, body limits, and correct browser preflight behavior.
+
+Expected Result: Broken deployments no longer look healthy, and public API traffic is handled with safer defaults and clearer operational signals.
+
+Acceptance Tests:
+- The API can be configured to fail startup when required auth, database, or hidden-bundle validation dependencies are unavailable.
+- `GET /readyz` reports dependency readiness separately from `GET /healthz` liveness.
+- The HTTP server sets explicit read, read-header, write, and idle timeouts.
+- Write routes enforce request body size limits suitable for source-code and markdown payloads.
+- Browser preflight responses include the methods used by the web app, including `PATCH`.
+- Required environment and readiness behavior are documented in developer-facing docs.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding startup requirement flags for auth, database, and hidden bundle validation, plus actual PostgreSQL connectivity checks during store initialization and object-storage bucket readiness checks before enabling bundle validation.
+- Added `GET /readyz` with explicit dependency status reporting separate from `GET /healthz`, and configured the HTTP server with explicit read, read-header, write, and idle timeouts plus a bounded max header size.
+- Added JSON request body limits for draft create or update, moderation decisions, and submission create routes, and updated CORS preflight responses to advertise `PATCH` for the browser draft editor flow.
+- Documented the new startup requirement environment variables and readiness behavior in the API and development docs, and updated the OpenAPI document to include `/readyz`.
+- Verified `go test ./...` in `services/api` and `pnpm --filter web typecheck`.
+
+### AUTHOR-01 - Add hidden test bundle upload flow
+Description: Add an author-facing upload flow so draft creators can upload hidden test bundles directly instead of manually entering object storage metadata.
+
+Expected Result: Draft authors can upload a hidden test bundle from the web app, and the backend stores validated bundle metadata automatically.
+
+Acceptance Tests:
+- The web authoring flow includes a hidden test bundle upload action.
+- Uploading a valid bundle stores or returns the object key and SHA-256 needed by draft routes.
+- Invalid bundles are rejected with a clear validation error.
+- Draft submit-for-review continues to reject drafts that do not have a valid hidden test bundle.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by adding the protected API upload route `POST /v1/problem-drafts/hidden-test-bundles`, object-storage upload support in `services/api/internal/problems/bundles.go`, and OpenAPI plus docs updates for the new flow.
+- Hidden bundle uploads are now validated as JSON bundles with at least one test case before being written to object storage, and successful uploads return the generated object key plus SHA-256 checksum used by draft create or update routes.
+- The web authoring page now lets users choose a bundle file, upload it directly from the browser, and uses the returned metadata as read-only draft bundle fields instead of requiring manual object-storage values.
+- Added API handler and bundle tests plus web authoring tests for successful upload and upload validation failures.
+- Verified `go test ./...` in `services/api`, `pnpm --filter web typecheck`, and `pnpm --filter web test --run`.
+
+### WEB-07 - Shift the web UI to a developer-tool visual system
+Description: Refactor the frontend visual system so the product feels like a serious competitive-programming tool instead of a generic dark SaaS shell.
+
+Expected Result: The web app uses a clean, dense, dark-first interface that prioritizes tables, code, statements, verdicts, filters, and operational readability.
+
+Acceptance Tests:
+- Global visual tokens use flat dark surfaces, subtle borders, minimal shadows, and a single strong accent color.
+- The home problem list and submission history views use dense table or compact row-list presentations instead of large glossy cards.
+- Verdicts render with a shared compact badge style.
+- Problem detail and solve workspace layouts prioritize readable statement content, code, and metadata without marketing-style hero sections.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by replacing the glossy gradient-heavy shell with flatter dark tokens, tighter spacing, monospace metadata, compact surfaces, and a single violet accent in `apps/web/app/globals.css`.
+- Reworked the home problem list and submission history into dense tables, added a real shared verdict badge component, and refreshed the submission detail view to feel more like an operational judge dashboard.
+- Updated the problem detail header and solve workspace copy and layout so the core solve flow reads like a practical developer tool instead of a marketing-style landing screen.
+- Verified `pnpm --filter web typecheck` and `pnpm --filter web test --run`.
+
+### JUDGE-06 - Add job leases and stuck submission recovery
+Description: Replace permanent submission job claims with a lease-based worker flow that can recover abandoned work after judge crashes, restarts, or host loss.
+
+Expected Result: A claimed submission job cannot remain stuck forever; expired claims become recoverable and user-visible submission state progresses to completion or a terminal failure.
+
+Acceptance Tests:
+- `submission_jobs` or equivalent worker state includes the data needed to detect and recover stale claims.
+- Active workers can renew claims while processing long-running submissions.
+- Claimed jobs become reclaimable after lease expiry when a worker stops heartbeating.
+- Automated tests cover a stale-claim recovery path and prove the submission does not remain `running` indefinitely.
+- Relevant API or worker status handling continues to return correct terminal states for recovered or failed submissions.
+- `go test ./...` passes in `services/judge`.
+- `go test ./...` passes in `services/api` if shared submission-state behavior changes.
+
+Notes:
+- Completed by adding `db/migrations/0002_submission_job_leases.sql` plus schema verification updates so `submission_jobs` now tracks a renewable `lease_token` and `lease_expires_at` for abandoned-claim recovery.
+- The judge worker now claims jobs with a lease, renews the lease while processing long-running submissions, and gates completion or failure writes on the active lease token so an expired claimant cannot overwrite a newer worker's result.
+- Recovery handling now treats lost leases as reclaimable work instead of permanent failure, while poisoned jobs are parked with `available_at = 'infinity'` so terminal `judge_failed` jobs are not claimed again.
+- Added worker tests for lease renewal, lost-lease cancellation, heartbeat failure recording, and lease-aware store behavior.
+- Verified `go test ./...` in `services/judge` and `./db/scripts/verify_initial_schema.sh`.
 
 ### SEED-01 - Seed official starter problems
 Description: Add a small official set of published starter problems with verified hidden tests so the platform is immediately usable.

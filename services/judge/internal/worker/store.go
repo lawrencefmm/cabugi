@@ -10,6 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const defaultJobLeaseDuration = 30 * time.Second
+
+var ErrJobLeaseLost = errors.New("submission job lease lost")
+
 type database interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
@@ -19,6 +23,7 @@ type PostgresStore struct {
 	pool           *pgxpool.Pool
 	db             database
 	maxJobAttempts int
+	leaseDuration  time.Duration
 	retryDelay     time.Duration
 }
 
@@ -26,16 +31,16 @@ const claimNextJobSQL = `
 WITH next_job AS (
   SELECT submission_id
   FROM submission_jobs
-  WHERE claimed_at IS NULL AND available_at <= NOW()
+  WHERE available_at <= NOW() AND (claimed_at IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= NOW())
   ORDER BY created_at ASC
   LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
 UPDATE submission_jobs sj
-SET claimed_at = NOW(), attempts = sj.attempts + 1
+SET claimed_at = NOW(), lease_token = gen_random_uuid(), lease_expires_at = $1, attempts = sj.attempts + 1
 FROM next_job
 WHERE sj.submission_id = next_job.submission_id
-RETURNING sj.submission_id::text
+RETURNING sj.submission_id::text, sj.lease_token::text
 `
 
 const loadSubmissionJobSQL = `
@@ -54,20 +59,33 @@ WHERE s.id = $1::uuid
 const selectJobAttemptsSQL = `
 SELECT attempts
 FROM submission_jobs
-WHERE submission_id = $1::uuid
+WHERE submission_id = $1::uuid AND lease_token = $2::uuid AND lease_expires_at > NOW()
 FOR UPDATE
+`
+
+const renewJobLeaseSQL = `
+UPDATE submission_jobs
+SET lease_expires_at = $3
+WHERE submission_id = $1::uuid AND lease_token = $2::uuid AND lease_expires_at > NOW()
 `
 
 const requeueSubmissionJobSQL = `
 UPDATE submission_jobs
-SET claimed_at = NULL, available_at = $2, last_error = $3
+SET claimed_at = NULL, lease_token = NULL, lease_expires_at = NULL, available_at = $2, last_error = $3
 WHERE submission_id = $1::uuid
 `
 
 const poisonSubmissionJobSQL = `
 UPDATE submission_jobs
-SET last_error = $2
+SET claimed_at = NULL, lease_token = NULL, lease_expires_at = NULL, available_at = 'infinity'::timestamptz, last_error = $2
 WHERE submission_id = $1::uuid
+`
+
+const lockSubmissionJobLeaseSQL = `
+SELECT 1
+FROM submission_jobs
+WHERE submission_id = $1::uuid AND lease_token = $2::uuid AND lease_expires_at > NOW()
+FOR UPDATE
 `
 
 const resetSubmissionForRetrySQL = `
@@ -82,7 +100,7 @@ SET status = 'judge_failed', finished_at = NOW(), total_tests = 0, passed_tests 
 WHERE id = $1::uuid
 `
 
-func NewPostgresStore(databaseURL string, maxJobAttempts int, retryDelay time.Duration) (*PostgresStore, error) {
+func NewPostgresStore(databaseURL string, maxJobAttempts int, retryDelay time.Duration, leaseDuration time.Duration) (*PostgresStore, error) {
 	pool, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
 		return nil, err
@@ -90,22 +108,28 @@ func NewPostgresStore(databaseURL string, maxJobAttempts int, retryDelay time.Du
 	if maxJobAttempts <= 0 {
 		maxJobAttempts = 3
 	}
+	if leaseDuration <= 0 {
+		leaseDuration = defaultJobLeaseDuration
+	}
 	if retryDelay <= 0 {
 		retryDelay = 5 * time.Second
 	}
 
-	return &PostgresStore{pool: pool, db: pool, maxJobAttempts: maxJobAttempts, retryDelay: retryDelay}, nil
+	return &PostgresStore{pool: pool, db: pool, maxJobAttempts: maxJobAttempts, leaseDuration: leaseDuration, retryDelay: retryDelay}, nil
 }
 
-func NewPostgresStoreFromDatabase(db database, maxJobAttempts int, retryDelay time.Duration) *PostgresStore {
+func NewPostgresStoreFromDatabase(db database, maxJobAttempts int, retryDelay time.Duration, leaseDuration time.Duration) *PostgresStore {
 	if maxJobAttempts <= 0 {
 		maxJobAttempts = 3
 	}
+	if leaseDuration <= 0 {
+		leaseDuration = defaultJobLeaseDuration
+	}
 	if retryDelay <= 0 {
 		retryDelay = 5 * time.Second
 	}
 
-	return &PostgresStore{db: db, maxJobAttempts: maxJobAttempts, retryDelay: retryDelay}
+	return &PostgresStore{db: db, maxJobAttempts: maxJobAttempts, leaseDuration: leaseDuration, retryDelay: retryDelay}
 }
 
 func (store *PostgresStore) Close() {
@@ -122,7 +146,8 @@ func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, er
 	defer tx.Rollback(ctx)
 
 	var submissionID string
-	err = tx.QueryRow(ctx, claimNextJobSQL).Scan(&submissionID)
+	var leaseToken string
+	err = tx.QueryRow(ctx, claimNextJobSQL, time.Now().Add(store.leaseDuration)).Scan(&submissionID, &leaseToken)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SubmissionJob{}, ErrNoJobs
 	}
@@ -136,6 +161,7 @@ func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, er
 	if err != nil {
 		return SubmissionJob{}, err
 	}
+	job.LeaseToken = leaseToken
 	job.TimeLimit = time.Duration(timeLimitMS) * time.Millisecond
 
 	if err := tx.Commit(ctx); err != nil {
@@ -145,12 +171,24 @@ func (store *PostgresStore) ClaimNextJob(ctx context.Context) (SubmissionJob, er
 	return job, nil
 }
 
+func (store *PostgresStore) RenewJobLease(ctx context.Context, submissionID string, leaseToken string) error {
+	result, err := store.db.Exec(ctx, renewJobLeaseSQL, submissionID, leaseToken, time.Now().Add(store.leaseDuration))
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrJobLeaseLost
+	}
+
+	return nil
+}
+
 func (store *PostgresStore) MarkSubmissionRunning(ctx context.Context, submissionID string) error {
 	_, err := store.db.Exec(ctx, `UPDATE submissions SET status = 'running', started_at = NOW() WHERE id = $1::uuid`, submissionID)
 	return err
 }
 
-func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID string, lastError string) error {
+func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID string, leaseToken string, lastError string) error {
 	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -158,7 +196,10 @@ func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID s
 	defer tx.Rollback(ctx)
 
 	var attempts int
-	err = tx.QueryRow(ctx, selectJobAttemptsSQL, submissionID).Scan(&attempts)
+	err = tx.QueryRow(ctx, selectJobAttemptsSQL, submissionID, leaseToken).Scan(&attempts)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrJobLeaseLost
+	}
 	if err != nil {
 		return err
 	}
@@ -190,12 +231,21 @@ func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID s
 	return tx.Commit(ctx)
 }
 
-func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, status string, results []CaseResult) error {
+func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, leaseToken string, status string, results []CaseResult) error {
 	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+
+	var locked int
+	err = tx.QueryRow(ctx, lockSubmissionJobLeaseSQL, submissionID, leaseToken).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrJobLeaseLost
+	}
+	if err != nil {
+		return err
+	}
 
 	for index, result := range results {
 		_, err := tx.Exec(ctx, `INSERT INTO submission_results (submission_id, test_index, verdict, execution_time_ms, stdout_excerpt, stderr_excerpt) VALUES ($1::uuid, $2, $3::submission_case_status, $4, $5, $6)`, submissionID, index, result.Verdict, result.ExecutionTimeMS, result.StdoutExcerpt, result.StderrExcerpt)
@@ -216,9 +266,12 @@ func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `DELETE FROM submission_jobs WHERE submission_id = $1::uuid`, submissionID)
+	result, err := tx.Exec(ctx, `DELETE FROM submission_jobs WHERE submission_id = $1::uuid AND lease_token = $2::uuid`, submissionID, leaseToken)
 	if err != nil {
 		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrJobLeaseLost
 	}
 
 	return tx.Commit(ctx)

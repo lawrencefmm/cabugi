@@ -39,8 +39,8 @@ describe("ProblemDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "Two Sum" })).toBeInTheDocument();
     expect(screen.getByText("Statement")).toBeInTheDocument();
     expect(screen.getByText("Constraints")).toBeInTheDocument();
-    expect(screen.getByText("1000 ms")).toBeInTheDocument();
-    expect(screen.getByText("256 MB")).toBeInTheDocument();
+    expect(screen.getAllByText("1000 ms")).not.toHaveLength(0);
+    expect(screen.getAllByText("256 MB")).not.toHaveLength(0);
   });
 
   it("renders a not found message for a missing problem", async () => {

@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/lawrencefmm/cabugi/services/judge/internal/config"
@@ -22,8 +24,11 @@ func main() {
 	runOnce := flag.Bool("once", false, "claim and process at most one queued submission")
 	flag.Parse()
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	cfg := config.Load()
-	store, err := worker.NewPostgresStore(cfg.DatabaseURL, cfg.MaxJobAttempts, cfg.WorkerRetryDelay)
+	store, err := worker.NewPostgresStore(cfg.DatabaseURL, cfg.MaxJobAttempts, cfg.WorkerRetryDelay, cfg.JobLeaseDuration)
 	if err != nil {
 		log.Fatalf("create judge store: %v", err)
 	}
@@ -34,15 +39,15 @@ func main() {
 		log.Fatalf("create bundle loader: %v", err)
 	}
 
-	jobProcessor := worker.NewProcessor(store, bundleLoader, spike.NewRunner())
+	jobProcessor := worker.NewProcessor(store, bundleLoader, spike.NewRunner(), cfg.JobLeaseRenewAfter)
 	if *runOnce {
-		if err := runOnceCommand(context.Background(), jobProcessor, os.Stdout); err != nil {
+		if err := runOnceCommand(ctx, jobProcessor, os.Stdout); err != nil {
 			log.Fatalf("process submission job: %v", err)
 		}
 		return
 	}
 
-	if err := runLoop(context.Background(), jobProcessor, cfg.WorkerPollInterval, os.Stdout); err != nil {
+	if err := runLoop(ctx, jobProcessor, cfg.WorkerPollInterval, os.Stdout); err != nil {
 		log.Fatalf("run judge worker loop: %v", err)
 	}
 }

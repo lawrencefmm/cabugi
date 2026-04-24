@@ -5,8 +5,9 @@ import Editor from "@monaco-editor/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { createSubmission, fetchSubmission, formatSubmissionStatus, isTerminalSubmissionStatus, type Submission } from "../lib/api";
+import { createSubmission, fetchSubmission, isTerminalSubmissionStatus, type Submission } from "../lib/api";
 import { starterCodeTemplates, type SubmissionLanguage } from "../lib/starter-code";
+import { VerdictBadge } from "./verdict-badge";
 
 type SolveWorkspaceProps = {
   authEnabled: boolean;
@@ -104,7 +105,7 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
         <div className="workspace-panel__header">
           <div>
             <h2 className="workspace-panel__title">Solve Workspace</h2>
-            <p className="workspace-panel__subtitle">Sign in to submit solutions and watch verdicts update in real time.</p>
+            <p className="workspace-panel__subtitle">Sign in to submit solutions and follow verdict changes in real time.</p>
           </div>
         </div>
 
@@ -125,7 +126,7 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
       <div className="workspace-panel__header">
         <div>
           <h2 className="workspace-panel__title">Solve Workspace</h2>
-          <p className="workspace-panel__subtitle">Choose a language, write a solution, and submit directly to the Cabugi judge pipeline.</p>
+          <p className="workspace-panel__subtitle">Choose a language, edit source, and submit directly to the judge pipeline for this problem.</p>
         </div>
 
         <label className="workspace-language-picker">
@@ -160,10 +161,7 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
         </button>
 
         {liveSubmission ? (
-          <div className={`workspace-status workspace-status--${liveSubmission.status}`}>
-            <span className="workspace-status__label">Status</span>
-            <span className="workspace-status__value">{formatSubmissionStatus(liveSubmission.status)}</span>
-          </div>
+          <VerdictBadge verdict={liveSubmission.status} />
         ) : null}
       </div>
 
