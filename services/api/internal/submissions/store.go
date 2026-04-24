@@ -69,6 +69,12 @@ type PostgresStore struct {
 	db   rowQueryer
 }
 
+const queueDepthSQL = `
+SELECT COUNT(*)
+FROM submission_jobs
+WHERE available_at < 'infinity'::timestamptz
+`
+
 const createSubmissionSQL = `
 WITH published_problem AS (
   SELECT pv.id AS problem_version_id, p.slug
@@ -223,6 +229,12 @@ func (store *PostgresStore) ListSubmissions(ctx context.Context, userID string) 
 	return submissions, nil
 }
 
+func (store *PostgresStore) QueueDepth(ctx context.Context) (int, error) {
+	var depth int
+	err := store.db.QueryRow(ctx, queueDepthSQL).Scan(&depth)
+	return depth, err
+}
+
 func (store *PostgresStore) Close() {
 	if store.pool != nil {
 		store.pool.Close()
@@ -239,4 +251,8 @@ func (DisabledStore) ListSubmissions(context.Context, string) ([]Summary, error)
 
 func (DisabledStore) GetSubmissionByID(context.Context, string, string) (Detail, error) {
 	return Detail{}, ErrStoreNotConfigured
+}
+
+func (DisabledStore) QueueDepth(context.Context) (int, error) {
+	return 0, ErrStoreNotConfigured
 }

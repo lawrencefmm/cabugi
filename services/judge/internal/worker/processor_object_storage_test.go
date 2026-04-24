@@ -41,7 +41,7 @@ func TestProcessOneCompletesSubmissionUsingObjectStoredBundle(t *testing.T) {
 		TimeLimit:    time.Second,
 	}}
 	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictAccepted, CaseResults: []spike.CaseResult{{Verdict: spike.VerdictAccepted, Duration: 25 * time.Millisecond}}}}
-	processor := NewProcessor(store, loader, runner, time.Second)
+	processor := NewProcessor(store, loader, runner, nil, time.Second)
 
 	processed, err := processor.ProcessOne(context.Background())
 	if err != nil {

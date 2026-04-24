@@ -293,6 +293,17 @@ paths:
           description: All required dependencies are ready.
         '503':
           description: One or more dependencies are not ready.
+  /metricsz:
+    get:
+      summary: API operational metrics snapshot
+      operationId: getMetricsz
+      responses:
+        '200':
+          description: Request counters and submission queue depth for local and production observability.
+          content:
+            application/json:
+              schema:
+                type: object
   /openapi/v1.yaml:
     get:
       summary: Versioned OpenAPI document

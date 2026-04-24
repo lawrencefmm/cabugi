@@ -29,8 +29,12 @@ func TestHandleJobFailureRequeuesSubmissionBeforeMaxAttempts(t *testing.T) {
 	mock.ExpectCommit()
 
 	store := NewPostgresStoreFromDatabase(mock, 3, time.Second, 30*time.Second)
-	if err := store.HandleJobFailure(context.Background(), "submission-id", "lease-token", "missing bundle"); err != nil {
+	action, err := store.HandleJobFailure(context.Background(), "submission-id", "lease-token", "missing bundle")
+	if err != nil {
 		t.Fatalf("HandleJobFailure() error = %v", err)
+	}
+	if action != FailureActionRetried {
+		t.Fatalf("HandleJobFailure() action = %q, want %q", action, FailureActionRetried)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("mock expectations not met: %v", err)
@@ -57,8 +61,12 @@ func TestHandleJobFailureMarksSubmissionJudgeFailedAfterMaxAttempts(t *testing.T
 	mock.ExpectCommit()
 
 	store := NewPostgresStoreFromDatabase(mock, 3, time.Second, 30*time.Second)
-	if err := store.HandleJobFailure(context.Background(), "submission-id", "lease-token", "checksum mismatch"); err != nil {
+	action, err := store.HandleJobFailure(context.Background(), "submission-id", "lease-token", "checksum mismatch")
+	if err != nil {
 		t.Fatalf("HandleJobFailure() error = %v", err)
+	}
+	if action != FailureActionTerminal {
+		t.Fatalf("HandleJobFailure() action = %q, want %q", action, FailureActionTerminal)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("mock expectations not met: %v", err)

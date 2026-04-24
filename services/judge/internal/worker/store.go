@@ -14,6 +14,13 @@ const defaultJobLeaseDuration = 30 * time.Second
 
 var ErrJobLeaseLost = errors.New("submission job lease lost")
 
+type FailureAction string
+
+const (
+	FailureActionRetried  FailureAction = "retried"
+	FailureActionTerminal FailureAction = "terminal"
+)
+
 type database interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
@@ -188,47 +195,47 @@ func (store *PostgresStore) MarkSubmissionRunning(ctx context.Context, submissio
 	return err
 }
 
-func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID string, leaseToken string, lastError string) error {
+func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID string, leaseToken string, lastError string) (FailureAction, error) {
 	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer tx.Rollback(ctx)
 
 	var attempts int
 	err = tx.QueryRow(ctx, selectJobAttemptsSQL, submissionID, leaseToken).Scan(&attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrJobLeaseLost
+		return "", ErrJobLeaseLost
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if attempts >= store.maxJobAttempts {
 		_, err = tx.Exec(ctx, poisonSubmissionJobSQL, submissionID, lastError)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		_, err = tx.Exec(ctx, markSubmissionJudgeFailedSQL, submissionID)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		return tx.Commit(ctx)
+		return FailureActionTerminal, tx.Commit(ctx)
 	}
 
 	_, err = tx.Exec(ctx, requeueSubmissionJobSQL, submissionID, time.Now().Add(store.retryDelay), lastError)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	_, err = tx.Exec(ctx, resetSubmissionForRetrySQL, submissionID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return tx.Commit(ctx)
+	return FailureActionRetried, tx.Commit(ctx)
 }
 
 func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, leaseToken string, status string, results []CaseResult) error {

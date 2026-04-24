@@ -84,6 +84,7 @@ go run ./cmd/api
 Current bootstrap API routes:
 - `GET /healthz`
 - `GET /readyz`
+- `GET /metricsz`
 - `GET /openapi/v1.yaml`
 - `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
@@ -120,6 +121,10 @@ Readiness endpoints:
 - `GET /healthz` reports process liveness only.
 - `GET /readyz` reports dependency readiness for auth, database-backed stores, and hidden test bundle validation, and returns `503` when any of them is unavailable.
 
+API observability:
+- API logs are JSON records on stdout. Request logs use the `http_request` message and include `request_id`, `method`, `path`, `route`, `status`, and `latency_ms`.
+- `GET /metricsz` returns request counters and current submission queue depth.
+
 Judge object storage environment:
 - `OBJECT_STORAGE_ENDPOINT`: judge object storage endpoint. Defaults to `http://127.0.0.1:9000` for local MinIO.
 - `OBJECT_STORAGE_REGION`: object storage region. Defaults to `us-east-1`.
@@ -132,6 +137,11 @@ Judge object storage environment:
 - `JUDGE_JOB_LEASE_RENEW_INTERVAL`: how often the active worker renews its current job lease. Defaults to `10s`.
 - `JUDGE_POLL_INTERVAL`: idle poll interval for the long-running worker loop. Defaults to `3s`.
 - `JUDGE_RETRY_DELAY`: delay before retrying a failed claimed job. Defaults to `5s`.
+- `JUDGE_OBSERVABILITY_ADDRESS`: bind address for judge `GET /healthz` and `GET /metricsz`. Defaults to `127.0.0.1:8082`.
+
+Judge observability:
+- Judge logs are JSON records on stdout for claim, completion, retry, and terminal failure paths.
+- `GET http://127.0.0.1:8082/metricsz` returns worker outcome counters and heartbeat freshness when the worker runs with the default observability address.
 
 Local judge bundle storage:
 - Create the `cabugi-hidden-tests` bucket in MinIO.

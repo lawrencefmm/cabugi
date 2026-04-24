@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### OBS-01 - Add structured observability for API and judge
-Description: Add structured logs, service health signals, and metrics so operators can monitor request flow, queue health, worker progress, and failure modes in production.
-
-Expected Result: Operators can understand what the API and judge are doing without debugging from inside hosts or databases directly.
-
-Acceptance Tests:
-- The API emits structured request logs that include method, path, status, latency, and a request identifier.
-- The judge emits structured logs for claim, retry, completion, and terminal failure paths.
-- Metrics or status endpoints expose at least API request counts, submission queue depth, worker outcomes, and worker heartbeat freshness.
-- Local development docs describe how to inspect the new logs and metrics.
-- Relevant verification commands pass.
-
-Notes:
-- Pending.
-
 ### OPS-01 - Add deployment packaging and full-stack runtime definitions
 Description: Add production-oriented packaging for the web, API, and judge services plus a full local runtime definition that matches the intended service boundaries.
 
@@ -175,6 +160,25 @@ Notes:
 - Pending.
 
 ## Done
+
+### OBS-01 - Add structured observability for API and judge
+Description: Add structured logs, service health signals, and metrics so operators can monitor request flow, queue health, worker progress, and failure modes in production.
+
+Expected Result: Operators can understand what the API and judge are doing without debugging from inside hosts or databases directly.
+
+Acceptance Tests:
+- The API emits structured request logs that include method, path, status, latency, and a request identifier.
+- The judge emits structured logs for claim, retry, completion, and terminal failure paths.
+- Metrics or status endpoints expose at least API request counts, submission queue depth, worker outcomes, and worker heartbeat freshness.
+- Local development docs describe how to inspect the new logs and metrics.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding API JSON request logging with generated or propagated `X-Request-ID`, request counters, and `GET /metricsz` exposing request totals plus submission queue depth.
+- Added judge JSON observability for claim, completion, retry, and terminal failure paths, and exposed `GET /healthz` plus `GET /metricsz` on `JUDGE_OBSERVABILITY_ADDRESS` with worker outcome counters and heartbeat freshness.
+- Updated local API, judge, and development docs with log and metrics inspection guidance, and mapped the new observability behavior in `TESTING_RULES.md`.
+- Added automated coverage for API request logs, API metrics, queue depth, judge metrics, judge structured log events, and worker observer hooks for completion, retry, and terminal failure paths.
+- Verified `go test ./...` in `services/api` and `go test ./...` in `services/judge`.
 
 ### JUDGE-07 - Harden judge sandbox for production
 Description: Replace the current Docker-spike execution path with a production-ready sandbox model for untrusted code on dedicated judge hosts.
