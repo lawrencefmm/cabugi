@@ -134,6 +134,7 @@ Notes:
 - Completed by extending `.github/workflows/ci.yml` to build the production web app, run the existing image packaging job, add an API backing-services smoke job, and add a Go dependency security job.
 - Added `infra/scripts/verify_api_runtime_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, applies migrations, seeds starter problems, boots the API with required backing services enabled, and verifies published problem reads.
 - Added `infra/scripts/verify_go_vulnerabilities.sh`, which installs and runs `govulncheck` against the API and judge Go modules.
+- Bumped the pinned Go toolchain and Go build images to `1.25.9` so the new security gate runs against the patched standard library version instead of the older vulnerable `1.25.0` baseline.
 - Updated package scripts and developer-facing docs so the smoke and security checks are reproducible outside CI.
 - Verified `./infra/scripts/verify_api_runtime_smoke.sh`, `./infra/scripts/verify_go_vulnerabilities.sh`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, and `pnpm --filter web build`.
 
