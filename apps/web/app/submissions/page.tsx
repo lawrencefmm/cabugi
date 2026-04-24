@@ -1,5 +1,6 @@
 import { SubmissionHistoryPage } from "../../src/components/submission-history-page";
+import { frontendAuthEnabled } from "../../src/lib/runtime";
 
 export default function SubmissionsPage() {
-  return <SubmissionHistoryPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} />;
+  return <SubmissionHistoryPage authEnabled={frontendAuthEnabled()} />;
 }

@@ -77,6 +77,16 @@ Current broad verification for the bootstrapped repo:
 - `./db/scripts/verify_initial_schema.sh`
 - `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
+- `./infra/scripts/verify_api_runtime_smoke.sh`
+- `./infra/scripts/verify_e2e_workflow_smoke.sh`
+
+Run the browser end-to-end smoke from the repository root:
+
+```bash
+pnpm verify:smoke:e2e
+```
+
+The browser smoke starts temporary PostgreSQL and MinIO containers, boots the API and judge worker against them, builds and starts the web app, and runs Playwright from the checked-in Docker image. It uses the local test-auth fixture under `infra/testdata/local_test_auth/` so the real web app can exercise signed-in author and moderator flows without depending on an external Clerk environment.
 
 Seed official starter problems into PostgreSQL and object storage:
 
@@ -131,6 +141,7 @@ Database environment for API routes backed by PostgreSQL:
 Web environment:
 - `NEXT_PUBLIC_API_BASE_URL`: web runtime base URL for the Go API. Defaults to `http://127.0.0.1:8080`.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used by the web app for authentication.
+- `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED`: test-only local auth adapter used by the browser smoke suite. Do not enable this in deployed environments.
 
 API browser access environment:
 - `WEB_ALLOWED_ORIGINS`: optional comma-separated origins the API should allow for browser requests. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
@@ -186,6 +197,7 @@ Current CI checks:
 - `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 - `./infra/scripts/verify_api_runtime_smoke.sh`
+- `./infra/scripts/verify_e2e_workflow_smoke.sh`
 - `./infra/scripts/verify_go_vulnerabilities.sh`
 - Docker image builds for `apps/web`, `services/api`, and `services/judge`
 
@@ -227,7 +239,4 @@ docker compose -f infra/docker-compose.yml up -d postgres minio
 ./db/scripts/seed_official_starter_problems.sh
 ```
 
-3. Start the API from `services/api` and the judge worker from `services/judge`.
-4. Start the web app from the repository root.
-5. Open the web app, sign in, open a seeded published problem, submit a solution, and confirm the verdict updates.
-6. Open `/drafts/new`, create a draft, submit it for review, then open `/moderation/problem-drafts` with a moderator account and publish or reject it.
+3. Run `pnpm verify:smoke:e2e` from the repository root.

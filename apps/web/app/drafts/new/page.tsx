@@ -1,5 +1,6 @@
 import { ProblemAuthoringPage } from "../../../src/components/problem-authoring-page";
+import { frontendAuthEnabled } from "../../../src/lib/runtime";
 
 export default function NewDraftPage() {
-  return <ProblemAuthoringPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} />;
+  return <ProblemAuthoringPage authEnabled={frontendAuthEnabled()} />;
 }

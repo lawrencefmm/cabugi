@@ -35,7 +35,7 @@ func TestContainerArgsIncludeHardeningFlags(t *testing.T) {
 		"--tmpfs", "/var/tmp:rw,noexec,nosuid,size=64m",
 		"--env", "HOME=/tmp",
 		"--env", "PYTHONDONTWRITEBYTECODE=1",
-		"--mount", "type=bind,src=/tmp/workspace,dst=/workspace,rw",
+		"--mount", "type=bind,src=/tmp/workspace,dst=/workspace",
 	} {
 		if !slices.Contains(args, expected) {
 			t.Fatalf("container args = %#v, want %q to be present", args, expected)

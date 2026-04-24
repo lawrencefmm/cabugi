@@ -162,6 +162,35 @@ func TestLoadClerkConfigDerivesJWKSURLFromIssuer(t *testing.T) {
 	}
 }
 
+func TestClerkVerifierAcceptsLocalSmokeFixtureToken(t *testing.T) {
+	verifier, err := NewClerkVerifier(ClerkConfig{
+		PublicKeyPEM: `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx6dXtLfQmM2j0iJbvfpQ
+WZWVCXVcGSESpbP1+vFP9Z5hg+fEkwXRFmTQzg2bSfylONEyFWutPmhq3TCoCqVC
+vVQBkF2fUL7ro7ChvfALguas7dSp43tFDwQISKbL5OP8UrAlD4I07UV29oieiwRb
+3qyLRK8YJsJTzMsODrNWGN5RRo/tsPtxe9vza4rrSfJ7NB0NPUUWbk0yCLFXdtBx
+/up86pYWD1BtEUOCru5ySfzV8nYL4PHcoF7RYZ4Xv0CnxuekGEqpC9ooqHHZRc86
+M1KCccrEySxcgTnWXBrA3eleJf3WsWR9ZKvr12waiinY/wT5qYMcIbLMsLAb920J
+vQIDAQAB
+-----END PUBLIC KEY-----`,
+		Issuer:           "https://cabugi.local.test",
+		AllowedAudiences: []string{"cabugi-local-test"},
+	})
+	if err != nil {
+		t.Fatalf("NewClerkVerifier() error = %v", err)
+	}
+
+	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImNhYnVnaS1sb2NhbC10ZXN0LWtleS0xIn0.eyJpc3MiOiJodHRwczovL2NhYnVnaS5sb2NhbC50ZXN0IiwiYXVkIjpbImNhYnVnaS1sb2NhbC10ZXN0Il0sImlhdCI6MTczNTY4OTYwMCwiZXhwIjo0MTAyNDQ0ODAwLCJzdWIiOiJ1c2VyX2UyZV9hdXRob3IifQ.tAwcNVNI-HmDBqfiFre1PIpphtN9eYU37KNPrBEaa1gsgFTmdOo-DOViNfqAluoqfJIp27oMJeweOd_7YrjYHC89LsibCTrK1KwzdSl_1wr14sIDNaAYMhViYP7Cy3-vzpGSlfacJjzQmo2dugWunh2qNnbJKX7asfY5niLQO55tRQLTTQp0QQuMG2Oz-fzwQ9WGOlQbhgsUdBn9dOXpa5RicAROSpDFALqEnguIHV9e7uKdjcgBJNV7AALavtvtRf9XWVVuF2St1ITbtdLG9HkaA32Xu6YQPfmakdptsxJUZJ-YvHBqYfyOItMNQNwT0xAqqNodNnFq0bIaKy-8sQ"
+
+	principal, err := verifier.Verify(context.Background(), token)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if principal.Subject != "user_e2e_author" {
+		t.Fatalf("Verify() principal = %#v, want subject user_e2e_author", principal)
+	}
+}
+
 func newStaticVerifierConfig(t *testing.T) (*rsa.PrivateKey, ClerkConfig) {
 	t.Helper()
 	privateKey := newRSAKey(t)

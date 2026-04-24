@@ -1,4 +1,5 @@
 import { ProblemAuthoringPage } from "../../../src/components/problem-authoring-page";
+import { frontendAuthEnabled } from "../../../src/lib/runtime";
 
 type DraftPageProps = {
   params: Promise<{
@@ -8,5 +9,5 @@ type DraftPageProps = {
 
 export default async function DraftPage({ params }: DraftPageProps) {
   const { slug } = await params;
-  return <ProblemAuthoringPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} slug={slug} />;
+  return <ProblemAuthoringPage authEnabled={frontendAuthEnabled()} slug={slug} />;
 }

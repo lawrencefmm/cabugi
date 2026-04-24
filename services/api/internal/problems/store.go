@@ -157,7 +157,7 @@ const createDraftSQL = `
 WITH inserted_problem AS (
   INSERT INTO problems (slug, created_by_user_id)
   VALUES ($1, $2::uuid)
-  RETURNING id
+  RETURNING id, slug
 ), inserted_version AS (
   INSERT INTO problem_versions (
     problem_id,
@@ -208,7 +208,7 @@ SELECT
   inserted_version.hidden_test_bundle_key,
   inserted_version.hidden_test_bundle_sha256
 FROM inserted_version
-JOIN problems p ON p.id = inserted_version.problem_id
+JOIN inserted_problem p ON p.id = inserted_version.problem_id
 `
 
 const getDraftBySlugSQL = `

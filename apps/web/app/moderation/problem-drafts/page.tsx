@@ -1,5 +1,6 @@
 import { ModerationProblemDraftsPage } from "../../../src/components/moderation-problem-drafts-page";
+import { frontendAuthEnabled } from "../../../src/lib/runtime";
 
 export default function ModerationPage() {
-  return <ModerationProblemDraftsPage authEnabled={Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)} />;
+  return <ModerationProblemDraftsPage authEnabled={frontendAuthEnabled()} />;
 }

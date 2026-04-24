@@ -1,6 +1,5 @@
 "use client";
 
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -17,6 +16,7 @@ import {
   type ModerationQueueItem,
   type ProblemDraft,
 } from "../lib/api";
+import { SignInButton, useAuth } from "./auth";
 import { ProblemMarkdown } from "./problem-markdown";
 
 type ModerationProblemDraftsPageProps = {

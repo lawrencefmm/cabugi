@@ -1,5 +1,3 @@
-import { ClerkProvider } from "@clerk/nextjs";
-
 import "katex/dist/katex.min.css";
 
 import "./globals.css";
@@ -8,6 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppProviders } from "../src/components/app-providers";
+import { AuthProvider } from "../src/components/auth";
 
 type RootLayoutProps = {
   children: ReactNode;
@@ -38,12 +37,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
     </AppProviders>
   );
 
+  const localTestAuthEnabled = process.env.NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED === "true";
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   return (
     <html lang="en">
       <body>
-        {publishableKey ? <ClerkProvider publishableKey={publishableKey}>{content}</ClerkProvider> : content}
+        <AuthProvider localTestAuthEnabled={localTestAuthEnabled} publishableKey={publishableKey}>
+          {content}
+        </AuthProvider>
       </body>
     </html>
   );

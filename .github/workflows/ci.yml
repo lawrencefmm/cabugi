@@ -107,6 +107,37 @@ jobs:
       - name: Run API runtime smoke
         run: ./infra/scripts/verify_api_runtime_smoke.sh
 
+  end-to-end-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: |
+            services/api/go.sum
+            services/judge/go.sum
+
+      - name: Run end-to-end workflow smoke
+        run: ./infra/scripts/verify_e2e_workflow_smoke.sh
+
   security:
     runs-on: ubuntu-latest
     steps:
