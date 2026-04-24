@@ -27,6 +27,10 @@ until docker exec "${container_name}" pg_isready -U cabugi -d cabugi >/dev/null 
   sleep 1
 done
 
+until docker exec -i "${container_name}" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -Atqc "SELECT 1" >/dev/null 2>&1; do
+  sleep 1
+done
+
 port_line="$(docker port "${container_name}" 5432/tcp)"
 host_port="${port_line##*:}"
 
