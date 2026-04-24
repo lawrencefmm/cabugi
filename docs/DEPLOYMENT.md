@@ -91,6 +91,8 @@ DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up
 
 The migration runner records applied migration filenames and SHA-256 checksums in `schema_migrations`. If an applied migration file changes later, the runner fails instead of applying more changes on top of an unknown schema history.
 
+The database scripts use local PostgreSQL client tools by default. Set `POSTGRES_TOOLS_MODE=docker` to force the checked workflow to use the `postgres:17-alpine` client tools, which avoids local client/server version mismatches.
+
 Restore from a backup only after selecting the correct target database and backup file:
 
 ```bash

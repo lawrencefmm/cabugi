@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-${ROOT_DIR}/db/migrations}"
 POSTGRES_TOOLS_IMAGE="${POSTGRES_TOOLS_IMAGE:-postgres:17-alpine}"
+POSTGRES_TOOLS_MODE="${POSTGRES_TOOLS_MODE:-auto}"
 command_name="${1:-up}"
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -12,7 +13,7 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 psql_cmd() {
-  if command -v psql >/dev/null 2>&1; then
+  if [[ "${POSTGRES_TOOLS_MODE}" != "docker" ]] && command -v psql >/dev/null 2>&1; then
     psql "$@"
     return
   fi
