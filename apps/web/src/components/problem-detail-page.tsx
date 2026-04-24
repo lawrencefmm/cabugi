@@ -61,7 +61,6 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading problem</h1>
-          <p className="empty-state__text">Fetching the full problem statement for `{slug}`.</p>
         </section>
       </main>
     );

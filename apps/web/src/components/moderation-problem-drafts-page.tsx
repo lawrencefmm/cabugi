@@ -116,7 +116,6 @@ function AuthenticatedModerationProblemDraftsPage() {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading moderation tools</h1>
-          <p className="empty-state__text">Checking authentication and loading the review queue.</p>
         </section>
       </main>
     );
@@ -145,7 +144,6 @@ function AuthenticatedModerationProblemDraftsPage() {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading moderation queue</h1>
-          <p className="empty-state__text">Fetching drafts that are waiting for review.</p>
         </section>
       </main>
     );
@@ -215,7 +213,6 @@ function AuthenticatedModerationProblemDraftsPage() {
             {selectedDraftQuery.isPending ? (
               <section className="empty-state" role="status" aria-live="polite">
                 <h2 className="empty-state__title">Loading draft detail</h2>
-                <p className="empty-state__text">Fetching the selected problem draft for moderation.</p>
               </section>
             ) : null}
 

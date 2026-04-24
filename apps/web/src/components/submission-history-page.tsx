@@ -52,7 +52,6 @@ function AuthenticatedSubmissionHistoryPage() {
       {!isLoaded ? (
         <section className="empty-state" role="status" aria-live="polite">
           <h2 className="empty-state__title">Loading history</h2>
-          <p className="empty-state__text">Checking authentication and fetching your recent submissions.</p>
         </section>
       ) : null}
 
@@ -73,7 +72,7 @@ function AuthenticatedSubmissionHistoryPage() {
       {submissionsQuery.error ? (
         <section className="error-state" role="alert">
           <h2 className="error-state__title">History unavailable</h2>
-          <p className="error-state__text">Unable to load submission history from the Cabugi API right now.</p>
+          <p className="error-state__text">Unable to load submission history right now.</p>
         </section>
       ) : null}
 

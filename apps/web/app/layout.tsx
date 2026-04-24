@@ -4,6 +4,7 @@ import "katex/dist/katex.min.css";
 
 import "./globals.css";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppProviders } from "../src/components/app-providers";
@@ -18,16 +19,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <div className="app-shell">
         <header className="app-header">
           <div className="app-header__inner">
-            <a className="app-brand" href="/">
+            <Link className="app-brand" href="/">
               <span className="app-brand__mark">&lt;/&gt;</span>
               <span className="app-brand__text">cabugi</span>
-            </a>
+            </Link>
 
             <nav className="app-nav" aria-label="Primary">
-              <a href="/">Problems</a>
-              <a href="/drafts/new">Drafts</a>
-              <a href="/moderation/problem-drafts">Moderation</a>
-              <a href="/submissions">Submissions</a>
+              <Link href="/">Problems</Link>
+              <Link href="/drafts/new">Drafts</Link>
+              <Link href="/moderation/problem-drafts">Moderation</Link>
+              <Link href="/submissions">Submissions</Link>
             </nav>
           </div>
         </header>
