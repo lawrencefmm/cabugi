@@ -23,20 +23,6 @@
 
 ## Backlog
 
-### DB-OPS-01 - Add production-safe migration and recovery workflow
-Description: Add a documented and repeatable database migration process for deploys, including rollback guidance and backup or restore procedures.
-
-Expected Result: Database changes can be applied and recovered safely in production without relying on destructive development verification scripts.
-
-Acceptance Tests:
-- A versioned migration workflow or runner is documented and checked into the repository.
-- Deployment docs define the production migration procedure separately from destructive local schema verification.
-- Backup and restore commands, scripts, or documented procedures exist and are verified locally.
-- Relevant verification commands pass.
-
-Notes:
-- Pending.
-
 ### CI-03 - Expand CI for builds, integration, and security checks
 Description: Extend CI beyond unit tests so it verifies deployable builds, integration behavior, and basic security hygiene for the production path.
 
@@ -146,6 +132,25 @@ Notes:
 - Pending.
 
 ## Done
+
+### DB-OPS-01 - Add production-safe migration and recovery workflow
+Description: Add a documented and repeatable database migration process for deploys, including rollback guidance and backup or restore procedures.
+
+Expected Result: Database changes can be applied and recovered safely in production without relying on destructive development verification scripts.
+
+Acceptance Tests:
+- A versioned migration workflow or runner is documented and checked into the repository.
+- Deployment docs define the production migration procedure separately from destructive local schema verification.
+- Backup and restore commands, scripts, or documented procedures exist and are verified locally.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding `db/scripts/migrate.sh`, which applies versioned SQL migrations in filename order and records applied filenames plus SHA-256 checksums in `schema_migrations`.
+- Added `db/scripts/backup.sh` and `db/scripts/restore.sh` for custom-format PostgreSQL backups and explicit-confirmation restores.
+- Added `db/scripts/verify_migration_workflow.sh`, which verifies migration idempotency plus backup and restore behavior against an isolated temporary PostgreSQL container with a dynamic port.
+- Updated `db/scripts/verify_initial_schema.sh` to use an isolated temporary PostgreSQL container so destructive schema verification no longer depends on the local shared runtime or port `5432`.
+- Documented production migration, backup, and restore procedures in `db/README.md`, `docs/DEPLOYMENT.md`, and `docs/DEVELOPMENT.md`, and added CI coverage for the migration workflow.
+- Verified `./db/scripts/verify_initial_schema.sh`, `./db/scripts/verify_migration_workflow.sh`, and `./infra/scripts/verify_runtime_packaging.sh`.
 
 ### OPS-01 - Add deployment packaging and full-stack runtime definitions
 Description: Add production-oriented packaging for the web, API, and judge services plus a full local runtime definition that matches the intended service boundaries.

@@ -75,6 +75,7 @@ Current broad verification for the bootstrapped repo:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+- `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 
 Seed official starter problems into PostgreSQL and object storage:
@@ -157,6 +158,13 @@ Local judge bundle storage:
 - Upload JSON bundle objects to that bucket, and store the object key in `hidden_test_bundle_key`.
 - Store the uploaded bundle SHA-256 hex digest in `hidden_test_bundle_sha256` so the API can validate draft bundle references and the judge can verify integrity before execution.
 
+Database operations:
+- Use `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh status` to inspect production-style migration state.
+- Use `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up` to apply pending migrations without dropping schemas.
+- Use `DATABASE_URL="postgres://..." BACKUP_DIR="/secure/backups" ./db/scripts/backup.sh` before production migrations.
+- Use `CONFIRM_RESTORE=yes DATABASE_URL="postgres://..." ./db/scripts/restore.sh <backup.dump>` for explicit restore operations.
+- `./db/scripts/verify_initial_schema.sh` uses an isolated temporary PostgreSQL container for destructive schema verification; do not adapt it for production databases.
+
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.
 
@@ -166,6 +174,7 @@ Current CI checks:
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
+- `./db/scripts/verify_migration_workflow.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 - Docker image builds for `apps/web`, `services/api`, and `services/judge`
 

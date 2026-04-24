@@ -67,3 +67,40 @@ pnpm verify:runtime
 ```
 
 Baseline CI also builds all three service images to catch Dockerfile regressions.
+
+## Database Migrations And Recovery
+Production migrations use the non-destructive runner in `db/scripts/migrate.sh`. This is separate from `db/scripts/verify_initial_schema.sh`, which is destructive verification logic and intentionally runs only against an isolated temporary database container.
+
+Check pending migrations against a target database:
+
+```bash
+DATABASE_URL="postgres://..." ./db/scripts/migrate.sh status
+```
+
+Before applying migrations, create a backup:
+
+```bash
+DATABASE_URL="postgres://..." BACKUP_DIR="/secure/backups" ./db/scripts/backup.sh
+```
+
+Apply pending migrations:
+
+```bash
+DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up
+```
+
+The migration runner records applied migration filenames and SHA-256 checksums in `schema_migrations`. If an applied migration file changes later, the runner fails instead of applying more changes on top of an unknown schema history.
+
+Restore from a backup only after selecting the correct target database and backup file:
+
+```bash
+CONFIRM_RESTORE=yes DATABASE_URL="postgres://..." ./db/scripts/restore.sh /secure/backups/cabugi-YYYYMMDDTHHMMSSZ.dump
+```
+
+Restore is destructive because it runs `pg_restore --clean --if-exists` against the target database. Prefer restoring into a separate database first when validating a recovery path.
+
+Verify the migration and recovery workflow locally:
+
+```bash
+pnpm verify:db-ops
+```

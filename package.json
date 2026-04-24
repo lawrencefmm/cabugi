@@ -9,7 +9,12 @@
     "test:api": "cd services/api && go test ./...",
     "test:judge": "cd services/judge && go test ./...",
     "verify:db": "./db/scripts/verify_initial_schema.sh",
+    "verify:db-ops": "./db/scripts/verify_migration_workflow.sh",
     "verify:runtime": "./infra/scripts/verify_runtime_packaging.sh",
+    "db:migrate": "./db/scripts/migrate.sh up",
+    "db:migration-status": "./db/scripts/migrate.sh status",
+    "db:backup": "./db/scripts/backup.sh",
+    "db:restore": "./db/scripts/restore.sh",
     "build:image:web": "docker build -t cabugi-web -f apps/web/Dockerfile .",
     "build:image:api": "docker build -t cabugi-api -f services/api/Dockerfile services/api",
     "build:image:judge": "docker build -t cabugi-judge -f services/judge/Dockerfile services/judge"
