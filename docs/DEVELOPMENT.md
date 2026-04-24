@@ -154,6 +154,13 @@ Judge spike command from `services/judge`:
 go run ./cmd/judge-spike --all
 ```
 
+Prepare the pinned worker sandbox images from `services/judge` before starting the long-running judge worker on a host:
+
+```bash
+docker pull gcc:14.2.0
+docker pull python:3.13.0-alpine3.20
+```
+
 Long-running judge worker command from `services/judge`:
 
 ```bash
