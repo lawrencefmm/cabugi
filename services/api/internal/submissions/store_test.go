@@ -171,3 +171,26 @@ func TestListSubmissionsReturnsOwnerHistoryNewestFirst(t *testing.T) {
 		t.Fatalf("mock expectations not met: %v", err)
 	}
 }
+
+func TestQueueDepthCountsActiveSubmissionJobs(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\)(.|\n)*FROM submission_jobs(.|\n)*WHERE available_at < 'infinity'::timestamptz`).
+		WillReturnRows(pgxmock.NewRows([]string{"count"}).AddRow(4))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	depth, err := store.QueueDepth(context.Background())
+	if err != nil {
+		t.Fatalf("QueueDepth() error = %v", err)
+	}
+	if depth != 4 {
+		t.Fatalf("QueueDepth() = %d, want 4", depth)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}

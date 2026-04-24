@@ -17,6 +17,7 @@ const (
 	defaultMaxJobAttempts            = 3
 	defaultJobLeaseDuration          = 30 * time.Second
 	defaultJobLeaseRenewInterval     = 10 * time.Second
+	defaultObservabilityAddress      = "127.0.0.1:8082"
 	defaultWorkerPollInterval        = 3 * time.Second
 	defaultWorkerRetryDelay          = 5 * time.Second
 )
@@ -31,13 +32,14 @@ type ObjectStorageConfig struct {
 }
 
 type Config struct {
-	DatabaseURL        string
-	ObjectStorage      ObjectStorageConfig
-	MaxJobAttempts     int
-	JobLeaseDuration   time.Duration
-	JobLeaseRenewAfter time.Duration
-	WorkerPollInterval time.Duration
-	WorkerRetryDelay   time.Duration
+	DatabaseURL          string
+	ObjectStorage        ObjectStorageConfig
+	ObservabilityAddress string
+	MaxJobAttempts       int
+	JobLeaseDuration     time.Duration
+	JobLeaseRenewAfter   time.Duration
+	WorkerPollInterval   time.Duration
+	WorkerRetryDelay     time.Duration
 }
 
 func Load() Config {
@@ -51,7 +53,8 @@ func Load() Config {
 	}
 
 	return Config{
-		DatabaseURL: envOrDefault("DATABASE_URL", defaultDatabaseURL),
+		DatabaseURL:          envOrDefault("DATABASE_URL", defaultDatabaseURL),
+		ObservabilityAddress: envOrDefault("JUDGE_OBSERVABILITY_ADDRESS", defaultObservabilityAddress),
 		ObjectStorage: ObjectStorageConfig{
 			Endpoint:        envOrDefault("OBJECT_STORAGE_ENDPOINT", defaultObjectStorageEndpoint),
 			Region:          envOrDefault("OBJECT_STORAGE_REGION", defaultObjectStorageRegion),

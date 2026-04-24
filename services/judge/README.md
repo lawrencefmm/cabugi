@@ -27,6 +27,8 @@ Current local worker behavior:
 - requeues failed jobs with `last_error` until the configured max-attempt limit is reached
 - marks submissions as `judge_failed` when the worker exhausts retry attempts
 - writes final submission status plus `submission_results`
+- emits structured JSON logs for claimed, completed, retried, and terminally failed jobs
+- serves local observability routes on `JUDGE_OBSERVABILITY_ADDRESS`, which defaults to `127.0.0.1:8082`
 
 Prepare the worker sandbox images before starting the judge service on a host:
 
@@ -38,6 +40,13 @@ docker pull python:3.13.0-alpine3.20
 Judge worker lease environment:
 - `JUDGE_JOB_LEASE_DURATION`: maximum time a claimed submission job can go without renewal before another worker may reclaim it. Defaults to `30s`.
 - `JUDGE_JOB_LEASE_RENEW_INTERVAL`: how often an active worker renews its current job lease. Defaults to `10s`.
+
+Judge observability environment:
+- `JUDGE_OBSERVABILITY_ADDRESS`: bind address for `GET /healthz` and `GET /metricsz`. Defaults to `127.0.0.1:8082`.
+
+Inspect the worker locally:
+- Read stdout for JSON log events named `judge_job_claimed`, `judge_job_completed`, `judge_job_retried`, and `judge_job_terminal_failure`.
+- Request `http://127.0.0.1:8082/metricsz` to inspect worker outcome counters and heartbeat freshness.
 
 ## Judge Spike
 Run the local Docker-based judging spike from `services/judge`:

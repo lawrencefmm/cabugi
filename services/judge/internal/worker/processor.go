@@ -34,8 +34,17 @@ type Store interface {
 	ClaimNextJob(context.Context) (SubmissionJob, error)
 	RenewJobLease(context.Context, string, string) error
 	MarkSubmissionRunning(context.Context, string) error
-	HandleJobFailure(context.Context, string, string, string) error
+	HandleJobFailure(context.Context, string, string, string) (FailureAction, error)
 	CompleteSubmission(context.Context, string, string, string, []CaseResult) error
+}
+
+type Observer interface {
+	Heartbeat()
+	JobClaimed(string, string)
+	JobCompleted(string, string)
+	JobRetried(string, string)
+	JobTerminalFailure(string, string)
+	NoJobs()
 }
 
 type Evaluator interface {
@@ -46,25 +55,33 @@ type Processor struct {
 	store              Store
 	loader             BundleLoader
 	runner             Evaluator
+	observer           Observer
 	leaseRenewInterval time.Duration
 }
 
-func NewProcessor(store Store, loader BundleLoader, runner Evaluator, leaseRenewInterval time.Duration) Processor {
+func NewProcessor(store Store, loader BundleLoader, runner Evaluator, observer Observer, leaseRenewInterval time.Duration) Processor {
 	if leaseRenewInterval <= 0 {
 		leaseRenewInterval = defaultLeaseRenewInterval
 	}
 
-	return Processor{store: store, loader: loader, runner: runner, leaseRenewInterval: leaseRenewInterval}
+	if observer == nil {
+		observer = noopObserver{}
+	}
+
+	return Processor{store: store, loader: loader, runner: runner, observer: observer, leaseRenewInterval: leaseRenewInterval}
 }
 
 func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
+	processor.observer.Heartbeat()
 	job, err := processor.store.ClaimNextJob(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoJobs) {
+			processor.observer.NoJobs()
 			return false, nil
 		}
 		return false, err
 	}
+	processor.observer.JobClaimed(job.SubmissionID, job.Language)
 
 	processingCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -74,7 +91,7 @@ func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
 		leaseErrs <- processor.keepLeaseAlive(processingCtx, cancel, job)
 	}()
 
-	err = processor.processClaimedJob(processingCtx, job)
+	completionStatus, err := processor.processClaimedJob(processingCtx, job)
 	cancel()
 	leaseErr := <-leaseErrs
 	if leaseErr != nil && (err == nil || errors.Is(err, context.Canceled)) {
@@ -90,34 +107,41 @@ func (processor Processor) ProcessOne(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 
-		if handleErr := processor.store.HandleJobFailure(ctx, job.SubmissionID, job.LeaseToken, err.Error()); handleErr != nil {
+		action, handleErr := processor.store.HandleJobFailure(ctx, job.SubmissionID, job.LeaseToken, err.Error())
+		if handleErr != nil {
 			if errors.Is(handleErr, ErrJobLeaseLost) {
 				return true, nil
 			}
 
 			return false, fmt.Errorf("record failed submission job: %w", handleErr)
 		}
+		if action == FailureActionTerminal {
+			processor.observer.JobTerminalFailure(job.SubmissionID, err.Error())
+		} else {
+			processor.observer.JobRetried(job.SubmissionID, err.Error())
+		}
 
 		return true, nil
 	}
+	processor.observer.JobCompleted(job.SubmissionID, completionStatus)
 
 	return true, nil
 }
 
-func (processor Processor) processClaimedJob(ctx context.Context, job SubmissionJob) error {
+func (processor Processor) processClaimedJob(ctx context.Context, job SubmissionJob) (string, error) {
 
 	if err := processor.store.MarkSubmissionRunning(ctx, job.SubmissionID); err != nil {
-		return err
+		return "", err
 	}
 
 	cases, err := processor.loader.LoadCases(ctx, job.BundleKey, job.BundleSHA256)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	language, err := spikeLanguage(job.Language)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	result, err := processor.runner.Evaluate(ctx, spike.Request{
@@ -127,14 +151,15 @@ func (processor Processor) processClaimedJob(ctx context.Context, job Submission
 		Cases:     cases,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if err := processor.store.CompleteSubmission(ctx, job.SubmissionID, job.LeaseToken, submissionStatus(result.Verdict), toCaseResults(result.CaseResults)); err != nil {
-		return err
+	status := submissionStatus(result.Verdict)
+	if err := processor.store.CompleteSubmission(ctx, job.SubmissionID, job.LeaseToken, status, toCaseResults(result.CaseResults)); err != nil {
+		return "", err
 	}
 
-	return nil
+	return status, nil
 }
 
 func (processor Processor) keepLeaseAlive(ctx context.Context, cancel context.CancelFunc, job SubmissionJob) error {
@@ -146,6 +171,7 @@ func (processor Processor) keepLeaseAlive(ctx context.Context, cancel context.Ca
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
+			processor.observer.Heartbeat()
 			if err := processor.store.RenewJobLease(ctx, job.SubmissionID, job.LeaseToken); err != nil {
 				cancel()
 				if errors.Is(err, ErrJobLeaseLost) {
@@ -157,6 +183,15 @@ func (processor Processor) keepLeaseAlive(ctx context.Context, cancel context.Ca
 		}
 	}
 }
+
+type noopObserver struct{}
+
+func (noopObserver) Heartbeat()                        {}
+func (noopObserver) JobClaimed(string, string)         {}
+func (noopObserver) JobCompleted(string, string)       {}
+func (noopObserver) JobRetried(string, string)         {}
+func (noopObserver) JobTerminalFailure(string, string) {}
+func (noopObserver) NoJobs()                           {}
 
 func spikeLanguage(language string) (spike.Language, error) {
 	switch language {

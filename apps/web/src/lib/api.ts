@@ -274,7 +274,7 @@ export function formatProblemFetchError(error: unknown, missingMessage: string) 
     return missingMessage;
   }
 
-  return "Unable to load data from the Cabugi API right now.";
+  return "Unable to load data right now.";
 }
 
 export function formatDraftError(error: unknown, missingMessage: string) {
@@ -318,7 +318,7 @@ export function formatModerationError(error: unknown, forbiddenMessage: string) 
     }
   }
 
-  return "Unable to load moderation data from the Cabugi API right now.";
+  return "Unable to load moderation data right now.";
 }
 
 export function formatTimeLimit(timeLimitMs: number) {

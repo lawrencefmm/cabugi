@@ -56,7 +56,6 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
       {!isLoaded ? (
         <section className="empty-state" role="status" aria-live="polite">
           <h2 className="empty-state__title">Loading submission</h2>
-          <p className="empty-state__text">Checking authentication and fetching submission details.</p>
         </section>
       ) : null}
 
@@ -83,7 +82,6 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
       {isLoaded && isSignedIn && submissionQuery.isPending ? (
         <section className="empty-state" role="status" aria-live="polite">
           <h2 className="empty-state__title">Loading submission</h2>
-          <p className="empty-state__text">Fetching the latest verdict and per-test results.</p>
         </section>
       ) : null}
 

@@ -14,6 +14,7 @@ The API listens on `127.0.0.1:8080` by default. Override with `API_ADDRESS`.
 Available bootstrap routes:
 - `GET /healthz`
 - `GET /readyz`
+- `GET /metricsz`
 - `GET /openapi/v1.yaml`
 - `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
 - `GET /v1/problems`
@@ -53,6 +54,11 @@ Available bootstrap routes:
 ## Readiness Behavior
 - `GET /healthz` is a liveness endpoint and returns `200` when the process is running.
 - `GET /readyz` returns `200` only when auth, database stores, and hidden bundle validation are configured and ready; otherwise it returns `503` with dependency readiness details.
+
+## Observability
+- API logs are written to stdout as JSON records. Request logs use the `http_request` message and include `request_id`, `method`, `path`, `route`, `status`, and `latency_ms`.
+- `GET /metricsz` returns a JSON snapshot with API request counters grouped by method, route, and status, plus the current submission queue depth.
+- Pass `X-Request-ID` on requests to reuse an external request identifier; otherwise the API generates one and returns it in the response header.
 
 ## Verification
 Run the API test suite from `services/api`:

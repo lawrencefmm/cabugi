@@ -60,7 +60,6 @@ export function ProblemListPage() {
       {state.kind === "loading" ? (
         <section className="empty-state" role="status" aria-live="polite">
           <h2 className="empty-state__title">Loading published problems</h2>
-          <p className="empty-state__text">Fetching the current problem set from the API.</p>
         </section>
       ) : null}
 

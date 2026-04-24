@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -28,6 +29,7 @@ func failStartupIfRequired(required bool, ready bool, dependencyName string) err
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	cfg := config.Load()
 	authReady := false
@@ -36,7 +38,7 @@ func main() {
 		verifier = clerkVerifier
 		authReady = true
 	} else {
-		log.Printf("api auth verifier disabled: %v", err)
+		logger.Warn("api auth verifier disabled", slog.String("error", err.Error()))
 	}
 
 	databaseReady := true
@@ -46,7 +48,7 @@ func main() {
 		defer store.Close()
 	} else {
 		databaseReady = false
-		log.Printf("api problem store disabled: %v", err)
+		logger.Warn("api problem store disabled", slog.String("error", err.Error()))
 	}
 
 	bundleValidationReady := false
@@ -56,10 +58,10 @@ func main() {
 			bundleValidator = validator
 			bundleValidationReady = true
 		} else {
-			log.Printf("api hidden test bundle validation disabled: %v", err)
+			logger.Warn("api hidden test bundle validation disabled", slog.String("error", err.Error()))
 		}
 	} else {
-		log.Printf("api hidden test bundle validation disabled: %v", err)
+		logger.Warn("api hidden test bundle validation disabled", slog.String("error", err.Error()))
 	}
 
 	var userStore users.Store = users.DisabledStore{}
@@ -68,7 +70,7 @@ func main() {
 		defer store.Close()
 	} else {
 		databaseReady = false
-		log.Printf("api user store disabled: %v", err)
+		logger.Warn("api user store disabled", slog.String("error", err.Error()))
 	}
 
 	var submissionStore submissions.Store = submissions.DisabledStore{}
@@ -77,20 +79,23 @@ func main() {
 		defer store.Close()
 	} else {
 		databaseReady = false
-		log.Printf("api submission store disabled: %v", err)
+		logger.Warn("api submission store disabled", slog.String("error", err.Error()))
 	}
 
 	if err := failStartupIfRequired(cfg.RequireAuth, authReady, "auth verifier"); err != nil {
-		log.Fatalf("api startup failed: %v", err)
+		logger.Error("api startup failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	if err := failStartupIfRequired(cfg.RequireDatabase, databaseReady, "database"); err != nil {
-		log.Fatalf("api startup failed: %v", err)
+		logger.Error("api startup failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	if err := failStartupIfRequired(cfg.RequireHiddenBundleValidation, bundleValidationReady, "hidden test bundle validation"); err != nil {
-		log.Fatalf("api startup failed: %v", err)
+		logger.Error("api startup failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	server := httpapi.NewServer(cfg.Address, verifier, problemStore, userStore, submissionStore, cfg.AllowedOrigins, bundleValidator)
+	server := httpapi.NewServer(cfg.Address, logger, verifier, problemStore, userStore, submissionStore, cfg.AllowedOrigins, bundleValidator)
 
 	go func() {
 		<-ctx.Done()
@@ -99,12 +104,13 @@ func main() {
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("api shutdown error: %v", err)
+			logger.Error("api shutdown error", slog.String("error", err.Error()))
 		}
 	}()
 
-	log.Printf("api listening on %s", cfg.Address)
+	logger.Info("api listening", slog.String("address", cfg.Address))
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("api server failed: %v", err)
+		logger.Error("api server failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -65,6 +67,8 @@ type stubSubmissionStore struct {
 	submissions []submissions.Summary
 	created     submissions.Summary
 	submission  submissions.Detail
+	queueDepth  int
+	queueErr    error
 	createErr   error
 	listErr     error
 	getErr      error
@@ -148,6 +152,14 @@ func (store *stubSubmissionStore) ListSubmissions(context.Context, string) ([]su
 
 func (store *stubSubmissionStore) GetSubmissionByID(context.Context, string, string) (submissions.Detail, error) {
 	return store.submission, store.getErr
+}
+
+func (store *stubSubmissionStore) QueueDepth(context.Context) (int, error) {
+	if store.queueErr != nil {
+		return 0, store.queueErr
+	}
+
+	return store.queueDepth, nil
 }
 
 func (validator *stubBundleValidator) ValidateBundle(_ context.Context, key string, checksum string) error {
@@ -247,7 +259,7 @@ func TestCORSHandlesPreflightRequests(t *testing.T) {
 }
 
 func TestNewServerSetsHTTPTimeouts(t *testing.T) {
-	server := NewServer("127.0.0.1:8080", stubVerifier{}, &stubProblemStore{}, stubUserStore{}, &stubSubmissionStore{}, nil, &stubBundleValidator{})
+	server := NewServer("127.0.0.1:8080", slog.Default(), stubVerifier{}, &stubProblemStore{}, stubUserStore{}, &stubSubmissionStore{}, nil, &stubBundleValidator{})
 
 	if server.ReadTimeout != defaultReadTimeout {
 		t.Fatalf("ReadTimeout = %s, want %s", server.ReadTimeout, defaultReadTimeout)
@@ -263,6 +275,38 @@ func TestNewServerSetsHTTPTimeouts(t *testing.T) {
 	}
 	if server.MaxHeaderBytes != defaultMaxHeaderBytes {
 		t.Fatalf("MaxHeaderBytes = %d, want %d", server.MaxHeaderBytes, defaultMaxHeaderBytes)
+	}
+}
+
+func TestMetricszHandlerReportsRequestsAndSubmissionQueueDepth(t *testing.T) {
+	store := &stubSubmissionStore{queueDepth: 2}
+	mux := NewMux(nil, &stubProblemStore{}, stubUserStore{}, store, &stubBundleValidator{})
+
+	request := httptest.NewRequest(http.MethodGet, "/metricsz", nil)
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /metricsz status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, `"submissionQueue":{"depth":2}`) || !strings.Contains(body, `"requests"`) {
+		t.Fatalf("GET /metricsz body = %q, want request metrics and queue depth", body)
+	}
+}
+
+func TestMetricszHandlerReportsUnavailableQueueDepth(t *testing.T) {
+	store := &stubSubmissionStore{queueErr: errors.New("db unavailable")}
+	mux := NewMux(nil, &stubProblemStore{}, stubUserStore{}, store, &stubBundleValidator{})
+
+	request := httptest.NewRequest(http.MethodGet, "/metricsz", nil)
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /metricsz status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, `"submissionQueue":{"depth":-1}`) {
+		t.Fatalf("GET /metricsz body = %q, want unavailable queue depth sentinel", body)
 	}
 }
 
@@ -282,6 +326,9 @@ func TestOpenAPIHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, "/readyz:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /readyz path")
+	}
+	if !strings.Contains(body, "/metricsz:") {
+		t.Fatalf("GET /openapi/v1.yaml body did not include /metricsz path")
 	}
 	if !strings.Contains(body, "/v1/problems/{slug}:") {
 		t.Fatalf("GET /openapi/v1.yaml body did not include /v1/problems/{slug} path")

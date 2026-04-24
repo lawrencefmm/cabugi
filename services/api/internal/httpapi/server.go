@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/lawrencefmm/cabugi/services/api/internal/auth"
+	apiobs "github.com/lawrencefmm/cabugi/services/api/internal/observability"
 	"github.com/lawrencefmm/cabugi/services/api/internal/problems"
 	"github.com/lawrencefmm/cabugi/services/api/internal/submissions"
 	"github.com/lawrencefmm/cabugi/services/api/internal/users"
@@ -30,6 +32,10 @@ const (
 )
 
 func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, bundleValidators ...problems.BundleValidator) *http.ServeMux {
+	return newMux(verifier, problemStore, userStore, submissionStore, apiobs.New(nil), bundleValidators...)
+}
+
+func newMux(verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, observer *apiobs.Observer, bundleValidators ...problems.BundleValidator) *http.ServeMux {
 	if problemStore == nil {
 		problemStore = problems.DisabledStore{}
 	}
@@ -47,6 +53,7 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthzHandler)
 	mux.HandleFunc("GET /readyz", readyzHandler(verifier, problemStore, userStore, submissionStore, bundleValidator))
+	mux.HandleFunc("GET /metricsz", observer.MetricsHandler(submissionQueueDepthProvider(submissionStore)))
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
@@ -65,10 +72,11 @@ func NewMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	return mux
 }
 
-func NewServer(address string, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string, bundleValidators ...problems.BundleValidator) *http.Server {
+func NewServer(address string, logger *slog.Logger, verifier auth.Verifier, problemStore problems.Store, userStore users.Store, submissionStore submissions.Store, allowedOrigins []string, bundleValidators ...problems.BundleValidator) *http.Server {
+	observer := apiobs.New(logger)
 	return &http.Server{
 		Addr:              address,
-		Handler:           withCORS(NewMux(verifier, problemStore, userStore, submissionStore, bundleValidators...), allowedOrigins),
+		Handler:           withCORS(observer.Middleware(newMux(verifier, problemStore, userStore, submissionStore, observer, bundleValidators...)), allowedOrigins),
 		ReadTimeout:       defaultReadTimeout,
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
 		WriteTimeout:      defaultWriteTimeout,
@@ -663,6 +671,15 @@ func bundleValidationDependencyReady(bundleValidator problems.BundleValidator) b
 	}
 	_, disabled := bundleValidator.(problems.DisabledBundleValidator)
 	return !disabled
+}
+
+func submissionQueueDepthProvider(submissionStore submissions.Store) apiobs.QueueDepthProvider {
+	provider, ok := any(submissionStore).(apiobs.QueueDepthProvider)
+	if !ok {
+		return nil
+	}
+
+	return provider
 }
 
 func writeJSON(writer http.ResponseWriter, status int, payload any) {

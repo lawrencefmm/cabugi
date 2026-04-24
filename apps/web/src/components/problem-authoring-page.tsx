@@ -160,7 +160,6 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading authoring tools</h1>
-          <p className="empty-state__text">Checking authentication and preparing the draft workspace.</p>
         </section>
       </main>
     );
@@ -189,7 +188,6 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading draft</h1>
-          <p className="empty-state__text">Fetching the latest saved problem draft.</p>
         </section>
       </main>
     );
