@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### AUTH-OPS-01 - Harden production auth validation and transport rules
-Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
-
-Expected Result: Production authentication behavior is explicit, testable, and suitable for long-lived deployments.
-
-Acceptance Tests:
-- Production token validation checks the required issuer and expected authorized-party or audience claims.
-- The repository documents or implements a key-rotation strategy such as JWKS-backed verification.
-- Browser auth transport rules are explicit and consistent between header and cookie-based flows.
-- Automated tests cover invalid issuer or audience behavior if those checks are introduced.
-- `go test ./...` passes in `services/api`.
-
-Notes:
-- Pending.
-
 ### E2E-01 - Add end-to-end workflow smoke tests
 Description: Add end-to-end smoke coverage for the core user and moderation workflows across the real local stack.
 
@@ -117,6 +102,26 @@ Notes:
 - Pending.
 
 ## Done
+
+### AUTH-OPS-01 - Harden production auth validation and transport rules
+Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
+
+Expected Result: Production authentication behavior is explicit, testable, and suitable for long-lived deployments.
+
+Acceptance Tests:
+- Production token validation checks the required issuer and expected authorized-party or audience claims.
+- The repository documents or implements a key-rotation strategy such as JWKS-backed verification.
+- Browser auth transport rules are explicit and consistent between header and cookie-based flows.
+- Automated tests cover invalid issuer or audience behavior if those checks are introduced.
+- `go test ./...` passes in `services/api`.
+
+Notes:
+- Completed by extending `ClerkConfig` with issuer, JWKS URL, and allowed audience support, plus automatic JWKS URL derivation from `CLERK_ISSUER`.
+- Hardened the verifier to reject invalid issuer, invalid `azp`, and invalid `aud` claims, and to support JWKS-backed key refresh when a token presents a new `kid`.
+- Kept both bearer-header and `__session` cookie transport paths, with explicit header precedence when both are present.
+- Added auth unit coverage for cookie transport, header precedence, invalid issuer, invalid audience, JWKS key rotation, and JWKS URL derivation, plus route-level cookie transport coverage in API server tests.
+- Updated API and deployment docs to make the production auth inputs and transport rules explicit.
+- Verified `go test ./...` in `services/api`.
 
 ### CI-03 - Expand CI for builds, integration, and security checks
 Description: Extend CI beyond unit tests so it verifies deployable builds, integration behavior, and basic security hygiene for the production path.

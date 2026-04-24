@@ -37,8 +37,13 @@ Available bootstrap routes:
 - `GET /v1/submissions/{id}`
 
 ## Clerk Auth Environment
-- `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key in PEM format.
+- `CLERK_ISSUER`: required expected `iss` claim for Clerk session tokens when auth verification is enabled.
+- `CLERK_JWKS_URL`: optional explicit JWKS endpoint for Clerk signing keys. Defaults to `<CLERK_ISSUER>/.well-known/jwks.json` when `CLERK_ISSUER` is set.
+- `CLERK_PEM_PUBLIC_KEY`: optional static Clerk JWT verification public key in PEM format for local or fallback use when JWKS is not used.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed `azp` values such as `http://localhost:3000`.
+- `CLERK_ALLOWED_AUDIENCES`: optional comma-separated allowed `aud` values such as `cabugi-web`.
+
+When auth verification is enabled, configure `CLERK_ISSUER` plus at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`. The API accepts bearer tokens from the `Authorization` header and from the `__session` cookie; when both are present, the header token wins.
 
 ## Startup Requirement Environment
 - `API_REQUIRE_AUTH`: when `true`, the API fails startup unless Clerk auth verification is configured.
@@ -60,6 +65,12 @@ Available bootstrap routes:
 ## Readiness Behavior
 - `GET /healthz` is a liveness endpoint and returns `200` when the process is running.
 - `GET /readyz` returns `200` only when auth, database stores, and hidden bundle validation are configured and ready; otherwise it returns `503` with dependency readiness details.
+
+## Auth Validation Behavior
+- Clerk verification rejects tokens with the wrong issuer.
+- If `CLERK_ALLOWED_PARTIES` is configured, the token `azp` claim must match one of those values.
+- If `CLERK_ALLOWED_AUDIENCES` is configured, the token `aud` claim must include one of those values.
+- When `CLERK_JWKS_URL` is used, the verifier refreshes keys when it sees an unknown `kid`, which supports signing-key rotation.
 
 ## Observability
 - API logs are written to stdout as JSON records. Request logs use the `http_request` message and include `request_id`, `method`, `path`, `route`, `status`, and `latency_ms`.
