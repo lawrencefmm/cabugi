@@ -7,6 +7,7 @@ services/judge/testdata/**/program
 
 bin/
 tmp/
+db/backups/
 
 .DS_Store
 .env

@@ -32,9 +32,10 @@
 | Role-based access is enforced | API or service tests cover `user`, `moderator`, and `admin` permissions for protected actions |
 | Service observability is available for production operations | API tests cover structured request logs and metrics snapshots; judge tests cover claim, completion, retry, terminal failure counters, and heartbeat freshness |
 | Deployable service packaging remains valid | CI verifies runtime packaging metadata and builds the web, API, and judge container images |
+| Production database changes are recoverable | Migration workflow verification applies migrations idempotently to a temporary database and proves backup plus restore preserves schema history and data |
 
 ## Current Gaps
-- Automated test commands now exist for the frontend workspace, both Go services, database schema verification, and runtime packaging verification.
+- Automated test commands now exist for the frontend workspace, both Go services, database schema verification, database migration or recovery verification, and runtime packaging verification.
 - The database schema now has a repeatable verification script, but higher-level integration tests across the API and judge pipeline do not exist yet.
 - Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
 - The judge worker now uses a stricter sandbox runner than the original local spike path, but broader cross-host hardening and production operations still need additional integration coverage.

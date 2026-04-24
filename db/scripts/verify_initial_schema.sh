@@ -2,29 +2,36 @@
 
 set -euo pipefail
 
-compose_file="infra/docker-compose.yml"
-container_name="$(docker compose -f "$compose_file" ps -q postgres)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:17-alpine}"
+container_name="cabugi-schema-verify-${RANDOM}-$$"
 
-if [[ -z "$container_name" ]]; then
-  docker compose -f "$compose_file" up -d postgres >/dev/null
-  container_name="$(docker compose -f "$compose_file" ps -q postgres)"
-fi
+cleanup() {
+  docker rm -f "${container_name}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
-until docker exec "$container_name" pg_isready -U cabugi -d cabugi >/dev/null 2>&1; do
+docker run -d \
+  --name "${container_name}" \
+  -e POSTGRES_DB=cabugi \
+  -e POSTGRES_USER=cabugi \
+  -e POSTGRES_PASSWORD=cabugi \
+  "${POSTGRES_IMAGE}" >/dev/null
+
+until docker exec "${container_name}" pg_isready -U cabugi -d cabugi >/dev/null 2>&1; do
   sleep 1
 done
 
-until docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -Atqc "SELECT 1" >/dev/null 2>&1; do
+until docker exec -i "${container_name}" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -Atqc "SELECT 1" >/dev/null 2>&1; do
   sleep 1
 done
 
 psql_exec() {
-  docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -Atqc "$1"
+  docker exec -i "${container_name}" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -Atqc "$1"
 }
 
-docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null
-for migration in db/migrations/*.sql; do
-  docker exec -i "$container_name" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 < "$migration" >/dev/null
+for migration in "${ROOT_DIR}"/db/migrations/*.sql; do
+  docker exec -i "${container_name}" psql -U cabugi -d cabugi -v ON_ERROR_STOP=1 < "${migration}" >/dev/null
 done
 
 assert_equals() {

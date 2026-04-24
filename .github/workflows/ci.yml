@@ -63,6 +63,9 @@ jobs:
       - name: Verify initial schema
         run: ./db/scripts/verify_initial_schema.sh
 
+      - name: Verify migration workflow
+        run: ./db/scripts/verify_migration_workflow.sh
+
   packaging:
     runs-on: ubuntu-latest
     steps:
