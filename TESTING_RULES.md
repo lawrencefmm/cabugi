@@ -35,6 +35,6 @@
 - Initial automated test commands now exist for the frontend workspace and both Go services.
 - The database schema now has a repeatable verification script, but higher-level integration tests across the API and judge pipeline do not exist yet.
 - Integration tests for the API, database, object storage, and end-to-end submission flow do not exist yet.
-- The local judge spike now proves core verdict handling, but it still needs follow-up coverage for production sandbox hardening beyond Docker-based local isolation.
+- The judge worker now uses a stricter sandbox runner than the original local spike path, but broader cross-host hardening and production operations still need additional integration coverage.
 - CI still needs to be added so the documented verification commands run automatically on every push or pull request.
 - This file should be updated whenever a new project rule, security constraint, or core product behavior is introduced.

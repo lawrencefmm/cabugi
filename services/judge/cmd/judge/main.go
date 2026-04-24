@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/lawrencefmm/cabugi/services/judge/internal/config"
-	"github.com/lawrencefmm/cabugi/services/judge/internal/spike"
+	"github.com/lawrencefmm/cabugi/services/judge/internal/sandbox"
 	"github.com/lawrencefmm/cabugi/services/judge/internal/worker"
 )
 
@@ -39,7 +39,7 @@ func main() {
 		log.Fatalf("create bundle loader: %v", err)
 	}
 
-	jobProcessor := worker.NewProcessor(store, bundleLoader, spike.NewRunner(), cfg.JobLeaseRenewAfter)
+	jobProcessor := worker.NewProcessor(store, bundleLoader, sandbox.NewRunner(), cfg.JobLeaseRenewAfter)
 	if *runOnce {
 		if err := runOnceCommand(ctx, jobProcessor, os.Stdout); err != nil {
 			log.Fatalf("process submission job: %v", err)

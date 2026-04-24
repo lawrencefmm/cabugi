@@ -23,22 +23,6 @@
 
 ## Backlog
 
-### JUDGE-07 - Harden judge sandbox for production
-Description: Replace the current Docker-spike execution path with a production-ready sandbox model for untrusted code on dedicated judge hosts.
-
-Expected Result: The default judge worker path uses a hardened isolation boundary that is appropriate for hostile submissions in production rather than a local proof-of-concept runner.
-
-Acceptance Tests:
-- The default long-running worker path no longer depends directly on the local spike runner for production execution.
-- Submissions execute as a non-root user with network disabled and only a tightly scoped writable scratch area.
-- Runtime images, toolchains, or sandbox assets are pinned and prepared ahead of execution instead of being pulled opportunistically during job processing.
-- Sandbox assumptions and dedicated-host requirements are documented clearly.
-- Automated tests or reproducible local verification still prove `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded` handling.
-- `go test ./...` passes in `services/judge`.
-
-Notes:
-- Pending.
-
 ### OBS-01 - Add structured observability for API and judge
 Description: Add structured logs, service health signals, and metrics so operators can monitor request flow, queue health, worker progress, and failure modes in production.
 
@@ -191,6 +175,26 @@ Notes:
 - Pending.
 
 ## Done
+
+### JUDGE-07 - Harden judge sandbox for production
+Description: Replace the current Docker-spike execution path with a production-ready sandbox model for untrusted code on dedicated judge hosts.
+
+Expected Result: The default judge worker path uses a hardened isolation boundary that is appropriate for hostile submissions in production rather than a local proof-of-concept runner.
+
+Acceptance Tests:
+- The default long-running worker path no longer depends directly on the local spike runner for production execution.
+- Submissions execute as a non-root user with network disabled and only a tightly scoped writable scratch area.
+- Runtime images, toolchains, or sandbox assets are pinned and prepared ahead of execution instead of being pulled opportunistically during job processing.
+- Sandbox assumptions and dedicated-host requirements are documented clearly.
+- Automated tests or reproducible local verification still prove `accepted`, `wrong_answer`, `compile_error`, and `time_limit_exceeded` handling.
+- `go test ./...` passes in `services/judge`.
+
+Notes:
+- Completed by adding a new worker-only sandbox runner in `services/judge/internal/sandbox` and wiring `cmd/judge` to use it instead of the local spike runner path.
+- The hardened runner now requires preloaded pinned runtime images, enforces `--pull never`, runs as a non-root user, uses a read-only root filesystem, disables network access, and limits writable paths to the scoped workspace plus tmpfs scratch mounts.
+- Kept `cmd/judge-spike` as the local proof-of-concept command while documenting the stricter long-running worker path for dedicated judge hosts.
+- Added sandbox unit tests that assert pinned images and the key Docker hardening flags used by the worker runner.
+- Verified `go test ./...` in `services/judge`, `go test ./...` in `services/api`, and `./db/scripts/verify_initial_schema.sh`.
 
 ### API-OPS-01 - Harden API startup, readiness, and HTTP limits
 Description: Make the API safer for deployed environments by failing fast on required dependency problems and adding readiness checks, explicit HTTP server timeouts, body limits, and correct browser preflight behavior.
