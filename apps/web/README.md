@@ -13,7 +13,8 @@ This workspace contains the published problem browsing UI, solve workspace, draf
 - `/submissions/[id]`: submission summary page
 
 ## Environment
-- `NEXT_PUBLIC_API_BASE_URL`: browser-visible base URL for the Go API. Defaults to `http://127.0.0.1:8080`.
+- `NEXT_PUBLIC_API_BASE_URL`: browser-visible base URL for the Go API. Defaults to `/api`, which the frontend proxies to the Go API.
+- `API_PROXY_TARGET`: server-side target for the frontend `/api/*` backend proxy. Defaults to `http://127.0.0.1:8080`.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used for frontend authentication and token retrieval.
 - `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED`: test-only local auth adapter used by the browser smoke suite.
 
@@ -23,7 +24,7 @@ Without auth-related environment values, the public problem pages still work but
 From the repository root:
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080 pnpm --filter web dev
+pnpm --filter web dev
 ```
 
 ## Packaging

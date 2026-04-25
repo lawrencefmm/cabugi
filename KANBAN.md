@@ -54,6 +54,23 @@ Notes:
 
 ## Done
 
+### WEB-PROXY-01 - Proxy web API requests through the app origin
+Description: Route browser-facing API calls through the Next.js web origin so local and LAN clients can use authenticated flows without reaching the Go API port directly.
+
+Expected Result: The web app uses `/api` as its public API base, and Next.js forwards supported backend routes to a configurable server-side API target in local and containerized runs.
+
+Acceptance Tests:
+- The default frontend API base is `/api` instead of `http://127.0.0.1:8080`.
+- Next.js rewrites `/api/v1/*`, `/api/healthz`, and `/api/openapi/*` to `API_PROXY_TARGET`.
+- Docker and Compose configuration expose `API_PROXY_TARGET` and keep browser-visible API traffic on the web origin.
+- Web tests that assert protected API URLs expect the `/api` proxy path.
+- `pnpm --filter web typecheck` and the relevant protected-flow web tests pass.
+
+Notes:
+- Completed by adding Next.js rewrites for backend API, health, and OpenAPI routes, changing the default web API base to `/api`, and wiring `API_PROXY_TARGET` through the web Docker image plus Compose environment.
+- Updated protected-flow web tests to expect same-origin `/api` calls for submissions, draft authoring, and moderation decisions.
+- Verified earlier with web typecheck, focused web tests, curl checks against `127.0.0.1` and LAN origin proxy URLs, and Chrome MCP confirmation that problem detail fetches use `/api/v1/...`.
+
 ### AUTH-OPS-02 - Tolerate small Clerk token clock skew
 Description: Harden API token verification so small clock differences between Clerk-issued tokens and the API runtime do not break freshly authenticated browser flows such as submission redirects and protected page loads.
 

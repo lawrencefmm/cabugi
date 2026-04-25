@@ -126,7 +126,7 @@ describe("ProblemAuthoringPage", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts");
+    expect(url).toBe("/api/v1/problem-drafts");
     expect(options.method).toBe("POST");
   });
 
@@ -195,7 +195,7 @@ describe("ProblemAuthoringPage", () => {
     });
 
     const [uploadUrl, uploadOptions] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(uploadUrl).toBe("http://127.0.0.1:8080/v1/problem-drafts/hidden-test-bundles");
+    expect(uploadUrl).toBe("/api/v1/problem-drafts/hidden-test-bundles");
     expect(uploadOptions.method).toBe("POST");
     expect(uploadOptions.headers).toMatchObject({
       Authorization: "Bearer session-token",
@@ -203,7 +203,7 @@ describe("ProblemAuthoringPage", () => {
     expect(uploadOptions.body).toBeInstanceOf(FormData);
 
     const [createUrl, createOptions] = fetchMock.mock.calls[1] as [string, RequestInit];
-    expect(createUrl).toBe("http://127.0.0.1:8080/v1/problem-drafts");
+    expect(createUrl).toBe("/api/v1/problem-drafts");
     expect(JSON.parse(String(createOptions.body))).toMatchObject({
       hiddenTestBundleKey: "problem-drafts/user-id/uploaded-bundle.json",
       hiddenTestBundleSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -271,7 +271,7 @@ describe("ProblemAuthoringPage", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[1] as [string, RequestInit];
-    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts/two-sum-user");
+    expect(url).toBe("/api/v1/problem-drafts/two-sum-user");
     expect(options.method).toBe("PATCH");
   });
 
@@ -334,7 +334,7 @@ describe("ProblemAuthoringPage", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[1] as [string, RequestInit];
-    expect(url).toBe("http://127.0.0.1:8080/v1/problem-drafts/two-sum-user/submit-for-review");
+    expect(url).toBe("/api/v1/problem-drafts/two-sum-user/submit-for-review");
     expect(options.method).toBe("POST");
   });
 

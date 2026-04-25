@@ -114,7 +114,7 @@ describe("SolveWorkspace", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://127.0.0.1:8080/v1/submissions");
+    expect(url).toBe("/api/v1/submissions");
     expect(options.method).toBe("POST");
     expect(options.headers).toMatchObject({
       Authorization: "Bearer session-token",
