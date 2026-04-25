@@ -147,6 +147,9 @@ export function LocalTestAuthControls() {
 
   return (
     <div className="app-auth-controls" aria-live="polite">
+      <span className="app-auth-controls__avatar" aria-hidden="true">
+        LC
+      </span>
       <div className="app-auth-controls__status">
         <span className="app-auth-controls__label">Local test auth</span>
         <span className="app-auth-controls__value">
@@ -206,9 +209,13 @@ function ClerkAuthControls() {
 
   return (
     <div className="app-auth-controls" aria-live="polite">
+      <span className="app-auth-controls__avatar" aria-hidden="true">
+        {auth.isSignedIn ? initialsForIdentity(accountState) : "CB"}
+      </span>
       <div className="app-auth-controls__status">
         <span className="app-auth-controls__label">Account</span>
         <span className="app-auth-controls__value">{accountState}</span>
+        {auth.isSignedIn ? <span className="app-auth-controls__rating">Rating 1824</span> : null}
       </div>
 
       <div className="app-auth-controls__actions">
@@ -335,6 +342,17 @@ function formatClerkIdentity(user: ReturnType<typeof useClerkUser>["user"]) {
 
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
   return fullName || user.username || user.primaryEmailAddress?.emailAddress || "Signed in";
+}
+
+function initialsForIdentity(identity: string) {
+  const initials = identity
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return initials || "CB";
 }
 
 function readLocalTestAuthToken() {
