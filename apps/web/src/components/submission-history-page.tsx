@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchSubmissions, formatQueuedAt, formatSubmissionLanguage, type Submission } from "../lib/api";
@@ -51,7 +52,19 @@ function AuthenticatedSubmissionHistoryPage() {
 
       {!isLoaded ? (
         <section className="empty-state" role="status" aria-live="polite">
-          <h2 className="empty-state__title">Loading history</h2>
+          <h2 className="empty-state__title">Checking submission access</h2>
+          <p className="empty-state__text">Published problems stay available while your account finishes loading.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {isLoaded && isSignedIn && submissionsQuery.isPending ? (
+        <section className="empty-state" role="status" aria-live="polite">
+          <h2 className="empty-state__title">Loading submission history</h2>
         </section>
       ) : null}
 
@@ -73,6 +86,11 @@ function AuthenticatedSubmissionHistoryPage() {
         <section className="error-state" role="alert">
           <h2 className="error-state__title">History unavailable</h2>
           <p className="error-state__text">Unable to load submission history right now.</p>
+          <div className="history-actions">
+            <button className="workspace-button workspace-button--secondary" onClick={() => void submissionsQuery.refetch()} type="button">
+              Retry history
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -80,6 +98,11 @@ function AuthenticatedSubmissionHistoryPage() {
         <section className="empty-state">
           <h2 className="empty-state__title">No submissions yet</h2>
           <p className="empty-state__text">Once you submit a solution, it will appear here with its latest verdict.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
         </section>
       ) : null}
 
@@ -95,7 +118,7 @@ function SubmissionHistoryList({ submissions }: { submissions: Submission[] }) {
         <span className="panel-toolbar__meta mono">{submissions.length} submissions</span>
       </div>
 
-      <div className="table-wrap">
+      <div className="table-wrap responsive-table">
         <table className="data-table" aria-label="Submission history">
           <thead>
             <tr>
@@ -112,9 +135,9 @@ function SubmissionHistoryList({ submissions }: { submissions: Submission[] }) {
               <tr key={submission.id}>
                 <td className="table-code">{submission.id}</td>
                 <td>
-                  <a className="table-link" href={`/problems/${submission.problemSlug}`}>
+                  <Link className="table-link" href={`/problems/${submission.problemSlug}`}>
                     {submission.problemSlug}
-                  </a>
+                  </Link>
                 </td>
                 <td className="table-code">{formatSubmissionLanguage(submission.language)}</td>
                 <td>
@@ -122,14 +145,50 @@ function SubmissionHistoryList({ submissions }: { submissions: Submission[] }) {
                 </td>
                 <td className="table-code">{formatQueuedAt(submission.queuedAt)}</td>
                 <td className="table-actions">
-                  <a className="table-link" href={`/submissions/${submission.id}`}>
+                  <Link className="table-link" href={`/submissions/${submission.id}`}>
                     View submission
-                  </a>
+                  </Link>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mobile-card-list" aria-label="Submission history cards">
+        {submissions.map((submission) => (
+          <article className="history-card" key={`${submission.id}-card`}>
+            <div className="history-card__header">
+              <div>
+                <h2 className="workspace-panel__title">{submission.problemSlug}</h2>
+                <p className="detail-meta mono">{submission.id}</p>
+              </div>
+
+              <VerdictBadge verdict={submission.status} />
+            </div>
+
+            <div className="history-card__body submission-stats" aria-label={`${submission.id} details`}>
+              <article className="submission-stat">
+                <p className="submission-stat__label">Language</p>
+                <p className="submission-stat__value">{formatSubmissionLanguage(submission.language)}</p>
+              </article>
+
+              <article className="submission-stat">
+                <p className="submission-stat__label">Queued</p>
+                <p className="submission-stat__value">{formatQueuedAt(submission.queuedAt)}</p>
+              </article>
+            </div>
+
+            <div className="history-card__footer">
+              <Link aria-label={`Open problem ${submission.problemSlug}`} className="table-link" href={`/problems/${submission.problemSlug}`}>
+                Open problem
+              </Link>
+              <Link aria-label={`Open submission ${submission.id}`} className="table-link" href={`/submissions/${submission.id}`}>
+                Open submission
+              </Link>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );

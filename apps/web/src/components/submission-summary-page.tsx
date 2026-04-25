@@ -88,7 +88,13 @@ function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { 
 
       {!isLoaded ? (
         <section className="empty-state" role="status" aria-live="polite">
-          <h2 className="empty-state__title">Loading submission</h2>
+          <h2 className="empty-state__title">Checking submission access</h2>
+          <p className="empty-state__text">Published problems stay available while your account finishes loading.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
         </section>
       ) : null}
 
@@ -109,12 +115,20 @@ function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { 
         <section className="error-state" role="alert">
           <h2 className="error-state__title">Submission unavailable</h2>
           <p className="error-state__text">{formatSubmissionLoadError(submissionQuery.error)}</p>
+          <div className="history-actions">
+            <button className="workspace-button workspace-button--secondary" onClick={() => void submissionQuery.refetch()} type="button">
+              Retry submission
+            </button>
+            <Link className="table-link" href="/submissions">
+              Back to submissions
+            </Link>
+          </div>
         </section>
       ) : null}
 
       {isLoaded && isSignedIn && submissionQuery.isPending ? (
         <section className="empty-state" role="status" aria-live="polite">
-          <h2 className="empty-state__title">Loading submission</h2>
+          <h2 className="empty-state__title">Loading stored submission</h2>
         </section>
       ) : null}
 

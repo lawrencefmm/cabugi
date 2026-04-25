@@ -160,7 +160,13 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
     return (
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
-          <h1 className="empty-state__title">Loading authoring tools</h1>
+          <h1 className="empty-state__title">Checking authoring access</h1>
+          <p className="empty-state__text">Published problems stay available while your account finishes loading.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -189,6 +195,11 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading draft</h1>
+          <div className="history-actions">
+            <Link className="table-link" href="/drafts">
+              Back to drafts
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -200,6 +211,14 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
         <section className="error-state" role="alert">
           <h1 className="error-state__title">Draft unavailable</h1>
           <p className="error-state__text">{formatDraftError(draftQuery.error, "Problem draft not found.")}</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/drafts">
+              Back to drafts
+            </Link>
+            <Link className="table-link" href="/drafts/new">
+              Start a new draft
+            </Link>
+          </div>
         </section>
       </main>
     );

@@ -51,23 +51,6 @@ Acceptance Tests:
 Notes:
 - The current authoring screen already has the data needed for a stronger UX but offers little preview or structured readiness guidance.
 
-### WEB-POLISH-01 - Improve navigation, retries, and mobile behavior
-Description: Tighten common frontend interaction quality by replacing client-side hard reload links where appropriate, adding retry and recovery affordances, and improving dense views on mobile.
-
-Expected Result: The app feels faster, less brittle, and more usable across common page transitions and narrow screens.
-
-Acceptance Tests:
-- Internal navigation in client-rendered views uses `next/link` or equivalent client transitions where appropriate.
-- Major error or empty states offer retry or next-step actions instead of dead ends.
-- Problem list, submissions, and moderation views remain usable on small screens without relying only on wide desktop tables.
-- Protected routes do not strand cold loads on generic `Loading ...` shells when a clearer sign-in gate or next step is available.
-- Relevant web tests cover the updated navigation and at least one improved retry state.
-
-Notes:
-- This task is meant to capture broad UX consistency work that does not fit neatly into a single route-specific feature.
-- Observed on the live Clerk-configured runtime: `/drafts/new`, `/moderation/problem-drafts`, `/submissions`, and `/problems/[slug]` all cold-load through very generic loading states from the shell, which makes the app feel unfinished before client auth or data resolves.
-- Confirmed in-browser: those routes do eventually reach functional sign-in gates, but the transition from shell load -> generic loading copy -> actual auth prompt is noticeably clunky and should be tightened.
-
 ### SUB-BE-01 - Add incremental judge progress
 Description: Extend the submission pipeline so the backend can expose partial judging progress, such as current test progress or partial case results, before a submission fully completes.
 
@@ -83,6 +66,25 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-POLISH-01 - Improve navigation, retries, and mobile behavior
+Description: Tighten common frontend interaction quality by replacing client-side hard reload links where appropriate, adding retry and recovery affordances, and improving dense views on mobile.
+
+Expected Result: The app feels faster, less brittle, and more usable across common page transitions and narrow screens.
+
+Acceptance Tests:
+- Internal navigation in client-rendered views uses `next/link` or equivalent client transitions where appropriate.
+- Major error or empty states offer retry or next-step actions instead of dead ends.
+- Problem list, submissions, and moderation views remain usable on small screens without relying only on wide desktop tables.
+- Protected routes do not strand cold loads on generic `Loading ...` shells when a clearer sign-in gate or next step is available.
+- Relevant web tests cover the updated navigation and at least one improved retry state.
+
+Notes:
+- Completed by replacing the remaining client-rendered hard-reload anchors with `next/link` transitions in the problem list, problem detail, submission history, and other shared web views.
+- Major error and empty states now include retry or recovery actions across the problem list, drafts index, submission history, moderation queue, submission detail, and draft authoring flows.
+- Problem list and submission history now render dedicated mobile card layouts so narrow screens are not forced through the desktop tables, while moderation kept its existing stacked single-column layout and gained clearer recovery actions.
+- Protected auth-gated views now use page-specific “checking access” copy with clear next steps instead of dropping cold loads onto generic loading-only shells.
+- Verified with `pnpm --filter web test --run src/components/problem-list-page.test.tsx src/components/submission-history-page.test.tsx src/components/problem-detail-page.test.tsx src/components/moderation-problem-drafts-page.test.tsx src/components/problem-drafts-page.test.tsx src/components/problem-authoring-page.test.tsx app/layout.test.tsx`, `pnpm --filter web test --run`, and `pnpm --filter web typecheck`.
 
 ### WEB-DRAFTS-01 - Add a drafts index and fix information architecture
 Description: Add a drafts management page and stop using the `Drafts` navigation item to mean only “create new draft”.
