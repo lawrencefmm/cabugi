@@ -138,7 +138,7 @@ export class ApiError extends Error {
   }
 }
 
-const defaultApiBaseUrl = "http://127.0.0.1:8080";
+const defaultApiBaseUrl = "/api";
 
 function apiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? defaultApiBaseUrl;

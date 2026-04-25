@@ -72,7 +72,7 @@ describe("SubmissionSummaryPage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "http://127.0.0.1:8080/v1/submissions/submission-1",
+        "/api/v1/submissions/submission-1",
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: "Bearer session-token",

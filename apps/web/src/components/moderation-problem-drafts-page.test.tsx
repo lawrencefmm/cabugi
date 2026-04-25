@@ -193,7 +193,7 @@ describe("ModerationProblemDraftsPage", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[2] as [string, RequestInit];
-    expect(url).toBe("http://127.0.0.1:8080/v1/moderation/problem-drafts/two-sum-user/decision");
+    expect(url).toBe("/api/v1/moderation/problem-drafts/two-sum-user/decision");
     expect(options.method).toBe("POST");
     expect(JSON.parse(String(options.body))).toMatchObject({ decision: "approve", moderationNotes: "Looks good" });
   });
