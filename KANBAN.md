@@ -21,6 +21,21 @@
 
 ## Ready
 
+### WEB-DETAIL-01 - Improve problem detail sidebar metadata UI
+Description: Refine the metadata sidebar on `/problems/[slug]` so the information is easier to scan, the spacing between labels and values is readable, and low-value metadata does not dominate the panel.
+
+Expected Result: The problem detail sidebar feels deliberate and readable, with clean label/value spacing, clearer language presentation, and less emphasis on the slug.
+
+Acceptance Tests:
+- The problem detail sidebar no longer treats the slug as a primary metadata row in the panel.
+- Time limit and memory limit values render with clear visual separation from their labels.
+- Supported languages remain visible in the sidebar with improved presentation.
+- Relevant problem detail tests are updated if the sidebar structure changes.
+
+Notes:
+- Raised from live UI review after `WEB-UX-01`: the current metadata panel visually runs labels and values together (for example `Time limit1000 ms`) and gives the slug more emphasis than it earns on the problem detail page.
+- This is intentionally narrower than a full problem-detail redesign and should be shippable as an isolated frontend polish task.
+
 ## Backlog
 
 ### SUB-BE-01 - Add incremental judge progress
@@ -38,6 +53,22 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### AUTH-OPS-02 - Tolerate small Clerk token clock skew
+Description: Harden API token verification so small clock differences between Clerk-issued tokens and the API runtime do not break freshly authenticated browser flows such as submission redirects and protected page loads.
+
+Expected Result: Valid Clerk sessions work reliably immediately after sign-in or submission redirect, while clearly invalid future-dated tokens remain rejected.
+
+Acceptance Tests:
+- The API accepts valid Clerk tokens whose `nbf` claim is only slightly ahead of the API clock.
+- The API still rejects tokens whose `nbf` claim is materially beyond the allowed skew window.
+- `go test ./...` passes in `services/api`.
+- A freshly submitted authenticated browser run can load `/submissions/[id]` without the transient `401` failure reproduced during investigation.
+
+Notes:
+- Completed by adding a `30s` JWT leeway in the API Clerk verifier and test coverage for both accepted small skew and rejected larger skew cases.
+- Root cause was transient `401 unauthorized` responses on protected routes when freshly minted Clerk tokens arrived with an `nbf` slightly ahead of the API container clock.
+- Verified with `go test ./internal/auth`, `go test ./...` in `services/api`, an API container rebuild, and a live browser submission that redirected to a `200` submission detail page.
 
 ### WEB-UX-01 - Simplify problemset browsing
 Description: Rework the published problem list so it feels like a user-facing problemset instead of an internal catalog, including removing slug as a primary column and improving the scan path around titles and limits.

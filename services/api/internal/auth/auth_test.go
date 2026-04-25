@@ -112,6 +112,52 @@ func TestClerkVerifierRejectsInvalidAudience(t *testing.T) {
 	}
 }
 
+func TestClerkVerifierAcceptsSmallNotBeforeClockSkew(t *testing.T) {
+	privateKey, config := newStaticVerifierConfig(t)
+	verifier, err := NewClerkVerifier(config)
+	if err != nil {
+		t.Fatalf("NewClerkVerifier() error = %v", err)
+	}
+
+	token := signedToken(t, privateKey, "static-key", jwt.MapClaims{
+		"sub": "user_123",
+		"iss": config.Issuer,
+		"aud": []string{"cabugi-web"},
+		"azp": "http://localhost:3000",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"nbf": time.Now().Add(20 * time.Second).Unix(),
+	})
+
+	principal, err := verifier.Verify(context.Background(), token)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if principal.Subject != "user_123" {
+		t.Fatalf("Verify() principal = %#v, want subject user_123", principal)
+	}
+}
+
+func TestClerkVerifierRejectsNotBeforeBeyondClockSkew(t *testing.T) {
+	privateKey, config := newStaticVerifierConfig(t)
+	verifier, err := NewClerkVerifier(config)
+	if err != nil {
+		t.Fatalf("NewClerkVerifier() error = %v", err)
+	}
+
+	token := signedToken(t, privateKey, "static-key", jwt.MapClaims{
+		"sub": "user_123",
+		"iss": config.Issuer,
+		"aud": []string{"cabugi-web"},
+		"azp": "http://localhost:3000",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"nbf": time.Now().Add(tokenClockSkewLeeway + 15*time.Second).Unix(),
+	})
+
+	if _, err := verifier.Verify(context.Background(), token); err != ErrInvalidToken {
+		t.Fatalf("Verify() error = %v, want %v", err, ErrInvalidToken)
+	}
+}
+
 func TestClerkVerifierUsesJWKSAndRefreshesOnKeyRotation(t *testing.T) {
 	privateKeyOne := newRSAKey(t)
 	privateKeyTwo := newRSAKey(t)
