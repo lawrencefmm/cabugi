@@ -54,6 +54,25 @@ Notes:
 
 ## Done
 
+### WEB-REDESIGN-01 - Rebuild frontend around dark competitive coding UI
+Description: Redesign the primary web experience to match the provided dark Cabugi references, including the global shell, problem set, solve workspace, submission detail, and draft authoring screens.
+
+Expected Result: The frontend presents a cohesive dark judge interface with red accents, dense glass panels, refined navigation, code-editor styling, progress cards, and responsive layouts that preserve existing product behavior.
+
+Acceptance Tests:
+- The global app shell uses the new Cabugi visual language with dark panels, red accent states, and the primary navigation shown in the references.
+- The problem set page renders a two-column desktop layout with browse/sidebar context, metric cards, filters, a dense problem table, progress widgets, and responsive mobile cards.
+- Problem detail and solve workspace views visually align with the split statement/editor/testcase reference while preserving submission flow behavior.
+- Submission detail and draft authoring pages adopt the new panel, table, status, and preview treatment without removing existing data or actions.
+- Relevant web component tests and `pnpm --filter web typecheck` pass.
+
+Notes:
+- Completed by introducing a new Cabugi dark judge shell, active primary navigation, red-accent glass panels, redesigned auth/account surface, and responsive CSS across the web app.
+- Rebuilt the problem set into a dashboard-style view with browse/sidebar navigation, metric cards, filters, dense rows, progress widgets, recommendations, and mobile cards while preserving published problem fetching.
+- Reworked problem detail into a split statement/editor workspace, refreshed the solve editor with toolbar/testcase panels, redesigned submission detail into verdict/testcase/code/performance panels, and added a left section rail plus split preview treatment to draft authoring.
+- Updated web tests for the new navigation, problemset, problem detail, submission summary, and authoring structure.
+- Verified with `pnpm --filter web typecheck`, focused redesign component tests, `pnpm --filter web test --run`, and `pnpm --filter web build`.
+
 ### WEB-PROXY-01 - Proxy web API requests through the app origin
 Description: Route browser-facing API calls through the Next.js web origin so local and LAN clients can use authenticated flows without reaching the Go API port directly.
 

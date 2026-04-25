@@ -34,8 +34,9 @@ describe("ProblemListPage", () => {
     expect(screen.getByRole("table", { name: "Published problems" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Slug" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Problem" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Languages" })).toBeInTheDocument();
-    expect(screen.getAllByText("two-sum").length).toBeGreaterThan(0);
+    expect(screen.getByRole("columnheader", { name: "Difficulty" })).toBeInTheDocument();
+    expect(screen.getByText("Daily Streak")).toBeInTheDocument();
+    expect(screen.getAllByText(/two-sum/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("C++17 / Python").length).toBeGreaterThan(0);
   });
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppProviders } from "../src/components/app-providers";
+import { AppShellNav } from "../src/components/app-shell-nav";
 import { AppAuthControls, AuthProvider } from "../src/components/auth";
 
 type RootLayoutProps = {
@@ -19,18 +20,23 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <header className="app-header">
           <div className="app-header__inner">
             <Link className="app-brand" href="/">
-              <span className="app-brand__mark">&lt;/&gt;</span>
-              <span className="app-brand__text">cabugi</span>
+              <span className="app-brand__mark" aria-hidden="true">
+                <svg viewBox="0 0 48 32" role="img">
+                  <path d="M4 28 18 4l7 12-4 7 5-1 4 6H4Z" />
+                  <path d="M27 13 39 28H28l-4-6 4-9Z" />
+                </svg>
+              </span>
+              <span className="app-brand__text">Cabugi</span>
             </Link>
 
-            <div className="app-header__actions">
-              <nav className="app-nav" aria-label="Primary">
-                <Link href="/">Problems</Link>
-                <Link href="/drafts">Drafts</Link>
-                <Link href="/moderation/problem-drafts">Moderation</Link>
-                <Link href="/submissions">Submissions</Link>
-              </nav>
+            <AppShellNav />
 
+            <div className="app-header__actions">
+              <div className="app-header__score" aria-label="Cabugi rating">
+                <span aria-hidden="true">F</span>
+                <strong>1824</strong>
+              </div>
+              <span className="app-header__bell" aria-hidden="true" />
               <AppAuthControls />
             </div>
           </div>

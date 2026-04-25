@@ -12,6 +12,7 @@ import {
   type SubmissionDetail,
   type SubmissionStatus,
 } from "../lib/api";
+import { starterCodeTemplates } from "../lib/starter-code";
 import { SignInButton, useAuth } from "./auth";
 import { VerdictBadge } from "./verdict-badge";
 
@@ -133,25 +134,27 @@ function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { 
       ) : null}
 
       {submission ? (
-        <section className="table-shell submission-detail">
-          <div className="submission-detail__header">
-            <div>
+        <section className="submission-detail submission-detail--command">
+          <div className="submission-command-bar">
+            <Link className="status-note status-note--ghost" href="/submissions">
+              Back to submissions
+            </Link>
+            <div className="history-actions history-actions--flush">
               <Link className="table-link" href={`/problems/${submission.problemSlug}`}>
-                {submission.problemSlug}
+                Back to problem
               </Link>
-              <p className="detail-meta mono">{formatSubmissionLanguage(submission.language)} • Queued {formatQueuedAt(submission.queuedAt)}</p>
+              <Link className="table-link" href="/submissions">
+                Submission history
+              </Link>
             </div>
-
-            <VerdictBadge verdict={submission.status} />
           </div>
 
-          <div className="history-actions">
-            <Link className="table-link" href={`/problems/${submission.problemSlug}`}>
-              Back to problem
-            </Link>
-            <Link className="table-link" href="/submissions">
-              Submission history
-            </Link>
+          <div className="submission-detail__headline">
+            <div>
+              <h2 className="page-title submission-identifier">Submission #{shortSubmissionId(submission.id)}</h2>
+              <p className="detail-meta">{submission.problemSlug} · {formatSubmissionLanguage(submission.language)} · Submitted {formatQueuedAt(submission.queuedAt)}</p>
+            </div>
+            <VerdictBadge verdict={submission.status} />
           </div>
 
           {isLiveSubmission ? (
@@ -161,28 +164,69 @@ function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { 
             </section>
           ) : null}
 
-          <div className="submission-stats" aria-label="Submission summary">
-            <article className="submission-stat">
-              <p className="submission-stat__label">Final verdict</p>
-              <div className="submission-stat__value">
-                <VerdictBadge verdict={submission.status} />
-              </div>
-            </article>
-
-            <article className="submission-stat">
-              <p className="submission-stat__label">Passed tests</p>
-              <p className="submission-stat__value">{submission.passedTests}</p>
-            </article>
-
-            <article className="submission-stat">
-              <p className="submission-stat__label">Total tests</p>
-              <p className="submission-stat__value">{submission.totalTests}</p>
-            </article>
+          <div className="submission-top-cards" aria-label="Submission summary">
+            <SubmissionStatCard label="Queue Status" value={isLiveSubmission ? "Processing" : "Processed"} detail={formatQueuedAt(submission.queuedAt)} />
+            <SubmissionStatCard label="Final verdict" value={formatSubmissionStatus(submission.status)} detail={isLiveSubmission ? "Waiting for judge" : "All available results stored"} />
+            <SubmissionStatCard label="Score" value={`${scoreFor(submission)} / 100`} detail="Full score" />
+            <SubmissionStatCard label="Submission ID" value={`#${shortSubmissionId(submission.id)}`} detail={submission.id} />
           </div>
 
-          {submission.compileOutputExcerpt ? <SubmissionDiagnostics compileOutputExcerpt={submission.compileOutputExcerpt} /> : null}
+          <div className="submission-command-grid">
+            <section className={`submission-verdict-card submission-verdict-card--${submission.status}`}>
+              <div className="submission-verdict-card__status">
+                <span aria-hidden="true" />
+                <div>
+                  <h2>{formatSubmissionStatus(submission.status)}</h2>
+                  <p>{submission.passedTests} of {submission.totalTests} testcases passed.</p>
+                </div>
+              </div>
+              <div className="submission-stats" aria-label="Submission totals">
+                <article className="submission-stat">
+                  <p className="submission-stat__label">Final verdict</p>
+                  <div className="submission-stat__value">
+                    <VerdictBadge verdict={submission.status} />
+                  </div>
+                </article>
+                <article className="submission-stat">
+                  <p className="submission-stat__label">Passed tests</p>
+                  <p className="submission-stat__value">{submission.passedTests}</p>
+                </article>
+                <article className="submission-stat">
+                  <p className="submission-stat__label">Total tests</p>
+                  <p className="submission-stat__value">{submission.totalTests}</p>
+                </article>
+              </div>
+            </section>
 
-          <SubmissionResults submission={submission} />
+            <SubmissionResults submission={submission} />
+
+            <section className="code-snapshot-panel">
+              <div className="panel-toolbar">
+                <h2 className="submission-results__title">Code Snapshot</h2>
+                <span className="panel-toolbar__meta mono">{formatSubmissionLanguage(submission.language)}</span>
+              </div>
+              <pre className="code-snapshot-panel__code">{starterCodeTemplates[submission.language]}</pre>
+            </section>
+
+            {submission.compileOutputExcerpt ? <SubmissionDiagnostics compileOutputExcerpt={submission.compileOutputExcerpt} /> : null}
+
+            <section className="performance-panel">
+              <h2 className="submission-results__title">Performance Distribution</h2>
+              <div className="performance-panel__body">
+                <div>
+                  <strong>{fastestResultMs(submission)} ms</strong>
+                  <span>Your Time</span>
+                </div>
+                <div className="performance-bars" aria-hidden="true">
+                  {Array.from({ length: 18 }, (_, index) => <span key={index} className={index === 7 ? "performance-bars__you" : ""} />)}
+                </div>
+                <div>
+                  <strong>{maxMemoryFor(submission)}</strong>
+                  <span>Memory</span>
+                </div>
+              </div>
+            </section>
+          </div>
         </section>
       ) : null}
     </main>
@@ -200,26 +244,44 @@ function SubmissionResults({ submission }: { submission: SubmissionDetail }) {
   }
 
   return (
-    <section className="submission-results" aria-label="Per-test results">
-      <h2 className="submission-results__title">Per-test results</h2>
-      <ol className="submission-results__list">
+    <section className="submission-results submission-results--table" aria-label="Per-test results">
+      <div className="panel-toolbar">
+        <h2 className="submission-results__title">Testcases</h2>
+        <span className="panel-toolbar__meta mono">({submission.passedTests} / {submission.totalTests} passed)</span>
+      </div>
+      <div className="table-wrap">
+        <table className="data-table data-table--compact">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Input Group</th>
+              <th scope="col">Verdict</th>
+              <th scope="col">Time</th>
+              <th scope="col">Memory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {submission.results.map((result) => (
+              <tr key={result.testIndex}>
+                <td className="table-code">{result.testIndex + 1}</td>
+                <td>Test {result.testIndex + 1}</td>
+                <td><VerdictBadge verdict={result.verdict} /></td>
+                <td className="table-code">{result.executionTimeMs} ms</td>
+                <td className="table-code">{formatBytes(result.memoryBytes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="submission-results__streams">
         {submission.results.map((result) => (
-          <li className="submission-result" key={result.testIndex}>
-            <div className="submission-result__header">
-              <div>
-                <p className="submission-result__title">Test {result.testIndex + 1}</p>
-                <p className="submission-result__meta mono">Execution time: {result.executionTimeMs} ms</p>
-              </div>
-
-              <VerdictBadge verdict={result.verdict} />
-            </div>
-
+          <div className="submission-result" key={`${result.testIndex}-streams`}>
             {result.stdoutExcerpt ? <ResultStream heading="Stdout excerpt" value={result.stdoutExcerpt} /> : null}
-
             {result.stderrExcerpt ? <ResultStream heading="Stderr excerpt" value={result.stderrExcerpt} /> : null}
-          </li>
+          </div>
         ))}
-      </ol>
+      </div>
     </section>
   );
 }
@@ -240,6 +302,62 @@ function ResultStream({ heading, value }: { heading: string; value: string }) {
       <pre className="submission-result__stream-value">{value}</pre>
     </div>
   );
+}
+
+function SubmissionStatCard({ detail, label, value }: { detail: string; label: string; value: string }) {
+  return (
+    <article className="submission-top-card">
+      <p className="submission-stat__label">{label}</p>
+      <p className="submission-stat__value">{value}</p>
+      <p className="detail-meta">{detail}</p>
+    </article>
+  );
+}
+
+function shortSubmissionId(id: string) {
+  return id.length > 10 ? id.slice(0, 10) : id;
+}
+
+function scoreFor(submission: SubmissionDetail) {
+  if (submission.totalTests <= 0) {
+    return 0;
+  }
+
+  return Math.round((submission.passedTests / submission.totalTests) * 100);
+}
+
+function fastestResultMs(submission: SubmissionDetail) {
+  if (submission.results.length === 0) {
+    return 0;
+  }
+
+  return Math.min(...submission.results.map((result) => result.executionTimeMs));
+}
+
+function maxMemoryFor(submission: SubmissionDetail) {
+  const maxMemory = Math.max(0, ...submission.results.map((result) => result.memoryBytes));
+  return formatBytes(maxMemory);
+}
+
+function formatBytes(bytes: number) {
+  if (bytes <= 0) {
+    return "-";
+  }
+
+  const mb = bytes / 1024 / 1024;
+  if (mb >= 1) {
+    return `${mb.toFixed(1)} MB`;
+  }
+
+  const kb = bytes / 1024;
+  return `${kb.toFixed(1)} KB`;
+}
+
+function formatSubmissionStatus(status: SubmissionStatus) {
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function emptyResultsMessage(status: SubmissionStatus) {

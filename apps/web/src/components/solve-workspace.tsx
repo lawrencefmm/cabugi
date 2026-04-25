@@ -171,13 +171,8 @@ function AuthenticatedSolveWorkspace({ problemSlug }: { problemSlug: string }) {
   }
 
   return (
-    <section className="workspace-panel">
-      <div className="workspace-panel__header">
-        <div>
-          <h2 className="workspace-panel__title">Solve Workspace</h2>
-          <p className="workspace-panel__subtitle">Keep separate buffers per language, submit once, and jump straight to the live submission stream.</p>
-        </div>
-
+    <section className="workspace-panel solve-workspace-card">
+      <div className="code-toolbar">
         <label className="workspace-language-picker">
           <span>Language</span>
           <select value={language} onChange={(event) => setLanguage(event.target.value as SubmissionLanguage)}>
@@ -185,32 +180,17 @@ function AuthenticatedSolveWorkspace({ problemSlug }: { problemSlug: string }) {
             <option value="python">Python</option>
           </select>
         </label>
+
+        <div className="code-toolbar__actions" aria-hidden="true">
+          <span />
+          <span />
+        </div>
       </div>
 
-      <div className="meta-strip" aria-label="Solve workspace status">
-        <span className="meta-chip mono">problem {problemSlug}</span>
-        <span className="meta-chip mono">buffer {formatSubmissionLanguage(language)}</span>
-        <span className="meta-chip mono">per-language state preserved</span>
-        {latestSubmissionId ? <span className="meta-chip mono">latest {latestSubmissionId}</span> : null}
-      </div>
-
-      <p className="detail-meta">Switching languages keeps each buffer intact on this browser. Successful submissions redirect to `/submissions/[id]` automatically.</p>
-
-      <div className="history-actions">
-        <Link className="table-link" href="/submissions">
-          Open submission history
-        </Link>
-        {latestSubmissionId ? (
-          <Link className="table-link" href={`/submissions/${latestSubmissionId}`}>
-            Reopen latest submission
-          </Link>
-        ) : null}
-      </div>
-
-      <div className="workspace-editor-shell">
+      <div className="workspace-editor-shell workspace-editor-shell--command">
         <Editor
           defaultLanguage={language === "cpp17" ? "cpp" : "python"}
-          height="360px"
+          height="420px"
           language={language === "cpp17" ? "cpp" : "python"}
           theme="vs-dark"
           value={sourceCode}
@@ -221,23 +201,72 @@ function AuthenticatedSolveWorkspace({ problemSlug }: { problemSlug: string }) {
             }));
           }}
           options={{
-            minimap: { enabled: false },
+            minimap: { enabled: true, scale: 0.65, showSlider: "mouseover" },
             fontSize: 14,
+            fontLigatures: true,
+            lineHeight: 22,
             scrollBeyondLastLine: false,
             wordWrap: "on",
           }}
         />
       </div>
 
-      <div className="workspace-actions">
-        <button
-          className="workspace-button"
-          type="button"
-          onClick={() => createSubmissionMutation.mutate()}
-          disabled={createSubmissionMutation.isPending || sourceCode.trim() === ""}
-        >
-          {createSubmissionMutation.isPending ? "Submitting..." : "Submit solution"}
-        </button>
+      <div className="code-footer">
+        <span className="code-footer__saved">Saved</span>
+        <div className="workspace-actions workspace-actions--compact">
+          <button className="workspace-button workspace-button--secondary" disabled type="button">
+            Run
+          </button>
+          <button
+            className="workspace-button workspace-button--primary"
+            type="button"
+            onClick={() => createSubmissionMutation.mutate()}
+            disabled={createSubmissionMutation.isPending || sourceCode.trim() === ""}
+          >
+            {createSubmissionMutation.isPending ? "Submitting..." : "Submit solution"}
+          </button>
+        </div>
+      </div>
+
+      <section className="testcase-panel" aria-label="Sample testcase preview">
+        <div className="testcase-panel__tabs">
+          <button className="testcase-panel__tab testcase-panel__tab--active" type="button">Testcase</button>
+          <button className="testcase-panel__tab" type="button">Custom Input</button>
+          <Link className="table-link" href="/submissions">Details</Link>
+        </div>
+
+        <div className="testcase-panel__body">
+          <ol className="testcase-list" aria-label="Sample testcases">
+            <li className="testcase-list__item testcase-list__item--active">Testcase 1</li>
+            <li className="testcase-list__item">Testcase 2</li>
+            <li className="testcase-list__item">Testcase 3</li>
+          </ol>
+          <div className="testcase-output-grid">
+            <div>
+              <p className="submission-result__stream-label">Input</p>
+              <pre>nums = [2,7,11,15], target = 9</pre>
+            </div>
+            <div>
+              <p className="submission-result__stream-label">Expected</p>
+              <pre>[0,1]</pre>
+            </div>
+            <div>
+              <p className="submission-result__stream-label">Status</p>
+              <pre>Accepted</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="history-actions history-actions--workspace">
+        <Link className="table-link" href="/submissions">
+          Open submission history
+        </Link>
+        {latestSubmissionId ? (
+          <Link className="table-link" href={`/submissions/${latestSubmissionId}`}>
+            Reopen latest submission
+          </Link>
+        ) : null}
       </div>
 
       {createSubmissionMutation.error ? (

@@ -94,24 +94,35 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
   const { problem } = state;
 
   return (
-    <main className="app-main">
-      <section className="page-hero">
-        <Link className="status-note" href="/">
-          Problems / {problem.slug}
-        </Link>
-        <span className="page-kicker">Problem</span>
-        <h1 className="page-title">{problem.title}</h1>
-        <p className="page-subtitle">Read the statement, inspect the limits for this published version, then move directly into the solve workspace.</p>
-        <div className="meta-strip" aria-label="Problem metadata overview">
-          <span className="meta-chip mono">{problem.slug}</span>
-          <span className="meta-chip mono">{formatTimeLimit(problem.timeLimitMs)}</span>
-          <span className="meta-chip mono">{formatMemoryLimit(problem.memoryLimitMb)}</span>
-          <span className="meta-chip mono">C++17 / Python</span>
-        </div>
-      </section>
+    <main className="app-main app-main--full solve-page">
+      <section className="solve-shell">
+        <article className="problem-panel problem-panel--statement">
+          <div className="problem-panel__topbar">
+            <Link className="status-note status-note--ghost" href="/">
+              Back to problems
+            </Link>
+            <div className="problem-panel__icons" aria-hidden="true">
+              <span />
+              <span />
+            </div>
+          </div>
 
-      <section className="problem-layout">
-        <article className="problem-panel">
+          <header className="problem-reader__header">
+            <h1 className="page-title">{problem.title}</h1>
+            <div className="meta-strip problem-reader__tags" aria-label="Problem metadata overview">
+              <span className="difficulty-pill difficulty-pill--easy">Easy</span>
+              <span className="tag-chip">Arrays</span>
+              <span className="tag-chip">Hash Table</span>
+              <span className="tag-chip">Implementation</span>
+              <span className="points-chip">100 pts</span>
+            </div>
+            <div className="problem-limits" aria-label="Problem limits">
+              <span>Time Limit: {formatTimeLimit(problem.timeLimitMs)}</span>
+              <span>Memory Limit: {formatMemoryLimit(problem.memoryLimitMb)}</span>
+              <span>Languages: C++17 / Python</span>
+            </div>
+          </header>
+
           <section className="problem-section">
             <h2 className="problem-section__heading">Statement</h2>
             <ProblemMarkdown content={problem.statementMarkdown} />
@@ -138,37 +149,9 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
           </section>
         </article>
 
-        <aside className="problem-sidebar">
-          <div className="problem-sidebar__section">
-            <h2 className="problem-sidebar__heading">Metadata</h2>
-            <div className="problem-sidebar__list">
-              <div>
-                <span className="problem-sidebar__meta-label">Slug</span>
-                <span className="problem-sidebar__meta-value">{problem.slug}</span>
-              </div>
-              <div>
-                <span className="problem-sidebar__meta-label">Time limit</span>
-                <span className="problem-sidebar__meta-value">{formatTimeLimit(problem.timeLimitMs)}</span>
-              </div>
-              <div>
-                <span className="problem-sidebar__meta-label">Memory limit</span>
-                <span className="problem-sidebar__meta-value">{formatMemoryLimit(problem.memoryLimitMb)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="problem-sidebar__section">
-            <h2 className="problem-sidebar__heading">Languages</h2>
-            <div className="problem-sidebar__list">
-              <span className="problem-sidebar__meta-value">C++17</span>
-              <span className="problem-sidebar__meta-value">Python</span>
-            </div>
-          </div>
-        </aside>
-      </section>
-
-      <section className="workspace-section">
-        <SolveWorkspace authEnabled={authEnabled} problemSlug={problem.slug} />
+        <section className="workspace-section workspace-section--split">
+          <SolveWorkspace authEnabled={authEnabled} problemSlug={problem.slug} />
+        </section>
       </section>
     </main>
   );

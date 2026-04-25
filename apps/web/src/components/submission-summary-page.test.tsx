@@ -62,11 +62,11 @@ describe("SubmissionSummaryPage", () => {
 
     renderSubmission(<SubmissionSummaryPage authEnabled submissionId="submission-1" />);
 
-    expect(await screen.findByText("Final verdict")).toBeInTheDocument();
+    expect((await screen.findAllByText("Final verdict")).length).toBeGreaterThan(0);
     expect(screen.getByText("Passed tests")).toBeInTheDocument();
     expect(screen.getByText("Total tests")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getAllByText("2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("3").length).toBeGreaterThan(0);
     expect(screen.getByText("Test 3")).toBeInTheDocument();
     expect(screen.getAllByText("Stdout excerpt")).toHaveLength(2);
 

@@ -243,22 +243,25 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
         </p>
       </section>
 
-      <section className="draft-layout">
-        <section className="workspace-panel">
-          <div className="workspace-panel__header">
-            <div>
-              <h2 className="workspace-panel__title">Draft Editor</h2>
-              <p className="workspace-panel__subtitle">
-                {canEditDraft
-                  ? "Save incremental draft updates as you refine the statement and upload the hidden test bundle used for judging."
-                  : "This draft is no longer editable because it has already entered moderation."}
-              </p>
+      <section className="draft-layout draft-layout--redesign">
+        <DraftSectionRail checks={readinessChecks} />
+
+        <section className="authoring-main-column">
+          <section className="workspace-panel authoring-editor-panel">
+            <div className="workspace-panel__header">
+              <div>
+                <h2 className="workspace-panel__title">Draft Editor</h2>
+                <p className="workspace-panel__subtitle">
+                  {canEditDraft
+                    ? "Save incremental draft updates as you refine the statement and upload the hidden test bundle used for judging."
+                    : "This draft is no longer editable because it has already entered moderation."}
+                </p>
+              </div>
+
+              {currentDraft ? <DraftStatus status={currentDraft.lifecycleStatus} /> : null}
             </div>
 
-            {currentDraft ? <DraftStatus status={currentDraft.lifecycleStatus} /> : null}
-          </div>
-
-          <form className="draft-form" onSubmit={(event) => handleDraftSubmit(event)}>
+            <form className="draft-form" onSubmit={(event) => handleDraftSubmit(event)}>
             <div className="draft-grid">
               <DraftField label="Slug">
                 <input
@@ -383,17 +386,35 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
               </button>
 
               {isEditing ? (
-              <button
-                className="workspace-button workspace-button--secondary"
-                disabled={!canSubmitForReview}
-                onClick={() => void handleSubmitForReview()}
-                type="button"
-              >
+                <button
+                  className="workspace-button workspace-button--secondary"
+                  disabled={!canSubmitForReview}
+                  onClick={() => void handleSubmitForReview()}
+                  type="button"
+                >
                   {submitForReviewMutation.isPending ? "Submitting..." : "Submit for review"}
                 </button>
               ) : null}
             </div>
-          </form>
+            </form>
+          </section>
+
+          <section aria-label="Draft preview" className="workspace-panel draft-preview-panel">
+            <div className="workspace-panel__header">
+              <div>
+                <h2 className="workspace-panel__title">Live Preview</h2>
+                <p className="workspace-panel__subtitle">This preview updates as you edit so you can review the exact statement structure before sending the draft to moderators.</p>
+              </div>
+            </div>
+
+            <div className="moderation-sections moderation-sections--preview">
+              <PreviewSection content={deferredPreview.statementMarkdown} emptyMessage="Start writing the statement to preview it here." heading="Statement" />
+              <PreviewSection content={deferredPreview.inputMarkdown} emptyMessage="Describe the input format to preview it here." heading="Input" />
+              <PreviewSection content={deferredPreview.outputMarkdown} emptyMessage="Describe the expected output to preview it here." heading="Output" />
+              <PreviewSection content={deferredPreview.constraintsMarkdown} emptyMessage="Add constraints or complexity notes to preview them here." heading="Constraints" />
+              <PreviewSection content={deferredPreview.notesMarkdown} emptyMessage="Optional implementation notes or clarifications will appear here." heading="Notes" />
+            </div>
+          </section>
         </section>
 
         <aside className="problem-sidebar draft-sidebar">
@@ -466,23 +487,6 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
           </div>
         </aside>
       </section>
-
-      <section aria-label="Draft preview" className="workspace-panel draft-preview-panel">
-        <div className="workspace-panel__header">
-          <div>
-            <h2 className="workspace-panel__title">Live Preview</h2>
-            <p className="workspace-panel__subtitle">This preview updates as you edit so you can review the exact statement structure before sending the draft to moderators.</p>
-          </div>
-        </div>
-
-        <div className="moderation-sections">
-          <PreviewSection content={deferredPreview.statementMarkdown} emptyMessage="Start writing the statement to preview it here." heading="Statement" />
-          <PreviewSection content={deferredPreview.inputMarkdown} emptyMessage="Describe the input format to preview it here." heading="Input" />
-          <PreviewSection content={deferredPreview.outputMarkdown} emptyMessage="Describe the expected output to preview it here." heading="Output" />
-          <PreviewSection content={deferredPreview.constraintsMarkdown} emptyMessage="Add constraints or complexity notes to preview them here." heading="Constraints" />
-          <PreviewSection content={deferredPreview.notesMarkdown} emptyMessage="Optional implementation notes or clarifications will appear here." heading="Notes" />
-        </div>
-      </section>
     </main>
   );
 
@@ -521,6 +525,31 @@ function DraftField({ children, label }: { children: ReactNode; label: string })
       <span className="draft-field__label">{label}</span>
       {children}
     </label>
+  );
+}
+
+function DraftSectionRail({ checks }: { checks: ReturnType<typeof buildReadinessChecks> }) {
+  const sections = ["Title", "Statement", "Input Format", "Output Format", "Examples", "Constraints", "Tags", "Limits & Languages", "Hidden Tests", "Checklist"];
+
+  return (
+    <aside className="draft-sections" aria-label="Draft sections">
+      <p className="sidebar-label">Sections</p>
+      <ol className="draft-sections__list">
+        {sections.map((section, index) => {
+          const ready = checks[index % checks.length]?.ready ?? false;
+
+          return (
+            <li className={ready ? "draft-sections__item draft-sections__item--ready" : "draft-sections__item"} key={section}>
+              <span>{index + 1}. {section}</span>
+              <span aria-label={ready ? "Ready" : "Incomplete"} />
+            </li>
+          );
+        })}
+      </ol>
+      <button className="workspace-button workspace-button--secondary" type="button">
+        Validate All
+      </button>
+    </aside>
   );
 }
 
