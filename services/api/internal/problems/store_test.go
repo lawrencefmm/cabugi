@@ -146,6 +146,42 @@ func TestCreateDraftReturnsProblemSlugTakenOnUniqueViolation(t *testing.T) {
 	}
 }
 
+func TestListDraftsByOwnerReturnsLatestUpdatedFirst(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	newer := time.Now().UTC()
+	submitted := newer.Add(-30 * time.Minute)
+	older := newer.Add(-time.Hour)
+	rows := pgxmock.NewRows([]string{"slug", "version_number", "lifecycle_status", "title", "updated_at", "submitted_for_review_at"}).
+		AddRow("two-sum-user", 1, "draft", "Two Sum User", newer, nil).
+		AddRow("a-plus-b-user", 2, "in_review", "A + B User", older, submitted)
+	mock.ExpectQuery(`SELECT(.|\n)*WHERE pv.created_by_user_id = \$1::uuid AND pv.lifecycle_status IN \('draft', 'in_review'\)(.|\n)*ORDER BY pv.updated_at DESC, p.slug ASC`).
+		WithArgs("00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+
+	store := NewPostgresStoreFromQuerier(mock)
+	items, err := store.ListDraftsByOwner(context.Background(), "00000000-0000-0000-0000-000000000001")
+	if err != nil {
+		t.Fatalf("ListDraftsByOwner() error = %v", err)
+	}
+	if len(items) != 2 || items[0].Slug != "two-sum-user" || items[1].Slug != "a-plus-b-user" {
+		t.Fatalf("ListDraftsByOwner() returned unexpected items: %#v", items)
+	}
+	if items[0].SubmittedForReviewAt != nil {
+		t.Fatalf("ListDraftsByOwner() draft item should not have submitted timestamp: %#v", items[0])
+	}
+	if items[1].SubmittedForReviewAt == nil || !items[1].SubmittedForReviewAt.Equal(submitted) {
+		t.Fatalf("ListDraftsByOwner() in-review item missing submitted timestamp: %#v", items[1])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
+
 func TestGetDraftBySlugReturnsOwnerDraft(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	if err != nil {

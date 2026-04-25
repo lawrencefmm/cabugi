@@ -5,6 +5,7 @@ This workspace contains the published problem browsing UI, solve workspace, draf
 ## Current Routes
 - `/`: published problem list
 - `/problems/[slug]`: published problem detail page
+- `/drafts`: authored draft index
 - `/drafts/new`: create a problem draft
 - `/drafts/[slug]`: edit or submit a problem draft for review
 - `/moderation/problem-drafts`: moderator review queue

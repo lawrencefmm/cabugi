@@ -31,6 +31,15 @@ export type ProblemDraft = {
   hiddenTestBundleSha256: string;
 };
 
+export type ProblemDraftSummary = {
+  slug: string;
+  versionNumber: number;
+  lifecycleStatus: ProblemDraftLifecycleStatus;
+  title: string;
+  updatedAt: string;
+  submittedForReviewAt: string | null;
+};
+
 export type UploadedProblemDraftBundle = {
   hiddenTestBundleKey: string;
   hiddenTestBundleSha256: string;
@@ -83,6 +92,10 @@ type PublishedProblemsResponse = {
 
 type ModerationQueueResponse = {
   drafts: ModerationQueueItem[];
+};
+
+type ProblemDraftsResponse = {
+  drafts: ProblemDraftSummary[];
 };
 
 type SubmissionsResponse = {
@@ -187,6 +200,14 @@ export async function createProblemDraft(input: ProblemDraftCreateInput, token: 
     token,
     body: input,
   });
+}
+
+export async function fetchProblemDrafts(token: string) {
+  const response = await fetchJSON<ProblemDraftsResponse>("/v1/problem-drafts", {
+    token,
+  });
+
+  return response.drafts;
 }
 
 export async function uploadProblemDraftHiddenTestBundle(file: File, token: string) {
@@ -360,7 +381,11 @@ export function isTerminalSubmissionStatus(status: SubmissionStatus) {
 }
 
 export function formatQueuedAt(queuedAt: string) {
-  const date = new Date(queuedAt);
+  return formatDateTime(queuedAt);
+}
+
+export function formatDateTime(value: string) {
+  const date = new Date(value);
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",

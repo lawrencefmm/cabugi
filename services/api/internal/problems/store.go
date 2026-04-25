@@ -2,6 +2,7 @@ package problems
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -55,6 +56,15 @@ type DraftProblem struct {
 	HiddenTestBundleSHA256 string `json:"hiddenTestBundleSha256"`
 }
 
+type DraftSummary struct {
+	Slug                 string     `json:"slug"`
+	VersionNumber        int        `json:"versionNumber"`
+	LifecycleStatus      string     `json:"lifecycleStatus"`
+	Title                string     `json:"title"`
+	UpdatedAt            time.Time  `json:"updatedAt"`
+	SubmittedForReviewAt *time.Time `json:"submittedForReviewAt"`
+}
+
 type CreateDraftInput struct {
 	UserID                 string
 	Slug                   string
@@ -105,6 +115,7 @@ type Store interface {
 	ListPublishedProblems(context.Context) ([]PublishedProblemSummary, error)
 	GetPublishedProblemBySlug(context.Context, string) (PublishedProblemDetail, error)
 	CreateDraft(context.Context, CreateDraftInput) (DraftProblem, error)
+	ListDraftsByOwner(context.Context, string) ([]DraftSummary, error)
 	GetDraftBySlug(context.Context, string, string, bool) (DraftProblem, error)
 	UpdateDraft(context.Context, UpdateDraftInput) (DraftProblem, error)
 	SubmitDraftForReview(context.Context, string, string) (DraftProblem, error)
@@ -231,6 +242,20 @@ JOIN problems p ON p.id = pv.problem_id
 WHERE p.slug = $1 AND pv.lifecycle_status IN ('draft', 'in_review') AND ($2 OR pv.created_by_user_id = $3::uuid)
 ORDER BY pv.version_number DESC
 LIMIT 1
+`
+
+const listDraftsByOwnerSQL = `
+SELECT
+  p.slug,
+  pv.version_number,
+  pv.lifecycle_status::text,
+  pv.title,
+  pv.updated_at,
+  pv.submitted_for_review_at
+FROM problem_versions pv
+JOIN problems p ON p.id = pv.problem_id
+WHERE pv.created_by_user_id = $1::uuid AND pv.lifecycle_status IN ('draft', 'in_review')
+ORDER BY pv.updated_at DESC, p.slug ASC
 `
 
 const submitDraftForReviewSQL = `
@@ -545,6 +570,34 @@ func (store *PostgresStore) CreateDraft(ctx context.Context, input CreateDraftIn
 	return problem, err
 }
 
+func (store *PostgresStore) ListDraftsByOwner(ctx context.Context, ownerUserID string) ([]DraftSummary, error) {
+	rows, err := store.db.Query(ctx, listDraftsByOwnerSQL, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]DraftSummary, 0)
+	for rows.Next() {
+		var item DraftSummary
+		var submittedForReviewAt sql.NullTime
+		if err := rows.Scan(&item.Slug, &item.VersionNumber, &item.LifecycleStatus, &item.Title, &item.UpdatedAt, &submittedForReviewAt); err != nil {
+			return nil, err
+		}
+		if submittedForReviewAt.Valid {
+			submittedAt := submittedForReviewAt.Time
+			item.SubmittedForReviewAt = &submittedAt
+		}
+
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
 func (store *PostgresStore) GetDraftBySlug(ctx context.Context, slug string, actorUserID string, allowStaff bool) (DraftProblem, error) {
 	var problem DraftProblem
 	err := store.db.QueryRow(ctx, getDraftBySlugSQL, slug, allowStaff, actorUserID).Scan(
@@ -743,6 +796,10 @@ func (DisabledStore) GetPublishedProblemBySlug(context.Context, string) (Publish
 
 func (DisabledStore) CreateDraft(context.Context, CreateDraftInput) (DraftProblem, error) {
 	return DraftProblem{}, ErrStoreNotConfigured
+}
+
+func (DisabledStore) ListDraftsByOwner(context.Context, string) ([]DraftSummary, error) {
+	return nil, ErrStoreNotConfigured
 }
 
 func (DisabledStore) GetDraftBySlug(context.Context, string, string, bool) (DraftProblem, error) {

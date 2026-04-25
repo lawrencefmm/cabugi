@@ -57,6 +57,7 @@ func newMux(verifier auth.Verifier, problemStore problems.Store, userStore users
 	mux.HandleFunc("GET /openapi/v1.yaml", openAPIHandler)
 	mux.HandleFunc("GET /v1/problems", listPublishedProblemsHandler(problemStore))
 	mux.HandleFunc("GET /v1/problems/{slug}", getPublishedProblemHandler(problemStore))
+	mux.Handle("GET /v1/problem-drafts", auth.RequireAuth(verifier, listProblemDraftsHandler(userStore, problemStore)))
 	mux.Handle("POST /v1/problem-drafts/hidden-test-bundles", auth.RequireAuth(verifier, uploadProblemDraftBundleHandler(userStore, bundleValidator)))
 	mux.Handle("POST /v1/problem-drafts", auth.RequireAuth(verifier, createProblemDraftHandler(userStore, problemStore, bundleValidator)))
 	mux.Handle("GET /v1/problem-drafts/{slug}", auth.RequireAuth(verifier, getProblemDraftHandler(userStore, problemStore)))
@@ -257,6 +258,23 @@ func createProblemDraftHandler(userStore users.Store, problemStore problems.Stor
 		}
 
 		writeJSON(writer, http.StatusCreated, problem)
+	})
+}
+
+func listProblemDraftsHandler(userStore users.Store, problemStore problems.Store) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		user, ok := currentUserFromRequest(writer, request, userStore)
+		if !ok {
+			return
+		}
+
+		items, err := problemStore.ListDraftsByOwner(request.Context(), user.ID)
+		if err != nil {
+			writeProblemStoreError(writer, err)
+			return
+		}
+
+		writeJSON(writer, http.StatusOK, map[string]any{"drafts": items})
 	})
 }
 
