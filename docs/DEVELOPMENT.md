@@ -53,11 +53,10 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080 pnpm --filter web dev
 This default browser path gives you the public problem pages immediately. Authenticated browser flows still require real Clerk configuration, because `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is unset by default.
 
 ### Full Local Compose Runtime
-Run the checked-in full-stack helper from the repository root:
+Run the checked-in full stack definition from the repository root:
 
 ```bash
-./infra/scripts/up_full_stack.sh
-# or: pnpm runtime:up
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
 ```
 
 This path now runs the local init steps automatically inside Compose:
@@ -65,9 +64,9 @@ This path now runs the local init steps automatically inside Compose:
 - `judge-image-prep` pulls the pinned `gcc:14.2.0` and `python:3.13.0-alpine3.20` images through the host Docker socket
 - `seed-starter-problems` creates the hidden-test bucket if needed and seeds the official published starter problems
 
-The helper reads `infra/full-stack.env` when present and otherwise falls back to `infra/full-stack.env.example`. The example env is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
+The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
 
-If your machine already uses the default host ports, the helper fails before Compose startup and prints override examples. You can put those overrides in `infra/full-stack.env` or pass them through your shell before starting the stack. The published host-port settings are:
+If your machine already uses the default host ports, override the exported ports in `infra/full-stack.env.example` before starting Compose:
 - `WEB_PORT`
 - `API_PORT`
 - `JUDGE_OBSERVABILITY_PORT`
@@ -157,7 +156,6 @@ Current broad verification commands:
 Convenience commands from the repository root:
 
 ```bash
-pnpm runtime:up
 pnpm verify:runtime
 pnpm verify:smoke:api
 pnpm verify:integration

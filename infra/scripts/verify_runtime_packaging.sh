@@ -10,7 +10,6 @@ required_files=(
   "services/judge/Dockerfile"
   "infra/docker-compose.yml"
   "infra/full-stack.env.example"
-  "infra/scripts/up_full_stack.sh"
 )
 
 for file in "${required_files[@]}"; do
@@ -58,13 +57,5 @@ if ! grep -Fq '/usr/local/bin/seed-starter-problems' "${ROOT_DIR}/services/api/D
 fi
 
 docker compose -f "${COMPOSE_FILE}" --env-file "${ROOT_DIR}/infra/full-stack.env.example" config >/dev/null
-WEB_PORT=33000 \
-API_PORT=38080 \
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:38080 \
-JUDGE_OBSERVABILITY_PORT=38082 \
-POSTGRES_PORT=35432 \
-MINIO_PORT=39000 \
-MINIO_CONSOLE_PORT=39001 \
-  "${ROOT_DIR}/infra/scripts/up_full_stack.sh" --check --env-file "${ROOT_DIR}/infra/full-stack.env.example" >/dev/null
 
 printf 'runtime packaging files verified\n'
