@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 
+import { starterCodeTemplates } from "../lib/starter-code";
 import { SolveWorkspace } from "./solve-workspace";
 
 let mockAuthState: {
@@ -12,6 +13,22 @@ let mockAuthState: {
 };
 
 const pushMock = vi.fn();
+
+function createStorageMock() {
+  const store = new Map<string, string>();
+
+  return {
+    clear: vi.fn(() => {
+      store.clear();
+    }),
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+  };
+}
+
+let storageMock = createStorageMock();
 
 vi.mock("./auth", () => ({
   SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -43,8 +60,18 @@ function renderWorkspace(ui: ReactNode) {
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
+beforeEach(() => {
+  storageMock = createStorageMock();
+  vi.stubGlobal("localStorage", storageMock);
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: storageMock,
+  });
+});
+
 afterEach(() => {
   pushMock.mockReset();
+  storageMock.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -63,7 +90,7 @@ describe("SolveWorkspace", () => {
     expect(screen.getByRole("button", { name: "Sign in to solve" })).toBeInTheDocument();
   });
 
-  it("creates a submission and redirects to the live submission page", async () => {
+  it("creates a submission, persists the latest run, and redirects to the live submission page", async () => {
     mockAuthState = {
       getToken: async () => "session-token",
       isLoaded: true,
@@ -101,5 +128,86 @@ describe("SolveWorkspace", () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/submissions/submission-1");
     });
+    expect(screen.getByRole("link", { name: "Reopen latest submission" })).toHaveAttribute("href", "/submissions/submission-1");
+  });
+
+  it("preserves edited buffers when switching languages", () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+      mode: "clerk",
+    };
+
+    renderWorkspace(<SolveWorkspace authEnabled problemSlug="two-sum" />);
+
+    const languagePicker = screen.getByLabelText("Language");
+
+    fireEvent.change(screen.getByTestId("monaco-editor"), { target: { value: "int main() { return 42; }" } });
+    fireEvent.change(languagePicker, { target: { value: "python" } });
+
+    expect(screen.getByTestId("monaco-editor")).toHaveValue(starterCodeTemplates.python);
+
+    fireEvent.change(screen.getByTestId("monaco-editor"), { target: { value: "print(42)\n" } });
+    fireEvent.change(languagePicker, { target: { value: "cpp17" } });
+
+    expect(screen.getByTestId("monaco-editor")).toHaveValue("int main() { return 42; }");
+
+    fireEvent.change(languagePicker, { target: { value: "python" } });
+
+    expect(screen.getByTestId("monaco-editor")).toHaveValue("print(42)\n");
+  });
+
+  it("hydrates the latest submission shortcut from local storage", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+      mode: "clerk",
+    };
+
+    storageMock.setItem(
+      "cabugi_solve_workspace:two-sum",
+      JSON.stringify({
+        language: "python",
+        latestSubmissionId: "submission-9",
+        sources: {
+          cpp17: starterCodeTemplates.cpp17,
+          python: "print('cached')\n",
+        },
+      }),
+    );
+
+    renderWorkspace(<SolveWorkspace authEnabled problemSlug="two-sum" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Reopen latest submission" })).toHaveAttribute("href", "/submissions/submission-9");
+    });
+    expect(screen.getByLabelText("Language")).toHaveValue("python");
+    expect(screen.getByTestId("monaco-editor")).toHaveValue("print('cached')\n");
+  });
+
+  it("renders actionable submission failure messages", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+      mode: "clerk",
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: "not_found" }),
+      }),
+    );
+
+    renderWorkspace(<SolveWorkspace authEnabled problemSlug="two-sum" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit solution" }));
+
+    expect(await screen.findByText("This published problem is no longer available for new submissions.")).toBeInTheDocument();
   });
 });
