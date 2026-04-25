@@ -25,6 +25,23 @@
 
 ## Done
 
+### DOCS-01 - Refresh project documentation and local run guidance
+Description: Refresh the top-level project documentation so the current architecture, feature surface, and local run paths match the repository as it exists today.
+
+Expected Result: A new contributor can read the checked-in docs and understand what the project does, how the services fit together, and how to run the stack locally without guessing at stale setup steps.
+
+Acceptance Tests:
+- `README.md` reflects the current product surface instead of the old bootstrap state.
+- `ARCHITECTURE.md` matches the current API, judge, storage, and diagnostic responsibilities.
+- Developer-facing docs clearly describe the recommended local run paths for interactive development, full Compose runtime, and authenticated smoke verification.
+- Stale project documentation such as outdated styling or auth assumptions is removed or updated.
+- Relevant readmes and documentation index files point to the current guides.
+
+Notes:
+- Completed by rewriting `README.md`, `ARCHITECTURE.md`, `docs/DEVELOPMENT.md`, and `docs/DEPLOYMENT.md` around the current feature set and the actual local run paths used by the repository today.
+- Updated `docs/README.md`, `apps/web/README.md`, `db/README.md`, `services/judge/README.md`, and `MVP_SCOPE.md` so the smaller documentation surfaces match the current runtime, starter seeds, diagnostics, and auth model.
+- Added clearer instructions for the three common local modes: interactive public-stack development, full Compose runtime, and authenticated smoke verification without external auth setup.
+
 ### SEED-02 - Expand official starter problem set
 Description: Add more published official starter problems so new users can explore a broader range of supported problem types immediately.
 

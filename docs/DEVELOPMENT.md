@@ -1,53 +1,109 @@
 # Development
 
 ## Prerequisites
-- `pnpm` for frontend workspace management.
+- `pnpm` for the web workspace.
 - `Go` for the API and judge services.
-- `Docker` with Compose support for local shared infrastructure.
+- `Docker` with Compose support for PostgreSQL, MinIO, and the optional full local stack.
 
-## Local Shared Infrastructure
-Start the shared services used by local development:
+## Recommended Local Run Paths
+
+### Interactive Browser Run
+Use this path when you want the normal local development loop with separate service processes.
+
+1. Install dependencies from the repository root:
+
+```bash
+pnpm install
+```
+
+2. Start PostgreSQL and MinIO:
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d postgres minio
 ```
 
-Current endpoints:
+3. Seed the official starter problems:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
+4. Start the API from `services/api`:
+
+```bash
+(cd services/api && API_REQUIRE_DATABASE=true API_REQUIRE_HIDDEN_BUNDLE_VALIDATION=true go run ./cmd/api)
+```
+
+5. Prepare the pinned judge images, then start the judge worker from `services/judge`:
+
+```bash
+docker pull gcc:14.2.0
+docker pull python:3.13.0-alpine3.20
+(cd services/judge && go run ./cmd/judge)
+```
+
+6. Start the web app from the repository root:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080 pnpm --filter web dev
+```
+
+7. Open `http://127.0.0.1:3000`.
+
+This default browser path gives you the public problem pages immediately. Authenticated browser flows still require real Clerk configuration, because `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is unset by default.
+
+### Full Local Compose Runtime
+Run the checked-in full stack definition from the repository root:
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
+```
+
+Then seed the official starter problems in a second shell:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
+The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
+
+### Authenticated Workflow Verification
+Use the checked-in local auth fixture when you want the full authenticated stack without external auth setup:
+
+```bash
+pnpm verify:integration
+pnpm verify:smoke:e2e
+```
+
+`pnpm verify:integration` exercises the authenticated API and judge flow. `pnpm verify:smoke:e2e` adds the browser author, moderation, publication, and verdict loop on top.
+
+## Local Shared Infrastructure
+Current shared-service endpoints:
 - PostgreSQL: `localhost:5432`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
 
-Current development credentials:
+Current default development credentials:
 - PostgreSQL database: `cabugi`
 - PostgreSQL user: `cabugi`
 - PostgreSQL password: `cabugi`
 - MinIO user: `minioadmin`
 - MinIO password: `minioadmin`
 
-Run the full local application runtime instead of only shared infrastructure:
-
-```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
-```
-
-See `docs/DEPLOYMENT.md` for image build commands, runtime environment variables, and Docker socket notes for the local judge worker.
-
 ## Repository Structure
-- `apps/web`: frontend workspace.
+- `apps/web`: Next.js frontend workspace.
 - `services/api`: Go API service.
 - `services/judge`: Go judge worker.
 - `db`: schema and migration assets.
-- `infra`: local Docker Compose configuration.
+- `infra`: local runtime and verification scripts.
 - `docs`: project documentation.
 
-## Current State
-- This task bootstraps the repository structure and shared local infrastructure only.
-- The frontend workspace now has published problem list and detail UI plus automated unit tests.
-- The frontend workspace now has submission history and summary UI for authenticated users.
-- The API service now has a bootstrap HTTP server with a health route and a versioned OpenAPI document.
-- The API now includes PostgreSQL-backed published problem read endpoints.
-- The judge service now has a Docker-based spike plus Go tests for verdict handling.
-- Integration tests and full service wiring will be expanded in subsequent tasks.
+## Current Capabilities
+- The web app serves published problems, solve workspace screens, submission history, submission detail diagnostics, draft authoring, and moderation pages.
+- The API serves authenticated and public problem, draft, moderation, submission, and current-user routes backed by PostgreSQL.
+- The judge worker claims queued submissions, executes `C++17` and `Python` in a hardened sandbox, and writes final verdicts plus safe diagnostics back to PostgreSQL.
+- Official starter problems can be seeded into PostgreSQL and MinIO for immediate local browsing.
+- CI and local verification include API smoke, platform integration, and browser end-to-end coverage.
 
 ## Test Commands
 Install frontend dependencies from the repository root:
@@ -69,53 +125,43 @@ go test ./...
 
 Run the Go command from `services/api` for API tests or from `services/judge` for judge tests.
 
-Current broad verification for the bootstrapped repo:
+Current broad verification commands:
 - `pnpm --filter web typecheck`
 - `pnpm --filter web test --run`
 - `go test ./...` from `services/api`
 - `go test ./...` from `services/judge`
 - `./db/scripts/verify_initial_schema.sh`
 - `./db/scripts/verify_migration_workflow.sh`
-- `./infra/scripts/verify_platform_integration.sh`
 - `./infra/scripts/verify_runtime_packaging.sh`
 - `./infra/scripts/verify_api_runtime_smoke.sh`
+- `./infra/scripts/verify_platform_integration.sh`
 - `./infra/scripts/verify_e2e_workflow_smoke.sh`
+- `./infra/scripts/verify_go_vulnerabilities.sh`
 
-Run the API and judge integration verification from the repository root:
+Convenience commands from the repository root:
 
 ```bash
+pnpm verify:runtime
+pnpm verify:smoke:api
 pnpm verify:integration
-```
-
-This command starts temporary PostgreSQL and MinIO containers, serves the local JWKS fixture, boots the API and judge worker, creates and moderates a user-authored problem through the real API, then verifies an accepted submission plus per-test results against the published draft.
-
-Run the browser end-to-end smoke from the repository root:
-
-```bash
 pnpm verify:smoke:e2e
-```
-
-The browser smoke starts temporary PostgreSQL and MinIO containers, boots the API and judge worker against them, builds and starts the web app, and runs Playwright from the checked-in Docker image. It uses the local test-auth fixture under `infra/testdata/local_test_auth/` so the real web app can exercise signed-in author and moderator flows without depending on an external Clerk environment.
-
-Seed official starter problems into PostgreSQL and object storage:
-
-```bash
-./db/scripts/seed_official_starter_problems.sh
+pnpm verify:security
+pnpm verify:db-ops
 ```
 
 ## API Service
-Run the bootstrap API locally from `services/api`:
+Run the API locally from `services/api`:
 
 ```bash
 go run ./cmd/api
 ```
 
-Current bootstrap API routes:
+Current routes:
 - `GET /healthz`
 - `GET /readyz`
 - `GET /metricsz`
 - `GET /openapi/v1.yaml`
-- `GET /v1/me` with Clerk session authentication and DB-backed app user bootstrap
+- `GET /v1/me`
 - `GET /v1/problems`
 - `GET /v1/problems/{slug}`
 - `POST /v1/problem-drafts/hidden-test-bundles`
@@ -136,78 +182,55 @@ DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
   go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_local_admin --role admin
 ```
 
-Grant a moderator or another admin after the first admin exists:
+Grant a moderator or another admin after bootstrap:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
   go run ./cmd/grant-staff-role --requester-subject user_local_admin --target-subject user_local_moderator --role moderator
 ```
 
-This command path is operator-only. The bootstrap flag works only while no admin exists yet, and later grants require the requester subject to already hold the `admin` role.
-
-Clerk environment variables for protected API routes:
-- `CLERK_ISSUER`: required expected `iss` claim for Clerk session tokens when auth verification is enabled.
-- `CLERK_JWKS_URL`: optional explicit JWKS endpoint. Defaults to `<CLERK_ISSUER>/.well-known/jwks.json`.
-- `CLERK_PEM_PUBLIC_KEY`: optional static Clerk JWT verification public key in PEM format.
-- `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed frontend origins used to validate the `azp` claim.
-- `CLERK_ALLOWED_AUDIENCES`: optional comma-separated allowed token audiences used to validate the `aud` claim.
-- `API_REQUIRE_AUTH`: when `true`, the API refuses to start unless Clerk auth verification is configured.
-- `API_REQUIRE_DATABASE`: when `true`, the API refuses to start unless the PostgreSQL-backed stores can connect successfully.
-- `API_REQUIRE_HIDDEN_BUNDLE_VALIDATION`: when `true`, the API refuses to start unless hidden test bundle validation can reach the configured object storage bucket.
+Important environment values:
+- `CLERK_ISSUER`: expected `iss` claim for Clerk session tokens when auth verification is enabled.
+- `CLERK_JWKS_URL`: explicit JWKS endpoint, or leave unset to derive `<CLERK_ISSUER>/.well-known/jwks.json`.
+- `CLERK_PEM_PUBLIC_KEY`: static Clerk JWT verification public key for local or fallback use.
+- `CLERK_ALLOWED_PARTIES`: allowed `azp` values.
+- `CLERK_ALLOWED_AUDIENCES`: allowed `aud` values.
+- `API_REQUIRE_AUTH`: fail startup when auth is required but not configured.
+- `API_REQUIRE_DATABASE`: fail startup when the PostgreSQL-backed stores are unavailable.
+- `API_REQUIRE_HIDDEN_BUNDLE_VALIDATION`: fail startup when hidden bundle validation cannot reach object storage.
+- `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
+- `WEB_ALLOWED_ORIGINS`: comma-separated browser origins allowed by API CORS.
 
 Browser auth transport:
 - The API accepts bearer tokens from the `Authorization` header and from the `__session` cookie.
 - If both are present, the `Authorization` header takes precedence.
-- Production auth should set `CLERK_ISSUER` plus at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`.
 
-Database environment for API routes backed by PostgreSQL:
-- `DATABASE_URL`: PostgreSQL connection string. Defaults to `postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable`.
-
-Web environment:
+## Web Environment
 - `NEXT_PUBLIC_API_BASE_URL`: web runtime base URL for the Go API. Defaults to `http://127.0.0.1:8080`.
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used by the web app for authentication.
-- `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED`: test-only local auth adapter used by the browser smoke suite. Do not enable this in deployed environments.
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used by the web app for auth.
+- `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED`: test-only local auth adapter used by the browser smoke suite.
 
-API browser access environment:
-- `WEB_ALLOWED_ORIGINS`: optional comma-separated origins the API should allow for browser requests. Defaults to `http://127.0.0.1:3000,http://localhost:3000`.
-
-Readiness endpoints:
-- `GET /healthz` reports process liveness only.
-- `GET /readyz` reports dependency readiness for auth, database-backed stores, and hidden test bundle validation, and returns `503` when any of them is unavailable.
-
-API observability:
-- API logs are JSON records on stdout. Request logs use the `http_request` message and include `request_id`, `method`, `path`, `route`, `status`, and `latency_ms`.
-- `GET /metricsz` returns request counters and current submission queue depth.
-
-Judge object storage environment:
-- `OBJECT_STORAGE_ENDPOINT`: judge object storage endpoint. Defaults to `http://127.0.0.1:9000` for local MinIO.
+## Judge Environment
+- `OBJECT_STORAGE_ENDPOINT`: object storage endpoint. Defaults to `http://127.0.0.1:9000`.
 - `OBJECT_STORAGE_REGION`: object storage region. Defaults to `us-east-1`.
 - `OBJECT_STORAGE_BUCKET`: hidden test bundle bucket. Defaults to `cabugi-hidden-tests`.
 - `OBJECT_STORAGE_ACCESS_KEY_ID`: object storage access key. Defaults to `minioadmin`.
 - `OBJECT_STORAGE_SECRET_ACCESS_KEY`: object storage secret key. Defaults to `minioadmin`.
-- `OBJECT_STORAGE_USE_PATH_STYLE`: optional path-style toggle for S3-compatible APIs. Defaults to `true` for local MinIO.
-- `JUDGE_MAX_JOB_ATTEMPTS`: retry limit before the worker marks a submission as `judge_failed`. Defaults to `3`.
-- `JUDGE_JOB_LEASE_DURATION`: how long a claimed submission job remains owned without renewal before another worker may reclaim it. Defaults to `30s`.
-- `JUDGE_JOB_LEASE_RENEW_INTERVAL`: how often the active worker renews its current job lease. Defaults to `10s`.
-- `JUDGE_POLL_INTERVAL`: idle poll interval for the long-running worker loop. Defaults to `3s`.
-- `JUDGE_RETRY_DELAY`: delay before retrying a failed claimed job. Defaults to `5s`.
-- `JUDGE_OBSERVABILITY_ADDRESS`: bind address for judge `GET /healthz` and `GET /metricsz`. Defaults to `127.0.0.1:8082`.
+- `OBJECT_STORAGE_USE_PATH_STYLE`: path-style toggle for S3-compatible APIs. Defaults to `true`.
+- `JUDGE_MAX_JOB_ATTEMPTS`: retry limit before `judge_failed`. Defaults to `3`.
+- `JUDGE_JOB_LEASE_DURATION`: unrenewed claim window. Defaults to `30s`.
+- `JUDGE_JOB_LEASE_RENEW_INTERVAL`: lease renewal cadence. Defaults to `10s`.
+- `JUDGE_POLL_INTERVAL`: idle poll interval. Defaults to `3s`.
+- `JUDGE_RETRY_DELAY`: retry delay after worker failures. Defaults to `5s`.
+- `JUDGE_OBSERVABILITY_ADDRESS`: bind address for `GET /healthz` and `GET /metricsz`. Defaults to `127.0.0.1:8082`.
 
-Judge observability:
-- Judge logs are JSON records on stdout for claim, completion, retry, and terminal failure paths.
-- `GET http://127.0.0.1:8082/metricsz` returns worker outcome counters and heartbeat freshness when the worker runs with the default observability address.
+## Database Operations
+- `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh status`
+- `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up`
+- `DATABASE_URL="postgres://..." BACKUP_DIR="/secure/backups" ./db/scripts/backup.sh`
+- `CONFIRM_RESTORE=yes DATABASE_URL="postgres://..." ./db/scripts/restore.sh <backup.dump>`
 
-Local judge bundle storage:
-- Create the `cabugi-hidden-tests` bucket in MinIO.
-- Upload JSON bundle objects to that bucket, and store the object key in `hidden_test_bundle_key`.
-- Store the uploaded bundle SHA-256 hex digest in `hidden_test_bundle_sha256` so the API can validate draft bundle references and the judge can verify integrity before execution.
-
-Database operations:
-- Use `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh status` to inspect production-style migration state.
-- Use `DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up` to apply pending migrations without dropping schemas.
-- Use `DATABASE_URL="postgres://..." BACKUP_DIR="/secure/backups" ./db/scripts/backup.sh` before production migrations.
-- Use `CONFIRM_RESTORE=yes DATABASE_URL="postgres://..." ./db/scripts/restore.sh <backup.dump>` for explicit restore operations.
-- `./db/scripts/verify_initial_schema.sh` uses an isolated temporary PostgreSQL container for destructive schema verification; do not adapt it for production databases.
+`./db/scripts/verify_initial_schema.sh` is destructive verification logic and intentionally targets only an isolated temporary PostgreSQL container.
 
 ## CI
 GitHub Actions runs the same baseline verification in `.github/workflows/ci.yml` on pushes to `dev`, `main`, and `task/**`, plus pull requests.
@@ -226,43 +249,3 @@ Current CI checks:
 - `./infra/scripts/verify_e2e_workflow_smoke.sh`
 - `./infra/scripts/verify_go_vulnerabilities.sh`
 - Docker image builds for `apps/web`, `services/api`, and `services/judge`
-
-Judge spike command from `services/judge`:
-
-```bash
-go run ./cmd/judge-spike --all
-```
-
-Prepare the pinned worker sandbox images from `services/judge` before starting the long-running judge worker on a host:
-
-```bash
-docker pull gcc:14.2.0
-docker pull python:3.13.0-alpine3.20
-```
-
-Long-running judge worker command from `services/judge`:
-
-```bash
-go run ./cmd/judge
-```
-
-One-shot judge worker command from `services/judge`:
-
-```bash
-go run ./cmd/judge --once
-```
-
-## Local MVP Smoke Test
-1. Start shared infrastructure:
-
-```bash
-docker compose -f infra/docker-compose.yml up -d postgres minio
-```
-
-2. Seed starter problems and hidden bundles:
-
-```bash
-./db/scripts/seed_official_starter_problems.sh
-```
-
-3. Run `pnpm verify:smoke:e2e` from the repository root.

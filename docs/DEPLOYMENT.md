@@ -25,25 +25,31 @@ docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.examp
 ```
 
 The runtime definition includes:
+- `web` on `http://127.0.0.1:3000`
+- `api` on `http://127.0.0.1:8080`
+- `judge` observability on `http://127.0.0.1:8082`
+- `postgres` on `localhost:5432`
+- `minio` API on `http://127.0.0.1:9000` and console on `http://127.0.0.1:9001`
 
-- `web` on `http://127.0.0.1:3000`.
-- `api` on `http://127.0.0.1:8080`.
-- `judge` observability on `http://127.0.0.1:8082`.
-- `postgres` on `localhost:5432`.
-- `minio` API on `http://127.0.0.1:9000` and console on `http://127.0.0.1:9001`.
+After the stack is up, seed the official starter problems from another shell:
+
+```bash
+./db/scripts/seed_official_starter_problems.sh
+```
+
+The checked-in `infra/full-stack.env.example` values are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default, so authenticated browser flows still need real Clerk values or the checked-in authenticated smoke commands.
 
 The judge container mounts `/var/run/docker.sock` and uses `/tmp/cabugi-judge-workspaces` as a shared host path so sandbox containers can bind worker scratch directories. Treat Docker socket access as privileged and only use this Compose mode for local development or isolated judge hosts.
 
 ## Runtime Inputs
-Required production secrets and environment inputs:
-
-- `POSTGRES_PASSWORD`: PostgreSQL password used by the local runtime and by service connection strings.
+Important production secrets and environment inputs:
+- `POSTGRES_PASSWORD`: PostgreSQL password used by the local runtime and service connection strings.
 - `DATABASE_URL`: API and judge PostgreSQL connection string in deployed environments.
 - `NEXT_PUBLIC_API_BASE_URL`: browser-visible API base URL compiled into the web image.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk frontend publishable key.
-- `CLERK_ISSUER`: required expected issuer for Clerk session tokens.
-- `CLERK_JWKS_URL`: optional explicit JWKS endpoint for signing-key rotation; defaults from `CLERK_ISSUER`.
-- `CLERK_PEM_PUBLIC_KEY`: Clerk JWT verification public key for API auth.
+- `CLERK_ISSUER`: expected issuer for Clerk session tokens.
+- `CLERK_JWKS_URL`: optional explicit JWKS endpoint; defaults from `CLERK_ISSUER`.
+- `CLERK_PEM_PUBLIC_KEY`: optional static Clerk JWT verification public key.
 - `CLERK_ALLOWED_PARTIES`: comma-separated allowed Clerk `azp` values.
 - `CLERK_ALLOWED_AUDIENCES`: comma-separated allowed Clerk `aud` values.
 - `WEB_ALLOWED_ORIGINS`: comma-separated origins accepted by API CORS.
@@ -73,13 +79,13 @@ pnpm verify:runtime
 
 Baseline CI also builds all three service images to catch Dockerfile regressions.
 
-CI also runs `./infra/scripts/verify_api_runtime_smoke.sh`, which starts temporary PostgreSQL and MinIO containers, applies migrations, seeds starter problems, boots the API with backing services required, and verifies the published-problem HTTP surface.
+CI also runs:
+- `./infra/scripts/verify_api_runtime_smoke.sh` for public API plus backing-service smoke.
+- `./infra/scripts/verify_platform_integration.sh` for authenticated API and judge publication plus submission coverage.
+- `./infra/scripts/verify_e2e_workflow_smoke.sh` for browser author, moderation, publication, and submission flows end to end.
+- `./infra/scripts/verify_go_vulnerabilities.sh` for `govulncheck` against the Go services.
 
-CI also runs `./infra/scripts/verify_platform_integration.sh`, which exercises the authenticated API and judge flow against temporary PostgreSQL, MinIO, and local JWKS fixtures by creating a moderated problem, keeping it hidden until approval, and verifying an accepted submission plus per-test results after publication.
-
-CI also runs `./infra/scripts/verify_e2e_workflow_smoke.sh`, which uses the checked-in local JWKS fixture plus the web app's test-only local auth adapter to exercise the browser author, moderation, publication, and submission flows end to end. The Playwright browser step runs inside the official Playwright Docker image so the smoke stays reproducible across CI and local Linux environments without extra host browser packages.
-
-Go dependency security checks run through `./infra/scripts/verify_go_vulnerabilities.sh`, which installs and runs `govulncheck` against the API and judge modules.
+The browser smoke uses the checked-in local JWKS fixture plus the web app's test-only local auth adapter. The Playwright browser step runs inside the official Playwright Docker image so the smoke stays reproducible across CI and local Linux environments without extra host browser packages.
 
 ## Database Migrations And Recovery
 Production migrations use the non-destructive runner in `db/scripts/migrate.sh`. This is separate from `db/scripts/verify_initial_schema.sh`, which is destructive verification logic and intentionally runs only against an isolated temporary database container.
@@ -104,7 +110,7 @@ DATABASE_URL="postgres://..." ./db/scripts/migrate.sh up
 
 The migration runner records applied migration filenames and SHA-256 checksums in `schema_migrations`. If an applied migration file changes later, the runner fails instead of applying more changes on top of an unknown schema history.
 
-The database scripts use local PostgreSQL client tools by default. Set `POSTGRES_TOOLS_MODE=docker` to force the checked workflow to use the `postgres:17-alpine` client tools, which avoids local client/server version mismatches.
+The database scripts use local PostgreSQL client tools by default. Set `POSTGRES_TOOLS_MODE=docker` to force the checked workflow to use the `postgres:17-alpine` client tools, which avoids local client and server version mismatches.
 
 Restore from a backup only after selecting the correct target database and backup file:
 

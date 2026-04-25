@@ -38,7 +38,7 @@
 
 ## Technology Decisions
 - Frontend: `Next.js` with `TypeScript`.
-- Styling: `Tailwind CSS`.
+- Styling: checked-in application CSS and component class naming within the Next.js app.
 - Data fetching: `TanStack Query`.
 - Code editor: `Monaco Editor`.
 - API service: `Go`.
@@ -46,7 +46,7 @@
 - Database: `PostgreSQL`.
 - Local development: `Docker Compose`.
 - Hidden test and asset storage: `S3`-compatible object storage, with local development using `MinIO`.
-- Authentication: managed auth provider for v1, with exact provider to be chosen later.
+- Authentication: Clerk-compatible managed auth verified by the API.
 - Problem statement authoring: `Markdown` with `LaTeX` support.
 
 ## Success Criteria

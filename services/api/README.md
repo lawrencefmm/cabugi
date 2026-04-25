@@ -17,7 +17,7 @@ Build the deployable API image from the repository root:
 pnpm build:image:api
 ```
 
-Available bootstrap routes:
+Available routes:
 - `GET /healthz`
 - `GET /readyz`
 - `GET /metricsz`

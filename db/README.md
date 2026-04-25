@@ -5,6 +5,7 @@ This directory holds schema documentation, migrations, and verification helpers 
 ## Current Files
 - `migrations/0001_initial_schema.sql`: initial PostgreSQL schema for users, problems, versions, submissions, and moderation.
 - `migrations/0002_submission_job_leases.sql`: adds lease-based submission job recovery so abandoned claims can be reclaimed safely.
+- `migrations/0003_submission_artifact_excerpts.sql`: stores safe top-level compile-output excerpts for submission detail diagnostics.
 - `scripts/migrate.sh`: non-destructive migration runner that records applied migration filenames and SHA-256 checksums in `schema_migrations`.
 - `scripts/backup.sh`: creates a PostgreSQL custom-format backup with `pg_dump`.
 - `scripts/restore.sh`: restores a PostgreSQL custom-format backup after explicit `CONFIRM_RESTORE=yes` confirmation.
