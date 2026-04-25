@@ -43,18 +43,18 @@ describe("SubmissionSummaryPage", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-        json: async () => ({
-          id: "submission-1",
-          problemSlug: "two-sum",
-          language: "cpp17",
-          status: "wrong_answer",
-          queuedAt: new Date().toISOString(),
-          totalTests: 3,
-          passedTests: 2,
-          compileOutputExcerpt: "",
-          results: [
-            { testIndex: 0, verdict: "accepted", executionTimeMs: 9, memoryBytes: 0, stdoutExcerpt: "42\n", stderrExcerpt: "" },
-            { testIndex: 2, verdict: "wrong_answer", executionTimeMs: 14, memoryBytes: 0, stdoutExcerpt: "41\n", stderrExcerpt: "" },
+      json: async () => ({
+        id: "submission-1",
+        problemSlug: "two-sum",
+        language: "cpp17",
+        status: "wrong_answer",
+        queuedAt: new Date().toISOString(),
+        totalTests: 3,
+        passedTests: 2,
+        compileOutputExcerpt: "",
+        results: [
+          { testIndex: 0, verdict: "accepted", executionTimeMs: 9, memoryBytes: 0, stdoutExcerpt: "42\n", stderrExcerpt: "" },
+          { testIndex: 2, verdict: "wrong_answer", executionTimeMs: 14, memoryBytes: 0, stdoutExcerpt: "41\n", stderrExcerpt: "" },
         ],
       }),
     });
@@ -79,6 +79,72 @@ describe("SubmissionSummaryPage", () => {
           }),
         }),
       );
+    });
+  });
+
+  it("polls a live submission until a terminal verdict arrives", async () => {
+    mockAuthState = {
+      getToken: async () => "session-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "submission-live",
+          problemSlug: "two-sum",
+          language: "cpp17",
+          status: "queued",
+          queuedAt: new Date().toISOString(),
+          totalTests: 0,
+          passedTests: 0,
+          compileOutputExcerpt: "",
+          results: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "submission-live",
+          problemSlug: "two-sum",
+          language: "cpp17",
+          status: "running",
+          queuedAt: new Date().toISOString(),
+          totalTests: 1,
+          passedTests: 0,
+          compileOutputExcerpt: "",
+          results: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "submission-live",
+          problemSlug: "two-sum",
+          language: "cpp17",
+          status: "accepted",
+          queuedAt: new Date().toISOString(),
+          totalTests: 1,
+          passedTests: 1,
+          compileOutputExcerpt: "",
+          results: [{ testIndex: 0, verdict: "accepted", executionTimeMs: 6, memoryBytes: 0, stdoutExcerpt: "4\n", stderrExcerpt: "" }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderSubmission(<SubmissionSummaryPage authEnabled pollIntervalMs={10} submissionId="submission-live" />);
+
+    expect(await screen.findByText("Live status stream")).toBeInTheDocument();
+    expect((await screen.findAllByText("Accepted")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Test 1")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -111,10 +177,8 @@ describe("SubmissionSummaryPage", () => {
     renderSubmission(<SubmissionSummaryPage authEnabled submissionId="submission-2" />);
 
     expect(await screen.findByText("Per-test results unavailable")).toBeInTheDocument();
-    expect(
-      screen.getByText("No per-test results were recorded because compilation failed before execution started."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No per-test results were recorded because compilation failed before execution started.")).toBeInTheDocument();
     expect(screen.getByText("Compile output")).toBeInTheDocument();
-    expect(screen.getByText("main.cpp:1: error: expected ';'")).toBeInTheDocument();
+    expect(screen.getByText("main.cpp:1: error: expected ';'")) .toBeInTheDocument();
   });
 });

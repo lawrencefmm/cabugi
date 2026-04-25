@@ -1,13 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Editor from "@monaco-editor/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { createSubmission, fetchSubmission, isTerminalSubmissionStatus, type Submission } from "../lib/api";
+import { createSubmission } from "../lib/api";
 import { starterCodeTemplates, type SubmissionLanguage } from "../lib/starter-code";
 import { SignInButton, useAuth } from "./auth";
-import { VerdictBadge } from "./verdict-badge";
 
 declare global {
   interface Window {
@@ -23,10 +23,9 @@ declare global {
 type SolveWorkspaceProps = {
   authEnabled: boolean;
   problemSlug: string;
-  pollIntervalMs?: number;
 };
 
-export function SolveWorkspace({ authEnabled, pollIntervalMs = 1500, problemSlug }: SolveWorkspaceProps) {
+export function SolveWorkspace({ authEnabled, problemSlug }: SolveWorkspaceProps) {
   if (!authEnabled) {
     return (
       <section className="workspace-panel">
@@ -40,15 +39,15 @@ export function SolveWorkspace({ authEnabled, pollIntervalMs = 1500, problemSlug
     );
   }
 
-  return <AuthenticatedSolveWorkspace pollIntervalMs={pollIntervalMs} problemSlug={problemSlug} />;
+  return <AuthenticatedSolveWorkspace problemSlug={problemSlug} />;
 }
 
-function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollIntervalMs: number; problemSlug: string }) {
+function AuthenticatedSolveWorkspace({ problemSlug }: { problemSlug: string }) {
   const auth = useAuth();
+  const router = useRouter();
   const { getToken, isLoaded, isSignedIn } = auth;
   const [language, setLanguage] = useState<SubmissionLanguage>("cpp17");
   const [sourceCode, setSourceCode] = useState(starterCodeTemplates.cpp17);
-  const [activeSubmission, setActiveSubmission] = useState<Submission | null>(null);
 
   useEffect(() => {
     setSourceCode(starterCodeTemplates[language]);
@@ -74,27 +73,6 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
     };
   }, [auth.mode]);
 
-  const submissionQuery = useQuery({
-    enabled: isSignedIn && activeSubmission !== null,
-    queryKey: ["submission", activeSubmission?.id],
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token || !activeSubmission) {
-        throw new Error("Missing submission token");
-      }
-
-      return fetchSubmission(activeSubmission.id, token);
-    },
-    refetchInterval: (query) => {
-      const submission = query.state.data ?? activeSubmission;
-      if (!submission || isTerminalSubmissionStatus(submission.status)) {
-        return false;
-      }
-
-      return pollIntervalMs;
-    },
-  });
-
   const createSubmissionMutation = useMutation({
     mutationFn: async () => {
       const token = await getToken();
@@ -112,11 +90,9 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
       );
     },
     onSuccess: (submission) => {
-      setActiveSubmission(submission);
+      router.push(`/submissions/${submission.id}`);
     },
   });
-
-  const liveSubmission = submissionQuery.data ?? activeSubmission;
 
   if (!isLoaded) {
     return (
@@ -137,7 +113,7 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
         <div className="workspace-panel__header">
           <div>
             <h2 className="workspace-panel__title">Solve Workspace</h2>
-            <p className="workspace-panel__subtitle">Sign in to submit solutions and follow verdict changes in real time.</p>
+            <p className="workspace-panel__subtitle">Sign in to submit solutions and follow verdict changes on a dedicated live submission page.</p>
           </div>
         </div>
 
@@ -158,7 +134,7 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
       <div className="workspace-panel__header">
         <div>
           <h2 className="workspace-panel__title">Solve Workspace</h2>
-          <p className="workspace-panel__subtitle">Choose a language, edit source, and submit directly to the judge pipeline for this problem.</p>
+          <p className="workspace-panel__subtitle">Choose a language, edit source, and submit directly to the live submission page for this problem.</p>
         </div>
 
         <label className="workspace-language-picker">
@@ -191,21 +167,11 @@ function AuthenticatedSolveWorkspace({ pollIntervalMs, problemSlug }: { pollInte
         <button className="workspace-button" type="button" onClick={() => createSubmissionMutation.mutate()} disabled={createSubmissionMutation.isPending}>
           {createSubmissionMutation.isPending ? "Submitting..." : "Submit solution"}
         </button>
-
-        {liveSubmission ? (
-          <VerdictBadge verdict={liveSubmission.status} />
-        ) : null}
       </div>
 
       {createSubmissionMutation.error ? (
         <p className="workspace-error" role="alert">
           Unable to create a submission right now.
-        </p>
-      ) : null}
-
-      {submissionQuery.error ? (
-        <p className="workspace-error" role="alert">
-          Unable to refresh submission status right now.
         </p>
       ) : null}
     </section>

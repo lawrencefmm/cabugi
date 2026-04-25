@@ -1,17 +1,27 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
-import { fetchSubmission, formatQueuedAt, formatSubmissionLanguage, type SubmissionDetail, type SubmissionStatus } from "../lib/api";
+import {
+  ApiError,
+  fetchSubmission,
+  formatQueuedAt,
+  formatSubmissionLanguage,
+  isTerminalSubmissionStatus,
+  type SubmissionDetail,
+  type SubmissionStatus,
+} from "../lib/api";
 import { SignInButton, useAuth } from "./auth";
 import { VerdictBadge } from "./verdict-badge";
 
 type SubmissionSummaryPageProps = {
   authEnabled: boolean;
   submissionId: string;
+  pollIntervalMs?: number;
 };
 
-export function SubmissionSummaryPage({ authEnabled, submissionId }: SubmissionSummaryPageProps) {
+export function SubmissionSummaryPage({ authEnabled, pollIntervalMs = 1500, submissionId }: SubmissionSummaryPageProps) {
   if (!authEnabled) {
     return (
       <main className="app-main">
@@ -23,10 +33,10 @@ export function SubmissionSummaryPage({ authEnabled, submissionId }: SubmissionS
     );
   }
 
-  return <AuthenticatedSubmissionSummaryPage submissionId={submissionId} />;
+  return <AuthenticatedSubmissionSummaryPage pollIntervalMs={pollIntervalMs} submissionId={submissionId} />;
 }
 
-function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: string }) {
+function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { pollIntervalMs: number; submissionId: string }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
 
   const submissionQuery = useQuery({
@@ -40,17 +50,40 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
 
       return fetchSubmission(submissionId, token);
     },
+    refetchInterval: (query) => {
+      const submission = query.state.data;
+      if (!submission || isTerminalSubmissionStatus(submission.status)) {
+        return false;
+      }
+
+      return pollIntervalMs;
+    },
   });
+
+  const submission = submissionQuery.data;
+  const isLiveSubmission = submission ? !isTerminalSubmissionStatus(submission.status) : false;
 
   return (
     <main className="app-main">
       <section className="page-hero">
-        <a className="status-note" href="/submissions">
+        <Link className="status-note" href="/submissions">
           Submissions / {submissionId}
-        </a>
-        <span className="page-kicker">Submission</span>
+        </Link>
+        <span className="page-kicker">{isLiveSubmission ? "Live Submission" : "Submission"}</span>
         <h1 className="page-title submission-identifier">{submissionId}</h1>
-        <p className="page-subtitle">Inspect the stored verdict, aggregate counts, and per-test output for this submission.</p>
+        <p className="page-subtitle">
+          {isLiveSubmission
+            ? "Judging is still in flight. This page refreshes automatically until the verdict reaches a terminal state."
+            : "Inspect the stored verdict, aggregate counts, and per-test output for this submission."}
+        </p>
+        {submission ? (
+          <div className="meta-strip" aria-label="Submission metadata overview">
+            <span className="meta-chip mono">problem {submission.problemSlug}</span>
+            <span className="meta-chip mono">{formatSubmissionLanguage(submission.language)}</span>
+            <span className="meta-chip mono">queued {formatQueuedAt(submission.queuedAt)}</span>
+            {isLiveSubmission ? <span className="meta-chip mono">polling {formatPollingInterval(pollIntervalMs)}</span> : null}
+          </div>
+        ) : null}
       </section>
 
       {!isLoaded ? (
@@ -75,7 +108,7 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
       {submissionQuery.error ? (
         <section className="error-state" role="alert">
           <h2 className="error-state__title">Submission unavailable</h2>
-          <p className="error-state__text">Unable to load this submission right now.</p>
+          <p className="error-state__text">{formatSubmissionLoadError(submissionQuery.error)}</p>
         </section>
       ) : null}
 
@@ -85,41 +118,57 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
         </section>
       ) : null}
 
-      {submissionQuery.data ? (
+      {submission ? (
         <section className="table-shell submission-detail">
           <div className="submission-detail__header">
             <div>
-              <a className="table-link" href={`/problems/${submissionQuery.data.problemSlug}`}>
-                {submissionQuery.data.problemSlug}
-              </a>
-              <p className="detail-meta mono">{formatSubmissionLanguage(submissionQuery.data.language)} • Queued {formatQueuedAt(submissionQuery.data.queuedAt)}</p>
+              <Link className="table-link" href={`/problems/${submission.problemSlug}`}>
+                {submission.problemSlug}
+              </Link>
+              <p className="detail-meta mono">{formatSubmissionLanguage(submission.language)} • Queued {formatQueuedAt(submission.queuedAt)}</p>
             </div>
 
-            <VerdictBadge verdict={submissionQuery.data.status} />
+            <VerdictBadge verdict={submission.status} />
           </div>
+
+          <div className="history-actions">
+            <Link className="table-link" href={`/problems/${submission.problemSlug}`}>
+              Back to problem
+            </Link>
+            <Link className="table-link" href="/submissions">
+              Submission history
+            </Link>
+          </div>
+
+          {isLiveSubmission ? (
+            <section className="submission-live-note" aria-live="polite">
+              <h2 className="submission-live-note__title">Live status stream</h2>
+              <p className="submission-live-note__text">The judge is still processing this run. Verdict and per-test sections will refresh automatically until a final result lands.</p>
+            </section>
+          ) : null}
 
           <div className="submission-stats" aria-label="Submission summary">
             <article className="submission-stat">
               <p className="submission-stat__label">Final verdict</p>
               <div className="submission-stat__value">
-                <VerdictBadge verdict={submissionQuery.data.status} />
+                <VerdictBadge verdict={submission.status} />
               </div>
             </article>
 
             <article className="submission-stat">
               <p className="submission-stat__label">Passed tests</p>
-              <p className="submission-stat__value">{submissionQuery.data.passedTests}</p>
+              <p className="submission-stat__value">{submission.passedTests}</p>
             </article>
 
             <article className="submission-stat">
               <p className="submission-stat__label">Total tests</p>
-              <p className="submission-stat__value">{submissionQuery.data.totalTests}</p>
+              <p className="submission-stat__value">{submission.totalTests}</p>
             </article>
           </div>
 
-          {submissionQuery.data.compileOutputExcerpt ? <SubmissionDiagnostics compileOutputExcerpt={submissionQuery.data.compileOutputExcerpt} /> : null}
+          {submission.compileOutputExcerpt ? <SubmissionDiagnostics compileOutputExcerpt={submission.compileOutputExcerpt} /> : null}
 
-          <SubmissionResults submission={submissionQuery.data} />
+          <SubmissionResults submission={submission} />
         </section>
       ) : null}
     </main>
@@ -151,13 +200,9 @@ function SubmissionResults({ submission }: { submission: SubmissionDetail }) {
               <VerdictBadge verdict={result.verdict} />
             </div>
 
-            {result.stdoutExcerpt ? (
-              <ResultStream heading="Stdout excerpt" value={result.stdoutExcerpt} />
-            ) : null}
+            {result.stdoutExcerpt ? <ResultStream heading="Stdout excerpt" value={result.stdoutExcerpt} /> : null}
 
-            {result.stderrExcerpt ? (
-              <ResultStream heading="Stderr excerpt" value={result.stderrExcerpt} />
-            ) : null}
+            {result.stderrExcerpt ? <ResultStream heading="Stderr excerpt" value={result.stderrExcerpt} /> : null}
           </li>
         ))}
       </ol>
@@ -193,8 +238,30 @@ function emptyResultsMessage(status: SubmissionStatus) {
   }
 
   if (status === "queued" || status === "running") {
-    return "Per-test results will appear after judging finishes.";
+    return "Per-test results will appear automatically after judging finishes.";
   }
 
   return "This submission finished without individual test-case rows.";
+}
+
+function formatSubmissionLoadError(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "Your session token is missing or expired. Sign in again and reload this submission.";
+    }
+    if (error.status === 404) {
+      return "This submission is not available anymore, or it does not belong to the current account.";
+    }
+  }
+
+  return "Unable to load this submission right now.";
+}
+
+function formatPollingInterval(pollIntervalMs: number) {
+  if (pollIntervalMs < 1000) {
+    return `${pollIntervalMs}ms`;
+  }
+
+  const seconds = pollIntervalMs / 1000;
+  return Number.isInteger(seconds) ? `${seconds}s` : `${seconds.toFixed(1)}s`;
 }
