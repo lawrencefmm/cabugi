@@ -2,12 +2,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 
+import type { LocalTestAuthProfile } from "../lib/local-test-auth";
 import { ModerationProblemDraftsPage } from "./moderation-problem-drafts-page";
 
 let mockAuthState: {
   getToken: () => Promise<string | null>;
   isLoaded: boolean;
   isSignedIn: boolean;
+  localTestProfile: LocalTestAuthProfile | null;
+  mode: "disabled" | "clerk" | "local_test";
+  signInLocalTest: (profile: LocalTestAuthProfile) => Promise<boolean>;
+  signOutLocalTest: () => Promise<boolean>;
 };
 
 vi.mock("./auth", () => ({
@@ -41,6 +46,10 @@ describe("ModerationProblemDraftsPage", () => {
       getToken: async () => "session-token",
       isLoaded: true,
       isSignedIn: true,
+      localTestProfile: "author",
+      mode: "local_test",
+      signInLocalTest: async (_profile) => true,
+      signOutLocalTest: async () => true,
     };
 
     vi.stubGlobal(
@@ -55,6 +64,11 @@ describe("ModerationProblemDraftsPage", () => {
     renderModeration(<ModerationProblemDraftsPage authEnabled />);
 
     expect(await screen.findByText("Moderator access required")).toBeInTheDocument();
+    expect(screen.getByText("active_subject")).toBeInTheDocument();
+    expect(screen.getAllByText("user_e2e_author").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Use the checked-in moderator browser session/i)).toBeInTheDocument();
+    expect(screen.getByText(/--target-subject user_e2e_author --role admin/)).toBeInTheDocument();
+    expect(screen.getByText(/--target-subject user_e2e_moderator --role moderator/)).toBeInTheDocument();
   });
 
   it("renders the moderation queue and selected draft detail", async () => {
@@ -62,6 +76,10 @@ describe("ModerationProblemDraftsPage", () => {
       getToken: async () => "session-token",
       isLoaded: true,
       isSignedIn: true,
+      localTestProfile: null,
+      mode: "clerk",
+      signInLocalTest: async (_profile) => false,
+      signOutLocalTest: async () => false,
     };
 
     const fetchMock = vi
@@ -106,6 +124,10 @@ describe("ModerationProblemDraftsPage", () => {
       getToken: async () => "session-token",
       isLoaded: true,
       isSignedIn: true,
+      localTestProfile: null,
+      mode: "clerk",
+      signInLocalTest: async (_profile) => false,
+      signOutLocalTest: async () => false,
     };
 
     const fetchMock = vi

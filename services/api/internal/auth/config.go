@@ -19,6 +19,7 @@ func LoadClerkConfig() ClerkConfig {
 		JWKSURL:      strings.TrimSpace(os.Getenv("CLERK_JWKS_URL")),
 		Issuer:       strings.TrimSpace(os.Getenv("CLERK_ISSUER")),
 	}
+	usingLocalTestDefaults := localTestAuthEnabled() && strings.TrimSpace(config.PublicKeyPEM) == "" && strings.TrimSpace(config.JWKSURL) == "" && strings.TrimSpace(config.Issuer) == ""
 
 	for _, party := range strings.Split(os.Getenv("CLERK_ALLOWED_PARTIES"), ",") {
 		party = strings.TrimSpace(party)
@@ -38,7 +39,16 @@ func LoadClerkConfig() ClerkConfig {
 		config.AllowedAudiences = append(config.AllowedAudiences, audience)
 	}
 
-	if config.JWKSURL == "" && config.Issuer != "" {
+	if usingLocalTestDefaults {
+		config.PublicKeyPEM = localTestAuthPublicKeyPEM
+		config.Issuer = localTestAuthIssuer
+		config.AllowedParties = nil
+		if len(config.AllowedAudiences) == 0 {
+			config.AllowedAudiences = []string{localTestAuthAudience}
+		}
+	}
+
+	if config.JWKSURL == "" && config.Issuer != "" && strings.TrimSpace(config.PublicKeyPEM) == "" {
 		config.JWKSURL = strings.TrimRight(config.Issuer, "/") + "/.well-known/jwks.json"
 	}
 

@@ -64,7 +64,34 @@ This path now runs the local init steps automatically inside Compose:
 - `judge-image-prep` pulls the pinned `gcc:14.2.0` and `python:3.13.0-alpine3.20` images through the host Docker socket
 - `seed-starter-problems` creates the hidden-test bucket if needed and seeds the official published starter problems
 
-The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
+The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off by default.
+
+If you want interactive local submissions without a real Clerk setup, enable the checked-in local test auth mode in your local env and rebuild the stack:
+
+```bash
+NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true
+LOCAL_TEST_AUTH_ENABLED=true
+```
+
+That mode enables a local browser sign-in control in the header. The checked-in sessions map to these subjects:
+- `Author` -> `user_e2e_author`
+- `Moderator` -> `user_e2e_moderator`
+
+Use the `Author` session for submissions and other normal authenticated user flows. Moderation requires the `Moderator` browser session plus a `moderator` staff role in PostgreSQL.
+
+Bootstrap the first local admin once from `services/api`:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin
+```
+
+Then grant the checked-in moderator subject the moderator role:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator
+```
 
 If your machine already uses the default host ports, override the exported ports in `infra/full-stack.env.example` before starting Compose:
 - `WEB_PORT`
@@ -194,14 +221,14 @@ Staff role bootstrap command from `services/api`:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_local_admin --role admin
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin
 ```
 
 Grant a moderator or another admin after bootstrap:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --requester-subject user_local_admin --target-subject user_local_moderator --role moderator
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator
 ```
 
 Important environment values:

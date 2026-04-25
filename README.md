@@ -79,6 +79,8 @@ That one command now:
 
 The example env file is intended for local packaging and public problem browsing. It does not enable browser auth by default, and its host-port values can be changed if your machine already uses `3000`, `5432`, `8080`, `8082`, `9000`, or `9001`. If you change the published API or web ports, keep `NEXT_PUBLIC_API_BASE_URL` and `WEB_ALLOWED_ORIGINS` aligned with those overrides.
 
+When you want local browser submissions without a real Clerk setup, set both `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true` and `LOCAL_TEST_AUTH_ENABLED=true` in your local env, rebuild the stack, and use the header's local test auth controls to sign in as the checked-in author session.
+
 ### Authenticated Workflow Verification
 Use the checked-in smoke paths when you want the full authenticated workflow without external auth setup:
 
