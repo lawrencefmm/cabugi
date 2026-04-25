@@ -182,7 +182,7 @@ function AuthenticatedSubmissionSummaryPage({ pollIntervalMs, submissionId }: { 
               </div>
               <div className="submission-stats" aria-label="Submission totals">
                 <article className="submission-stat">
-                  <p className="submission-stat__label">Final verdict</p>
+                  <p className="submission-stat__label">Verdict</p>
                   <div className="submission-stat__value">
                     <VerdictBadge verdict={submission.status} />
                   </div>

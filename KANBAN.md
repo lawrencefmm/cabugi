@@ -54,6 +54,21 @@ Notes:
 
 ## Done
 
+### WEB-CI-01 - Keep submission verdict labels unique for smoke checks
+Description: Fix the redesigned submission detail page so CI smoke locators have a single visible `Final verdict` label to target.
+
+Expected Result: The end-to-end smoke workflow can complete without Playwright strict-mode locator ambiguity while the redesigned submission result UI remains readable.
+
+Acceptance Tests:
+- The submission detail page renders only one exact `Final verdict` text label.
+- Submission summary component tests continue to cover the verdict, passed tests, total tests, and testcase table.
+- The end-to-end smoke workflow command completes locally or the exact remaining gap is recorded.
+
+Notes:
+- Raised from failed CI run `24941684526`: `getByText('Final verdict')` matched both the top summary card and the verdict totals card after `WEB-REDESIGN-01`.
+- Completed by keeping `Final verdict` on the top summary card and renaming the lower totals label to `Verdict` so Playwright strict mode has one exact match.
+- Verified with `pnpm --filter web typecheck`, `pnpm --filter web test --run src/components/submission-summary-page.test.tsx`, and `./infra/scripts/verify_e2e_workflow_smoke.sh`.
+
 ### WEB-REDESIGN-01 - Rebuild frontend around dark competitive coding UI
 Description: Redesign the primary web experience to match the provided dark Cabugi references, including the global shell, problem set, solve workspace, submission detail, and draft authoring screens.
 
