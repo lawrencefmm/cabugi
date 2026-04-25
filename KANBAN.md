@@ -23,6 +23,118 @@
 
 ## Backlog
 
+### WEB-UX-01 - Simplify problemset browsing
+Description: Rework the published problem list so it feels like a user-facing problemset instead of an internal catalog, including removing slug as a primary column and improving the scan path around titles and limits.
+
+Expected Result: The home page emphasizes problem titles and solving context first, while still preserving essential metadata such as limits and supported languages.
+
+Acceptance Tests:
+- The published problem list no longer renders slug as a primary table column on `/`.
+- Problem titles remain the primary clickable entry point into `/problems/[slug]`.
+- Time and memory limits remain visible in the list view.
+- Problem list tests cover the revised table structure or metadata rendering.
+
+Notes:
+- Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
+
+### WEB-LOCAL-01 - Make local moderation usable
+Description: Fix the local moderation developer path so the checked-in local test moderator identity, staff-role bootstrap guidance, and frontend moderation experience line up.
+
+Expected Result: Local moderation no longer feels broken; developers can either moderate successfully after the documented setup or see precise guidance about what local role setup is missing.
+
+Acceptance Tests:
+- Local development docs reference the actual local test auth subjects used by the browser auth controls.
+- A locally granted moderator can load `/moderation/problem-drafts` and apply moderation decisions.
+- A non-moderator still receives a clear forbidden state with actionable local setup guidance.
+- Relevant moderation UI tests and API verification pass.
+
+Notes:
+- The current local mismatch is that browser local test auth uses `user_e2e_moderator`, while the documented grant examples still reference different subjects.
+
+### WEB-SUB-01 - Redirect to a live submission page after submit
+Description: Change the solve flow so successful submissions navigate to `/submissions/[id]` and that page live-refreshes until the submission reaches a terminal verdict.
+
+Expected Result: Users submit once and land on a dedicated live status page instead of staying on the problem page with only a small verdict badge.
+
+Acceptance Tests:
+- Submitting from `/problems/[slug]` redirects the browser to `/submissions/[id]` after a `201` response.
+- `/submissions/[id]` polls the existing submission detail endpoint while status is `queued` or `running`.
+- The submission page updates automatically to the final verdict and renders final per-test results without manual reload.
+- Relevant web tests cover the redirect and live-refresh behavior.
+
+Notes:
+- This task is intentionally scoped to redirect plus polling with the current backend contract, not full per-test live progress.
+
+### WEB-SOLVE-01 - Improve solve workspace feedback and safety
+Description: Improve the solve workspace so it is harder to lose work and easier to move between solving, active submissions, and history.
+
+Expected Result: The solve workspace provides clearer submission feedback, preserves work more safely, and offers stronger continuity between editing and result inspection.
+
+Acceptance Tests:
+- Switching languages does not silently wipe edited source code.
+- The solve workspace exposes a clear path to the latest submission detail or submission history.
+- Submission failures render more actionable messages than the current generic error copy.
+- Relevant solve workspace tests cover the new behavior.
+
+Notes:
+- The current language switch resets the editor to the starter template, which is an avoidable UX footgun.
+
+### WEB-DRAFTS-01 - Add a drafts index and fix information architecture
+Description: Add a drafts management page and stop using the `Drafts` navigation item to mean only “create new draft”.
+
+Expected Result: Authors can browse, reopen, and manage their existing drafts from a dedicated drafts index.
+
+Acceptance Tests:
+- A `/drafts` route exists and lists the current user's drafts with relevant status metadata.
+- The primary navigation links `Drafts` to the drafts index instead of directly to `/drafts/new`.
+- The UI still offers an obvious `New draft` entry point.
+- Required API support and frontend tests are added if the current backend contract does not already support draft listing.
+
+Notes:
+- This likely needs both frontend and backend work because the current app has create/edit routes but no drafts index flow.
+
+### WEB-AUTHOR-01 - Add authoring preview and readiness cues
+Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
+
+Expected Result: Authors can preview statements before moderation, understand missing requirements earlier, and submit for review with more confidence.
+
+Acceptance Tests:
+- Draft authoring pages expose live or near-live preview for the statement sections.
+- Hidden test bundle state remains visible while editing.
+- The UI surfaces clear readiness cues before enabling or encouraging submit-for-review.
+- Relevant authoring tests cover the new preview and validation affordances.
+
+Notes:
+- The current authoring screen already has the data needed for a stronger UX but offers little preview or structured readiness guidance.
+
+### WEB-POLISH-01 - Improve navigation, retries, and mobile behavior
+Description: Tighten common frontend interaction quality by replacing client-side hard reload links where appropriate, adding retry and recovery affordances, and improving dense views on mobile.
+
+Expected Result: The app feels faster, less brittle, and more usable across common page transitions and narrow screens.
+
+Acceptance Tests:
+- Internal navigation in client-rendered views uses `next/link` or equivalent client transitions where appropriate.
+- Major error or empty states offer retry or next-step actions instead of dead ends.
+- Problem list, submissions, and moderation views remain usable on small screens without relying only on wide desktop tables.
+- Relevant web tests cover the updated navigation and at least one improved retry state.
+
+Notes:
+- This task is meant to capture broad UX consistency work that does not fit neatly into a single route-specific feature.
+
+### SUB-BE-01 - Add incremental judge progress
+Description: Extend the submission pipeline so the backend can expose partial judging progress, such as current test progress or partial case results, before a submission fully completes.
+
+Expected Result: The frontend can eventually show richer live submission progress than simple queued/running/final verdict polling.
+
+Acceptance Tests:
+- The judge persists partial progress during execution instead of only writing all case results at completion.
+- The API exposes a safe progress model for running submissions.
+- The frontend can render incremental progress on `/submissions/[id]` without waiting for final completion.
+- Relevant service and frontend verification covers the new progress contract.
+
+Notes:
+- This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
+
 ## Done
 
 ### OPS-04 - Add local test auth support for interactive local runs
