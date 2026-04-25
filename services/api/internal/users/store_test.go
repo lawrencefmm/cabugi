@@ -107,3 +107,48 @@ func TestHasAnyRoleReturnsFalseWhenUserHasNoRequestedRoles(t *testing.T) {
 		t.Fatalf("mock expectations not met: %v", err)
 	}
 }
+
+func TestCountUsersWithRoleReturnsAdminCount(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\)(.|\n)*FROM user_roles(.|\n)*role = \$1::user_role`).
+		WithArgs(RoleAdmin).
+		WillReturnRows(pgxmock.NewRows([]string{"count"}).AddRow(2))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	count, err := store.CountUsersWithRole(context.Background(), RoleAdmin)
+	if err != nil {
+		t.Fatalf("CountUsersWithRole() error = %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("CountUsersWithRole() = %d, want 2", count)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}
+
+func TestGrantRoleInsertsModeratorRoleIdempotently(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	mock.ExpectExec(`INSERT INTO user_roles(.|\n)*ON CONFLICT \(user_id, role\) DO NOTHING`).
+		WithArgs("user-id-3", RoleModerator).
+		WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	err = store.GrantRole(context.Background(), "user-id-3", RoleModerator)
+	if err != nil {
+		t.Fatalf("GrantRole() error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
+	}
+}

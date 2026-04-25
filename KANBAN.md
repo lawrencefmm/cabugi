@@ -23,21 +23,6 @@
 
 ## Backlog
 
-### ADMIN-01 - Add staff role bootstrap tooling
-Description: Add an operational path to assign and manage `moderator` and `admin` roles for local development and early production operations.
-
-Expected Result: Staff roles can be granted safely without manual database edits.
-
-Acceptance Tests:
-- A documented admin-only command, script, or endpoint exists to grant staff roles.
-- Local development setup documents how to bootstrap the first moderator or admin.
-- Non-admin users cannot grant privileged roles.
-- Automated tests cover the authorization behavior for staff role assignment if an API route is introduced.
-- Relevant verification commands pass.
-
-Notes:
-- Pending.
-
 ### SEED-02 - Expand official starter problem set
 Description: Add more published official starter problems so new users can explore a broader range of supported problem types immediately.
 
@@ -113,6 +98,25 @@ Notes:
 - Extended API submission detail reads and the OpenAPI contract to return `compileOutputExcerpt` on owned submission detail responses.
 - Updated the web submission detail page to render a dedicated compile-output panel when the API returns compiler diagnostics, while preserving the existing per-test runtime diagnostic rendering.
 - Verified `go test ./...` in `services/judge`, `go test ./...` in `services/api`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `./db/scripts/verify_initial_schema.sh`, and `./db/scripts/verify_migration_workflow.sh`.
+
+### ADMIN-01 - Add staff role bootstrap tooling
+Description: Add an operational path to assign and manage `moderator` and `admin` roles for local development and early production operations.
+
+Expected Result: Staff roles can be granted safely without manual database edits.
+
+Acceptance Tests:
+- A documented admin-only command, script, or endpoint exists to grant staff roles.
+- Local development setup documents how to bootstrap the first moderator or admin.
+- Non-admin users cannot grant privileged roles.
+- Automated tests cover the authorization behavior for staff role assignment if an API route is introduced.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding `services/api/cmd/grant-staff-role`, a Go command that bootstraps the first admin only while no admin exists and then requires an existing admin requester subject for later `moderator` or `admin` grants.
+- Added `services/api/internal/staffroles` to centralize the grant rules, so non-admin requesters are rejected and bootstrap-specific validation is covered by unit tests without expanding the HTTP API surface.
+- Extended `services/api/internal/users` with role-count and role-grant helpers used by the new command and added store tests for the new database operations.
+- Documented the bootstrap and follow-up grant commands in `docs/DEVELOPMENT.md` and `services/api/README.md` for local development and early operations.
+- Verified `go test ./...` in `services/api` and a temporary-PostgreSQL command flow that bootstraps the first admin, grants a moderator from that admin subject, and rejects a non-admin attempt to grant `admin`.
 
 ### AUTH-OPS-01 - Harden production auth validation and transport rules
 Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.
