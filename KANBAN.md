@@ -37,21 +37,6 @@ Acceptance Tests:
 Notes:
 - Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
 
-### WEB-DRAFTS-01 - Add a drafts index and fix information architecture
-Description: Add a drafts management page and stop using the `Drafts` navigation item to mean only “create new draft”.
-
-Expected Result: Authors can browse, reopen, and manage their existing drafts from a dedicated drafts index.
-
-Acceptance Tests:
-- A `/drafts` route exists and lists the current user's drafts with relevant status metadata.
-- The primary navigation links `Drafts` to the drafts index instead of directly to `/drafts/new`.
-- The UI still offers an obvious `New draft` entry point.
-- Required API support and frontend tests are added if the current backend contract does not already support draft listing.
-
-Notes:
-- This likely needs both frontend and backend work because the current app has create/edit routes but no drafts index flow.
-- Confirmed on the live runtime: the primary header still links `Drafts` directly to `/drafts/new`, so there is no browse-or-resume entry point for existing drafts from the main shell.
-
 ### WEB-AUTHOR-01 - Add authoring preview and readiness cues
 Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
 
@@ -98,6 +83,23 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-DRAFTS-01 - Add a drafts index and fix information architecture
+Description: Add a drafts management page and stop using the `Drafts` navigation item to mean only “create new draft”.
+
+Expected Result: Authors can browse, reopen, and manage their existing drafts from a dedicated drafts index.
+
+Acceptance Tests:
+- A `/drafts` route exists and lists the current user's drafts with relevant status metadata.
+- The primary navigation links `Drafts` to the drafts index instead of directly to `/drafts/new`.
+- The UI still offers an obvious `New draft` entry point.
+- Required API support and frontend tests are added if the current backend contract does not already support draft listing.
+
+Notes:
+- Completed by adding an authenticated owner-only `GET /v1/problem-drafts` API route plus OpenAPI coverage for draft summaries with lifecycle, updated, and submitted-for-review metadata.
+- `apps/web/src/components/problem-drafts-page.tsx` now powers a dedicated `/drafts` index with sign-in, empty, and populated states plus direct reopen links back into `/drafts/[slug]`.
+- The primary app navigation now points `Drafts` to `/drafts`, while the drafts index and authoring flow still surface clear `New draft` entry points.
+- Verified with `go test ./...` in `services/api`, `pnpm --filter web test --run app/layout.test.tsx src/components/problem-drafts-page.test.tsx src/components/problem-authoring-page.test.tsx`, `pnpm --filter web test --run`, and `pnpm --filter web typecheck`.
 
 ### WEB-AUTH-02 - Add real Clerk auth controls to the app shell
 Description: Expose real Clerk sign-in, sign-up, and signed-in account controls in the global header so authentication is discoverable without relying only on route-level auth gates.

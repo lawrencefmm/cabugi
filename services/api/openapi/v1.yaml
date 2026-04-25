@@ -88,6 +88,36 @@ components:
           type: integer
         memoryLimitMb:
           type: integer
+    ProblemDraftSummary:
+      type: object
+      required:
+        - slug
+        - versionNumber
+        - lifecycleStatus
+        - title
+        - updatedAt
+      properties:
+        slug:
+          type: string
+        versionNumber:
+          type: integer
+        lifecycleStatus:
+          type: string
+          enum:
+            - draft
+            - in_review
+            - published
+            - archived
+        title:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        submittedForReviewAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
     ModerationQueueItem:
       type: object
       required:
@@ -391,6 +421,29 @@ paths:
         '503':
           description: The problem store is not configured.
   /v1/problem-drafts:
+    get:
+      summary: List draft problems for the current user
+      operationId: listProblemDrafts
+      security:
+        - clerkSession: []
+      responses:
+        '200':
+          description: Draft problems owned by the current user.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - drafts
+                properties:
+                  drafts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProblemDraftSummary'
+        '401':
+          description: Missing or invalid session token.
+        '503':
+          description: Draft problem dependencies are not configured.
     post:
       summary: Create a draft problem
       operationId: createProblemDraft

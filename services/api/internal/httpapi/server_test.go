@@ -33,15 +33,18 @@ type stubProblemStore struct {
 	summaries           []problems.PublishedProblemSummary
 	detail              problems.PublishedProblemDetail
 	draft               problems.DraftProblem
+	draftItems          []problems.DraftSummary
 	listErr             error
 	getErr              error
 	createErr           error
+	listDraftsErr       error
 	getDraftErr         error
 	updateErr           error
 	submitForReviewErr  error
 	listModerationErr   error
 	decisionErr         error
 	createDraftInput    problems.CreateDraftInput
+	listDraftsOwnerID   string
 	updateDraftInput    problems.UpdateDraftInput
 	getDraftSlug        string
 	getDraftActorUserID string
@@ -101,6 +104,11 @@ func (store stubProblemStore) GetPublishedProblemBySlug(context.Context, string)
 func (store *stubProblemStore) CreateDraft(_ context.Context, input problems.CreateDraftInput) (problems.DraftProblem, error) {
 	store.createDraftInput = input
 	return store.draft, store.createErr
+}
+
+func (store *stubProblemStore) ListDraftsByOwner(_ context.Context, ownerUserID string) ([]problems.DraftSummary, error) {
+	store.listDraftsOwnerID = ownerUserID
+	return store.draftItems, store.listDraftsErr
 }
 
 func (store *stubProblemStore) GetDraftBySlug(_ context.Context, slug string, actorUserID string, allowStaff bool) (problems.DraftProblem, error) {
@@ -616,6 +624,36 @@ func TestCreateProblemDraftCreatesInitialDraft(t *testing.T) {
 	}
 	if store.createDraftInput.UserID != "user-id" || store.createDraftInput.Slug != "two-sum-user" {
 		t.Fatalf("POST /v1/problem-drafts stored unexpected create input: %#v", store.createDraftInput)
+	}
+}
+
+func TestListProblemDraftsReturnsCurrentUserDrafts(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/problem-drafts", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	submittedAt := time.Now().UTC().Add(-15 * time.Minute)
+	store := &stubProblemStore{draftItems: []problems.DraftSummary{
+		{Slug: "two-sum-user", VersionNumber: 1, LifecycleStatus: "draft", Title: "Two Sum User", UpdatedAt: time.Now().UTC()},
+		{Slug: "a-plus-b-user", VersionNumber: 2, LifecycleStatus: "in_review", Title: "A + B User", UpdatedAt: time.Now().UTC().Add(-time.Hour), SubmittedForReviewAt: &submittedAt},
+	}}
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, store, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, nil).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/problem-drafts status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if store.listDraftsOwnerID != "user-id" {
+		t.Fatalf("GET /v1/problem-drafts used unexpected owner id: %#v", store)
+	}
+
+	var response struct {
+		Drafts []problems.DraftSummary `json:"drafts"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(response.Drafts) != 2 || response.Drafts[0].Slug != "two-sum-user" {
+		t.Fatalf("GET /v1/problem-drafts returned unexpected drafts: %#v", response.Drafts)
 	}
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 
@@ -207,9 +208,9 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
   return (
     <main className="app-main">
       <section className="page-hero">
-        <a className="status-note" href={isEditing ? "/drafts/new" : "/"}>
-          {isEditing ? "Create another draft" : "Back to problems"}
-        </a>
+        <Link className="status-note" href={isEditing ? "/drafts/new" : "/drafts"}>
+          {isEditing ? "Create another draft" : "Back to drafts"}
+        </Link>
         <span className="page-kicker">Problem Authoring</span>
         <h1 className="page-title">{isEditing ? form.title || slug : "Start a new problem draft."}</h1>
         <p className="page-subtitle">
