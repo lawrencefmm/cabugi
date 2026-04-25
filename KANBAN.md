@@ -37,20 +37,6 @@ Acceptance Tests:
 Notes:
 - Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
 
-### WEB-SOLVE-01 - Improve solve workspace feedback and safety
-Description: Improve the solve workspace so it is harder to lose work and easier to move between solving, active submissions, and history.
-
-Expected Result: The solve workspace provides clearer submission feedback, preserves work more safely, and offers stronger continuity between editing and result inspection.
-
-Acceptance Tests:
-- Switching languages does not silently wipe edited source code.
-- The solve workspace exposes a clear path to the latest submission detail or submission history.
-- Submission failures render more actionable messages than the current generic error copy.
-- Relevant solve workspace tests cover the new behavior.
-
-Notes:
-- The current language switch resets the editor to the starter template, which is an avoidable UX footgun.
-
 ### WEB-DRAFTS-01 - Add a drafts index and fix information architecture
 Description: Add a drafts management page and stop using the `Drafts` navigation item to mean only “create new draft”.
 
@@ -124,6 +110,23 @@ Notes:
 - Completed by redirecting the solve workspace to `/submissions/[id]` immediately after a successful submission create response instead of keeping live status on the problem page.
 - `apps/web/src/components/submission-summary-page.tsx` now polls the existing submission detail endpoint until the verdict becomes terminal and updates the final verdict plus per-test rows without a manual reload.
 - The submission page now surfaces a live-status callout while judging is still in flight and keeps direct navigation back to the problem and submission history.
+- Verified with `pnpm --filter web test --run src/components/solve-workspace.test.tsx src/components/submission-summary-page.test.tsx`, `pnpm --filter web typecheck`, and `pnpm verify:smoke:e2e`.
+
+### WEB-SOLVE-01 - Improve solve workspace feedback and safety
+Description: Improve the solve workspace so it is harder to lose work and easier to move between solving, active submissions, and history.
+
+Expected Result: The solve workspace provides clearer submission feedback, preserves work more safely, and offers stronger continuity between editing and result inspection.
+
+Acceptance Tests:
+- Switching languages does not silently wipe edited source code.
+- The solve workspace exposes a clear path to the latest submission detail or submission history.
+- Submission failures render more actionable messages than the current generic error copy.
+- Relevant solve workspace tests cover the new behavior.
+
+Notes:
+- Completed by changing `apps/web/src/components/solve-workspace.tsx` to keep separate source buffers per language instead of resetting editor contents to the starter template on every language switch.
+- The workspace now persists the active buffers plus the latest submission id in browser storage per problem, so a user can reopen the latest run and continue editing without silently losing the prior buffer.
+- Submission errors now render specific guidance for invalid language, expired auth, missing problems, and temporary pipeline unavailability instead of a single generic failure string.
 - Verified with `pnpm --filter web test --run src/components/solve-workspace.test.tsx src/components/submission-summary-page.test.tsx`, `pnpm --filter web typecheck`, and `pnpm verify:smoke:e2e`.
 
 ### WEB-LOCAL-01 - Make local moderation usable
