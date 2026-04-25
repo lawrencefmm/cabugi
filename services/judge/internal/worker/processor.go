@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lawrencefmm/cabugi/services/judge/internal/spike"
@@ -12,6 +13,8 @@ import (
 var ErrNoJobs = errors.New("no queued submissions")
 
 const defaultLeaseRenewInterval = 10 * time.Second
+
+const maxArtifactExcerptRunes = 4000
 
 type SubmissionJob struct {
 	SubmissionID string
@@ -35,7 +38,7 @@ type Store interface {
 	RenewJobLease(context.Context, string, string) error
 	MarkSubmissionRunning(context.Context, string) error
 	HandleJobFailure(context.Context, string, string, string) (FailureAction, error)
-	CompleteSubmission(context.Context, string, string, string, []CaseResult) error
+	CompleteSubmission(context.Context, string, string, string, string, []CaseResult) error
 }
 
 type Observer interface {
@@ -155,7 +158,7 @@ func (processor Processor) processClaimedJob(ctx context.Context, job Submission
 	}
 
 	status := submissionStatus(result.Verdict)
-	if err := processor.store.CompleteSubmission(ctx, job.SubmissionID, job.LeaseToken, status, toCaseResults(result.CaseResults)); err != nil {
+	if err := processor.store.CompleteSubmission(ctx, job.SubmissionID, job.LeaseToken, status, artifactExcerpt(result.CompileOutput), toCaseResults(result.CaseResults)); err != nil {
 		return "", err
 	}
 
@@ -227,10 +230,23 @@ func toCaseResults(results []spike.CaseResult) []CaseResult {
 		converted = append(converted, CaseResult{
 			Verdict:         submissionStatus(result.Verdict),
 			ExecutionTimeMS: int(result.Duration.Milliseconds()),
-			StdoutExcerpt:   result.Stdout,
-			StderrExcerpt:   result.Stderr,
+			StdoutExcerpt:   artifactExcerpt(result.Stdout),
+			StderrExcerpt:   artifactExcerpt(result.Stderr),
 		})
 	}
 
 	return converted
+}
+
+func artifactExcerpt(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+
+	runes := []rune(value)
+	if len(runes) <= maxArtifactExcerptRunes {
+		return value
+	}
+
+	return string(runes[:maxArtifactExcerptRunes]) + "\n...[truncated]"
 }

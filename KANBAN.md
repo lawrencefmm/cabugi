@@ -23,24 +23,6 @@
 
 ## Backlog
 
-### JUDGE-05 - Store and expose compile and runtime artifacts
-Description: Persist useful compile and runtime artifacts from the judge so users and staff can inspect failures without accessing judge hosts directly.
-
-Expected Result: Submission detail responses can include safe references or excerpts for compile and runtime diagnostics.
-
-Acceptance Tests:
-- The judge stores compile logs or runtime artifacts for failed submissions when useful output exists.
-- The API exposes safe artifact metadata or excerpts on owned submission detail reads.
-- The web submission detail UI renders compile-error or runtime diagnostics when present.
-- Hidden tests and other private data are not exposed through the new artifact flow.
-- `go test ./...` passes in `services/judge`.
-- `go test ./...` passes in `services/api`.
-- `pnpm --filter web typecheck` passes.
-- `pnpm --filter web test --run` passes.
-
-Notes:
-- Pending.
-
 ### ADMIN-01 - Add staff role bootstrap tooling
 Description: Add an operational path to assign and manage `moderator` and `admin` roles for local development and early production operations.
 
@@ -109,6 +91,28 @@ Notes:
 - The new integration flow proves an in-review draft stays out of the public problem list until moderator approval, then becomes visible and can be solved through the authenticated submission pipeline with persisted per-test results.
 - Updated `.github/workflows/ci.yml` so the existing `integration-smoke` job now runs both the API runtime smoke and the higher-level platform integration verification.
 - Refreshed `TESTING_RULES.md` so the requirement map now reflects current moderation visibility checks, hidden bundle handling, browser smoke coverage, and the remaining gap around full multi-service lease-recovery or `judge_failed` integration coverage.
+
+### JUDGE-05 - Store and expose compile and runtime artifacts
+Description: Persist useful compile and runtime artifacts from the judge so users and staff can inspect failures without accessing judge hosts directly.
+
+Expected Result: Submission detail responses can include safe references or excerpts for compile and runtime diagnostics.
+
+Acceptance Tests:
+- The judge stores compile logs or runtime artifacts for failed submissions when useful output exists.
+- The API exposes safe artifact metadata or excerpts on owned submission detail reads.
+- The web submission detail UI renders compile-error or runtime diagnostics when present.
+- Hidden tests and other private data are not exposed through the new artifact flow.
+- `go test ./...` passes in `services/judge`.
+- `go test ./...` passes in `services/api`.
+- `pnpm --filter web typecheck` passes.
+- `pnpm --filter web test --run` passes.
+
+Notes:
+- Completed by adding `db/migrations/0003_submission_artifact_excerpts.sql`, which extends `submissions` with `compile_output_excerpt` so compile failures can persist a safe top-level diagnostic without exposing hidden test inputs or other private judge state.
+- Updated the judge worker to persist clipped compile output excerpts for `compile_error` submissions while continuing to store per-test stdout and stderr excerpts for runtime failure diagnostics.
+- Extended API submission detail reads and the OpenAPI contract to return `compileOutputExcerpt` on owned submission detail responses.
+- Updated the web submission detail page to render a dedicated compile-output panel when the API returns compiler diagnostics, while preserving the existing per-test runtime diagnostic rendering.
+- Verified `go test ./...` in `services/judge`, `go test ./...` in `services/api`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `./db/scripts/verify_initial_schema.sh`, and `./db/scripts/verify_migration_workflow.sh`.
 
 ### AUTH-OPS-01 - Harden production auth validation and transport rules
 Description: Tighten API authentication for deployed environments by clarifying token transport, validating production JWT claims, and documenting key-rotation behavior.

@@ -117,6 +117,8 @@ function AuthenticatedSubmissionSummaryPage({ submissionId }: { submissionId: st
             </article>
           </div>
 
+          {submissionQuery.data.compileOutputExcerpt ? <SubmissionDiagnostics compileOutputExcerpt={submissionQuery.data.compileOutputExcerpt} /> : null}
+
           <SubmissionResults submission={submissionQuery.data} />
         </section>
       ) : null}
@@ -159,6 +161,15 @@ function SubmissionResults({ submission }: { submission: SubmissionDetail }) {
           </li>
         ))}
       </ol>
+    </section>
+  );
+}
+
+function SubmissionDiagnostics({ compileOutputExcerpt }: { compileOutputExcerpt: string }) {
+  return (
+    <section className="submission-results" aria-label="Submission diagnostics">
+      <h2 className="submission-results__title">Compile output</h2>
+      <ResultStream heading="Compiler excerpt" value={compileOutputExcerpt} />
     </section>
   );
 }

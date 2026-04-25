@@ -43,17 +43,18 @@ describe("SubmissionSummaryPage", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({
-        id: "submission-1",
-        problemSlug: "two-sum",
-        language: "cpp17",
-        status: "wrong_answer",
-        queuedAt: new Date().toISOString(),
-        totalTests: 3,
-        passedTests: 2,
-        results: [
-          { testIndex: 0, verdict: "accepted", executionTimeMs: 9, memoryBytes: 0, stdoutExcerpt: "42\n", stderrExcerpt: "" },
-          { testIndex: 2, verdict: "wrong_answer", executionTimeMs: 14, memoryBytes: 0, stdoutExcerpt: "41\n", stderrExcerpt: "" },
+        json: async () => ({
+          id: "submission-1",
+          problemSlug: "two-sum",
+          language: "cpp17",
+          status: "wrong_answer",
+          queuedAt: new Date().toISOString(),
+          totalTests: 3,
+          passedTests: 2,
+          compileOutputExcerpt: "",
+          results: [
+            { testIndex: 0, verdict: "accepted", executionTimeMs: 9, memoryBytes: 0, stdoutExcerpt: "42\n", stderrExcerpt: "" },
+            { testIndex: 2, verdict: "wrong_answer", executionTimeMs: 14, memoryBytes: 0, stdoutExcerpt: "41\n", stderrExcerpt: "" },
         ],
       }),
     });
@@ -101,6 +102,7 @@ describe("SubmissionSummaryPage", () => {
           queuedAt: new Date().toISOString(),
           totalTests: 0,
           passedTests: 0,
+          compileOutputExcerpt: "main.cpp:1: error: expected ';'",
           results: [],
         }),
       }),
@@ -112,5 +114,7 @@ describe("SubmissionSummaryPage", () => {
     expect(
       screen.getByText("No per-test results were recorded because compilation failed before execution started."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Compile output")).toBeInTheDocument();
+    expect(screen.getByText("main.cpp:1: error: expected ';'")).toBeInTheDocument();
   });
 });

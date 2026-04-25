@@ -34,14 +34,15 @@ type Result struct {
 }
 
 type Detail struct {
-	ID          string    `json:"id"`
-	ProblemSlug string    `json:"problemSlug"`
-	Language    string    `json:"language"`
-	Status      string    `json:"status"`
-	QueuedAt    time.Time `json:"queuedAt"`
-	TotalTests  int       `json:"totalTests"`
-	PassedTests int       `json:"passedTests"`
-	Results     []Result  `json:"results"`
+	ID                   string    `json:"id"`
+	ProblemSlug          string    `json:"problemSlug"`
+	Language             string    `json:"language"`
+	Status               string    `json:"status"`
+	QueuedAt             time.Time `json:"queuedAt"`
+	TotalTests           int       `json:"totalTests"`
+	PassedTests          int       `json:"passedTests"`
+	CompileOutputExcerpt string    `json:"compileOutputExcerpt"`
+	Results              []Result  `json:"results"`
 }
 
 type CreateInput struct {
@@ -97,7 +98,7 @@ JOIN published_problem ON TRUE
 `
 
 const getSubmissionByIDSQL = `
-SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests
+SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests, s.compile_output_excerpt
 FROM submissions s
 JOIN problem_versions pv ON pv.id = s.problem_version_id
 JOIN problems p ON p.id = pv.problem_id
@@ -168,6 +169,7 @@ func (store *PostgresStore) GetSubmissionByID(ctx context.Context, submissionID 
 		&submission.QueuedAt,
 		&submission.TotalTests,
 		&submission.PassedTests,
+		&submission.CompileOutputExcerpt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrSubmissionNotFound

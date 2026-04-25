@@ -97,13 +97,13 @@ FOR UPDATE
 
 const resetSubmissionForRetrySQL = `
 UPDATE submissions
-SET status = 'queued', started_at = NULL, finished_at = NULL, total_tests = 0, passed_tests = 0
+SET status = 'queued', started_at = NULL, finished_at = NULL, total_tests = 0, passed_tests = 0, compile_output_excerpt = ''
 WHERE id = $1::uuid
 `
 
 const markSubmissionJudgeFailedSQL = `
 UPDATE submissions
-SET status = 'judge_failed', finished_at = NOW(), total_tests = 0, passed_tests = 0
+SET status = 'judge_failed', finished_at = NOW(), total_tests = 0, passed_tests = 0, compile_output_excerpt = ''
 WHERE id = $1::uuid
 `
 
@@ -238,7 +238,7 @@ func (store *PostgresStore) HandleJobFailure(ctx context.Context, submissionID s
 	return FailureActionRetried, tx.Commit(ctx)
 }
 
-func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, leaseToken string, status string, results []CaseResult) error {
+func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID string, leaseToken string, status string, compileOutputExcerpt string, results []CaseResult) error {
 	tx, err := store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -268,7 +268,7 @@ func (store *PostgresStore) CompleteSubmission(ctx context.Context, submissionID
 		}
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE submissions SET status = $2::submission_status, finished_at = NOW(), total_tests = $3, passed_tests = $4 WHERE id = $1::uuid`, submissionID, status, len(results), passedTests)
+	_, err = tx.Exec(ctx, `UPDATE submissions SET status = $2::submission_status, finished_at = NOW(), total_tests = $3, passed_tests = $4, compile_output_excerpt = $5 WHERE id = $1::uuid`, submissionID, status, len(results), passedTests, compileOutputExcerpt)
 	if err != nil {
 		return err
 	}

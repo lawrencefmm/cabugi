@@ -88,7 +88,7 @@ func TestCompleteSubmissionDeletesJobOnSuccess(t *testing.T) {
 		WithArgs("submission-id", 0, "accepted", 25, "42\n", "").
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 	mock.ExpectExec(`UPDATE submissions`).
-		WithArgs("submission-id", "accepted", 1, 1).
+		WithArgs("submission-id", "accepted", 1, 1, "").
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	mock.ExpectExec(`DELETE FROM submission_jobs WHERE submission_id = \$1::uuid AND lease_token = \$2::uuid`).
 		WithArgs("submission-id", "lease-token").
@@ -96,7 +96,7 @@ func TestCompleteSubmissionDeletesJobOnSuccess(t *testing.T) {
 	mock.ExpectCommit()
 
 	store := NewPostgresStoreFromDatabase(mock, 3, time.Second, 30*time.Second)
-	err = store.CompleteSubmission(context.Background(), "submission-id", "lease-token", "accepted", []CaseResult{{Verdict: "accepted", ExecutionTimeMS: 25, StdoutExcerpt: "42\n"}})
+	err = store.CompleteSubmission(context.Background(), "submission-id", "lease-token", "accepted", "", []CaseResult{{Verdict: "accepted", ExecutionTimeMS: 25, StdoutExcerpt: "42\n"}})
 	if err != nil {
 		t.Fatalf("CompleteSubmission() error = %v", err)
 	}
