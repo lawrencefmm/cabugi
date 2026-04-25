@@ -128,10 +128,16 @@ wait_for_http "${api_base_url}/healthz" "API health"
 
 problems_response="$(curl -fsS "${api_base_url}/v1/problems")"
 problem_detail_response="$(curl -fsS "${api_base_url}/v1/problems/a-plus-b")"
+count_positives_detail_response="$(curl -fsS "${api_base_url}/v1/problems/count-positives")"
 
 assert_contains "${problems_response}" '"slug":"a-plus-b"' 'published problems smoke must include seeded a-plus-b problem'
 assert_contains "${problems_response}" '"slug":"reverse-string"' 'published problems smoke must include seeded reverse-string problem'
+assert_contains "${problems_response}" '"slug":"count-positives"' 'published problems smoke must include seeded count-positives problem'
+assert_contains "${problems_response}" '"slug":"palindrome-check"' 'published problems smoke must include seeded palindrome-check problem'
+assert_contains "${problems_response}" '"slug":"running-sum"' 'published problems smoke must include seeded running-sum problem'
 assert_contains "${problem_detail_response}" '"slug":"a-plus-b"' 'problem detail smoke must return seeded problem detail'
 assert_contains "${problem_detail_response}" '"title":"A + B"' 'problem detail smoke must return seeded problem title'
+assert_contains "${count_positives_detail_response}" '"slug":"count-positives"' 'problem detail smoke must return count-positives detail'
+assert_contains "${count_positives_detail_response}" '"title":"Count Positives"' 'problem detail smoke must return count-positives title'
 
 printf 'api runtime smoke verification passed\n'
