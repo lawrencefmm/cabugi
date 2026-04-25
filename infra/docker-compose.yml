@@ -1,7 +1,48 @@
 name: cabugi
 
 services:
+  migrate:
+    image: postgres:17-alpine
+    command: ["/bin/sh", "-lc", "/work/db/scripts/migrate.sh up"]
+    environment:
+      DATABASE_URL: postgres://cabugi:${POSTGRES_PASSWORD:-cabugi}@postgres:5432/cabugi?sslmode=disable
+      POSTGRES_TOOLS_MODE: local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../db:/work/db:ro
+    restart: "no"
+
+  judge-image-prep:
+    image: docker:28-cli
+    command: ["/bin/sh", "-lc", "docker pull gcc:14.2.0 && docker pull python:3.13.0-alpine3.20"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: "no"
+
+  seed-starter-problems:
+    image: cabugi-api-local
+    entrypoint: ["/usr/local/bin/seed-starter-problems"]
+    environment:
+      DATABASE_URL: postgres://cabugi:${POSTGRES_PASSWORD:-cabugi}@postgres:5432/cabugi?sslmode=disable
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-cabugi-hidden-tests}
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY_ID:-minioadmin}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_USE_PATH_STYLE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   web:
+    image: cabugi-web-local
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
@@ -12,11 +53,20 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8080}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+      seed-starter-problems:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
 
   api:
+    image: cabugi-api-local
     build:
       context: ../services/api
       dockerfile: Dockerfile
@@ -36,12 +86,24 @@ services:
       OBJECT_STORAGE_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_ACCESS_KEY:-minioadmin}
       OBJECT_STORAGE_USE_PATH_STYLE: "true"
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      seed-starter-problems:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/healthz >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
 
   judge:
+    image: cabugi-judge-local
     build:
       context: ../services/judge
       dockerfile: Dockerfile
@@ -61,10 +123,23 @@ services:
       JUDGE_RETRY_DELAY: ${JUDGE_RETRY_DELAY:-5s}
       TMPDIR: /tmp/cabugi-judge-workspaces
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      seed-starter-problems:
+        condition: service_completed_successfully
+      judge-image-prep:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8082/healthz >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     ports:
-      - "8082:8082"
+      - "${JUDGE_OBSERVABILITY_PORT:-8082}:8082"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/cabugi-judge-workspaces:/tmp/cabugi-judge-workspaces
@@ -76,7 +151,7 @@ services:
       POSTGRES_USER: cabugi
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cabugi}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -92,10 +167,15 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   postgres-data:

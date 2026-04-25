@@ -56,16 +56,29 @@ This default browser path gives you the public problem pages immediately. Authen
 Run the checked-in full stack definition from the repository root:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
 ```
 
-Then seed the official starter problems in a second shell:
-
-```bash
-./db/scripts/seed_official_starter_problems.sh
-```
+This path now runs the local init steps automatically inside Compose:
+- `migrate` applies the checked-in database migrations
+- `judge-image-prep` pulls the pinned `gcc:14.2.0` and `python:3.13.0-alpine3.20` images through the host Docker socket
+- `seed-starter-problems` creates the hidden-test bucket if needed and seeds the official published starter problems
 
 The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
+
+If your machine already uses the default host ports, override the exported ports in `infra/full-stack.env.example` before starting Compose:
+- `WEB_PORT`
+- `API_PORT`
+- `JUDGE_OBSERVABILITY_PORT`
+- `POSTGRES_PORT`
+- `MINIO_PORT`
+- `MINIO_CONSOLE_PORT`
+
+When you override the published API or web ports, also keep these values aligned:
+- `NEXT_PUBLIC_API_BASE_URL`
+- `WEB_ALLOWED_ORIGINS`
+
+If browser auth is enabled in your local env, keep `CLERK_ALLOWED_PARTIES` aligned with the published web origin too.
 
 ### Authenticated Workflow Verification
 Use the checked-in local auth fixture when you want the full authenticated stack without external auth setup:
@@ -82,6 +95,8 @@ Current shared-service endpoints:
 - PostgreSQL: `localhost:5432`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
+
+When you override the host-port variables in `infra/full-stack.env.example`, the public endpoints move with those values.
 
 Current default development credentials:
 - PostgreSQL database: `cabugi`

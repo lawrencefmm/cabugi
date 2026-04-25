@@ -67,16 +67,17 @@ This default browser path gives you the public problem pages immediately. Authen
 Run the checked-in Compose stack from the repository root:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
 ```
 
-Then seed the official starter problems in another shell:
+That one command now:
+- starts PostgreSQL and MinIO
+- applies database migrations
+- prepares the pinned judge runtime images
+- seeds the official starter problems
+- starts `api`, `judge`, and `web`
 
-```bash
-./db/scripts/seed_official_starter_problems.sh
-```
-
-The example env file is intended for local packaging and public problem browsing. It does not enable browser auth by default.
+The example env file is intended for local packaging and public problem browsing. It does not enable browser auth by default, and its host-port values can be changed if your machine already uses `3000`, `5432`, `8080`, `8082`, `9000`, or `9001`. If you change the published API or web ports, keep `NEXT_PUBLIC_API_BASE_URL` and `WEB_ALLOWED_ORIGINS` aligned with those overrides.
 
 ### Authenticated Workflow Verification
 Use the checked-in smoke paths when you want the full authenticated workflow without external auth setup:
