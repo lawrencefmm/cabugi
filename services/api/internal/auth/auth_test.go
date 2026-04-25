@@ -22,7 +22,7 @@ func TestLoadClerkConfigUsesLocalTestDefaults(t *testing.T) {
 	t.Setenv("CLERK_PEM_PUBLIC_KEY", "")
 	t.Setenv("CLERK_JWKS_URL", "")
 	t.Setenv("CLERK_ISSUER", "")
-	t.Setenv("CLERK_ALLOWED_PARTIES", "")
+	t.Setenv("CLERK_ALLOWED_PARTIES", "http://localhost:3000,http://127.0.0.1:3000")
 	t.Setenv("CLERK_ALLOWED_AUDIENCES", "")
 
 	config := LoadClerkConfig()
@@ -34,6 +34,9 @@ func TestLoadClerkConfigUsesLocalTestDefaults(t *testing.T) {
 	}
 	if config.JWKSURL != "" {
 		t.Fatalf("LoadClerkConfig() jwksURL = %q, want empty when public key is configured", config.JWKSURL)
+	}
+	if len(config.AllowedParties) != 0 {
+		t.Fatalf("LoadClerkConfig() allowedParties = %#v, want cleared local test defaults", config.AllowedParties)
 	}
 	if len(config.AllowedAudiences) != 1 || config.AllowedAudiences[0] != localTestAuthAudience {
 		t.Fatalf("LoadClerkConfig() allowedAudiences = %#v, want [%q]", config.AllowedAudiences, localTestAuthAudience)
