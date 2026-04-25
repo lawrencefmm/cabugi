@@ -17,6 +17,29 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func TestLoadClerkConfigUsesLocalTestDefaults(t *testing.T) {
+	t.Setenv("LOCAL_TEST_AUTH_ENABLED", "true")
+	t.Setenv("CLERK_PEM_PUBLIC_KEY", "")
+	t.Setenv("CLERK_JWKS_URL", "")
+	t.Setenv("CLERK_ISSUER", "")
+	t.Setenv("CLERK_ALLOWED_PARTIES", "")
+	t.Setenv("CLERK_ALLOWED_AUDIENCES", "")
+
+	config := LoadClerkConfig()
+	if config.PublicKeyPEM != localTestAuthPublicKeyPEM {
+		t.Fatalf("LoadClerkConfig() publicKeyPEM = %q, want local test public key", config.PublicKeyPEM)
+	}
+	if config.Issuer != localTestAuthIssuer {
+		t.Fatalf("LoadClerkConfig() issuer = %q, want %q", config.Issuer, localTestAuthIssuer)
+	}
+	if config.JWKSURL != "" {
+		t.Fatalf("LoadClerkConfig() jwksURL = %q, want empty when public key is configured", config.JWKSURL)
+	}
+	if len(config.AllowedAudiences) != 1 || config.AllowedAudiences[0] != localTestAuthAudience {
+		t.Fatalf("LoadClerkConfig() allowedAudiences = %#v, want [%q]", config.AllowedAudiences, localTestAuthAudience)
+	}
+}
+
 func TestTokenFromRequestAcceptsSessionCookie(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
 	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "cookie-token"})

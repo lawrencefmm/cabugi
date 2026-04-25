@@ -38,7 +38,19 @@ func LoadClerkConfig() ClerkConfig {
 		config.AllowedAudiences = append(config.AllowedAudiences, audience)
 	}
 
-	if config.JWKSURL == "" && config.Issuer != "" {
+	if localTestAuthEnabled() {
+		if strings.TrimSpace(config.PublicKeyPEM) == "" && strings.TrimSpace(config.JWKSURL) == "" {
+			config.PublicKeyPEM = localTestAuthPublicKeyPEM
+		}
+		if strings.TrimSpace(config.Issuer) == "" {
+			config.Issuer = localTestAuthIssuer
+		}
+		if len(config.AllowedParties) == 0 && len(config.AllowedAudiences) == 0 {
+			config.AllowedAudiences = []string{localTestAuthAudience}
+		}
+	}
+
+	if config.JWKSURL == "" && config.Issuer != "" && strings.TrimSpace(config.PublicKeyPEM) == "" {
 		config.JWKSURL = strings.TrimRight(config.Issuer, "/") + "/.well-known/jwks.json"
 	}
 

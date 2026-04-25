@@ -1,13 +1,24 @@
 "use client";
 
 import { ClerkProvider, SignInButton as ClerkSignInButton, useAuth as useClerkAuth } from "@clerk/nextjs";
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { cloneElement, createContext, isValidElement, type MouseEvent, type ReactNode, useContext, useEffect, useState } from "react";
+
+import {
+  isLocalTestAuthProfile,
+  localTestAuthCookieName,
+  localTestAuthProfileCookieName,
+  localTestAuthProfileLabels,
+  type LocalTestAuthProfile,
+} from "../lib/local-test-auth";
 
 type AuthState = {
   mode: "disabled" | "clerk" | "local_test";
   getToken: () => Promise<string | null>;
   isLoaded: boolean;
   isSignedIn: boolean;
+  localTestProfile: LocalTestAuthProfile | null;
+  signInLocalTest: (profile: LocalTestAuthProfile) => Promise<boolean>;
+  signOutLocalTest: () => Promise<boolean>;
 };
 
 type AuthProviderProps = {
@@ -21,13 +32,14 @@ type SignInButtonProps = {
   mode?: "modal" | "redirect";
 };
 
-const localTestAuthCookieName = "cabugi_local_test_auth_token";
-
 const disabledAuthState: AuthState = {
   mode: "disabled",
   getToken: async () => null,
   isLoaded: true,
   isSignedIn: false,
+  localTestProfile: null,
+  signInLocalTest: async () => false,
+  signOutLocalTest: async () => false,
 };
 
 const AuthContext = createContext<AuthState>(disabledAuthState);
@@ -54,11 +66,89 @@ export function SignInButton({ children, mode }: SignInButtonProps) {
     return <ClerkSignInButton mode={mode}>{children}</ClerkSignInButton>;
   }
 
+  if (auth.mode === "local_test" && isValidElement<{ onClick?: (event: MouseEvent<HTMLElement>) => void }>(children)) {
+    return cloneElement(children, {
+      onClick: (event: MouseEvent<HTMLElement>) => {
+        children.props.onClick?.(event);
+        if (!event.defaultPrevented) {
+          void auth.signInLocalTest("author");
+        }
+      },
+    });
+  }
+
   return <>{children}</>;
 }
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+export function LocalTestAuthControls() {
+  const auth = useAuth();
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (auth.mode !== "local_test") {
+    return null;
+  }
+
+  async function handleSignIn(profile: LocalTestAuthProfile) {
+    setError(null);
+    setIsPending(true);
+    const ok = await auth.signInLocalTest(profile);
+    setIsPending(false);
+    if (!ok) {
+      setError("Local test auth sign-in failed.");
+    }
+  }
+
+  async function handleSignOut() {
+    setError(null);
+    setIsPending(true);
+    const ok = await auth.signOutLocalTest();
+    setIsPending(false);
+    if (!ok) {
+      setError("Local test auth sign-out failed.");
+    }
+  }
+
+  const nextProfile = auth.localTestProfile === "moderator" ? "author" : "moderator";
+
+  return (
+    <div className="app-auth-controls" aria-live="polite">
+      <div className="app-auth-controls__status">
+        <span className="app-auth-controls__label">Local test auth</span>
+        <span className="app-auth-controls__value">
+          {!auth.isLoaded ? "Loading" : auth.isSignedIn ? `${auth.localTestProfile ? localTestAuthProfileLabels[auth.localTestProfile] : "Signed in"} session` : "Signed out"}
+        </span>
+      </div>
+
+      <div className="app-auth-controls__actions">
+        {!auth.isSignedIn ? (
+          <>
+            <button className="app-auth-controls__button" disabled={isPending || !auth.isLoaded} onClick={() => void handleSignIn("author")} type="button">
+              Use author
+            </button>
+            <button className="app-auth-controls__button" disabled={isPending || !auth.isLoaded} onClick={() => void handleSignIn("moderator")} type="button">
+              Use moderator
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="app-auth-controls__button" disabled={isPending || !auth.isLoaded} onClick={() => void handleSignIn(nextProfile)} type="button">
+              Switch to {localTestAuthProfileLabels[nextProfile].toLowerCase()}
+            </button>
+            <button className="app-auth-controls__button app-auth-controls__button--secondary" disabled={isPending || !auth.isLoaded} onClick={() => void handleSignOut()} type="button">
+              Sign out
+            </button>
+          </>
+        )}
+      </div>
+
+      {error ? <p className="app-auth-controls__error">{error}</p> : null}
+    </div>
+  );
 }
 
 function ClerkAuthBridge({ children }: { children: ReactNode }) {
@@ -71,6 +161,9 @@ function ClerkAuthBridge({ children }: { children: ReactNode }) {
         getToken: async () => auth.getToken(),
         isLoaded: auth.isLoaded,
         isSignedIn: auth.isSignedIn ?? false,
+        localTestProfile: null,
+        signInLocalTest: async () => false,
+        signOutLocalTest: async () => false,
       }}
     >
       {children}
@@ -80,12 +173,49 @@ function ClerkAuthBridge({ children }: { children: ReactNode }) {
 
 function LocalTestAuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  const [profile, setProfile] = useState<LocalTestAuthProfile | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setToken(readLocalTestAuthToken());
+    syncLocalTestState(setToken, setProfile);
     setIsLoaded(true);
   }, []);
+
+  async function signInLocalTest(nextProfile: LocalTestAuthProfile) {
+    try {
+      const response = await fetch("/api/local-test-auth/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ profile: nextProfile }),
+      });
+      if (!response.ok) {
+        return false;
+      }
+
+      syncLocalTestState(setToken, setProfile);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function signOutLocalTest() {
+    try {
+      const response = await fetch("/api/local-test-auth/session", {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        return false;
+      }
+
+      syncLocalTestState(setToken, setProfile);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   return (
     <AuthContext.Provider
@@ -94,6 +224,9 @@ function LocalTestAuthProvider({ children }: { children: ReactNode }) {
         getToken: async () => readLocalTestAuthToken(),
         isLoaded,
         isSignedIn: token !== null,
+        localTestProfile: profile,
+        signInLocalTest,
+        signOutLocalTest,
       }}
     >
       {children}
@@ -101,12 +234,29 @@ function LocalTestAuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+function syncLocalTestState(
+  setToken: (token: string | null) => void,
+  setProfile: (profile: LocalTestAuthProfile | null) => void,
+) {
+  setToken(readLocalTestAuthToken());
+  setProfile(readLocalTestAuthProfile());
+}
+
 function readLocalTestAuthToken() {
+  return readCookie(localTestAuthCookieName);
+}
+
+function readLocalTestAuthProfile(): LocalTestAuthProfile | null {
+  const value = readCookie(localTestAuthProfileCookieName);
+  return value && isLocalTestAuthProfile(value) ? value : null;
+}
+
+function readCookie(name: string) {
   if (typeof document === "undefined") {
     return null;
   }
 
-  const prefix = `${localTestAuthCookieName}=`;
+  const prefix = `${name}=`;
   for (const entry of document.cookie.split(";")) {
     const trimmed = entry.trim();
     if (!trimmed.startsWith(prefix)) {

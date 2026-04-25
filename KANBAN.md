@@ -25,6 +25,25 @@
 
 ## Done
 
+### OPS-04 - Add local test auth support for interactive local runs
+Description: Extend the local development runtime so browser submissions and other authenticated flows can work without a real Clerk setup.
+
+Expected Result: Developers can opt into a checked-in local test auth mode, sign in through the browser, and use authenticated workflows such as solution submission against the local stack.
+
+Acceptance Tests:
+- The local runtime can opt into a checked-in local test auth mode without external Clerk credentials.
+- The web app offers a working browser sign-in path when local test auth mode is enabled.
+- The API accepts the corresponding local test tokens in that mode.
+- Developer-facing docs explain how to start and use the local test auth path.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding API-side `LOCAL_TEST_AUTH_ENABLED` defaults for the checked-in local test issuer, audience, and RSA public key, so the Go API can validate the existing local test JWTs without any external JWKS or Clerk project.
+- Added a local web session route at `app/api/local-test-auth/session` plus local auth session controls in the header, so the browser can sign in as the checked-in `author` or `moderator` profiles and set the existing local test auth cookies interactively.
+- Wired the local test auth flags through the web Docker build, web runtime env, API runtime env, and `infra/full-stack.env.example`, while keeping the default local Compose path public-only unless the developer explicitly enables the new mode.
+- Updated the root, development, deployment, web, and API docs so the local authenticated path is now documented for interactive browser submissions without real Clerk credentials.
+- Verified `go test ./...` in `services/api`, `pnpm --filter web typecheck`, `pnpm --filter web test --run`, `pnpm --filter web build`, and `pnpm verify:runtime`.
+
 ### OPS-02 - Make local container startup one command
 Description: Improve the checked-in local container runtime so `docker compose up --build` prepares dependencies, migrates the database, seeds official starter problems, and starts the runnable stack without extra manual startup steps.
 

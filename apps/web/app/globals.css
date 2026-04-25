@@ -119,6 +119,14 @@ pre,
   gap: 0.5rem;
 }
 
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .app-nav a {
   padding: 0.45rem 0.7rem;
   border: 1px solid transparent;
@@ -131,6 +139,67 @@ pre,
   color: var(--text);
   border-color: var(--border);
   background: var(--bg-panel-muted);
+}
+
+.app-auth-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.app-auth-controls__status {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.app-auth-controls__label {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app-auth-controls__value {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.app-auth-controls__actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.app-auth-controls__button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-panel-muted);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.app-auth-controls__button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.app-auth-controls__button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.app-auth-controls__button--secondary {
+  background: transparent;
+}
+
+.app-auth-controls__error {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.82rem;
 }
 
 .app-main {
@@ -697,6 +766,7 @@ pre,
   }
 
   .app-header__inner,
+  .app-header__actions,
   .workspace-panel__header,
   .submission-detail__header,
   .submission-result__header,

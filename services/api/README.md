@@ -59,6 +59,7 @@ The bootstrap flag is only valid while no admin exists. After that, the command 
 - `CLERK_PEM_PUBLIC_KEY`: optional static Clerk JWT verification public key in PEM format for local or fallback use when JWKS is not used.
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed `azp` values such as `http://localhost:3000`.
 - `CLERK_ALLOWED_AUDIENCES`: optional comma-separated allowed `aud` values such as `cabugi-web`.
+- `LOCAL_TEST_AUTH_ENABLED`: when `true`, the API falls back to the checked-in local test issuer, audience, and public key if explicit Clerk verifier settings are not provided.
 
 When auth verification is enabled, configure `CLERK_ISSUER` plus at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`. The API accepts bearer tokens from the `Authorization` header and from the `__session` cookie; when both are present, the header token wins.
 

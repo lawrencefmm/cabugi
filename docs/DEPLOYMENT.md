@@ -36,7 +36,9 @@ The Compose startup also runs three one-shot init services automatically:
 - `judge-image-prep`: pulls the pinned judge runtime images through the host Docker socket
 - `seed-starter-problems`: seeds the official published starter problems and hidden bundles before the public web flow comes up
 
-The checked-in `infra/full-stack.env.example` values are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default, so authenticated browser flows still need real Clerk values or the checked-in authenticated smoke commands.
+The checked-in `infra/full-stack.env.example` values are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default.
+
+For interactive local submissions without external auth, you can opt into the checked-in local test auth mode by setting both `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true` and `LOCAL_TEST_AUTH_ENABLED=true` before rebuilding the local web and API containers. The web header then exposes local `Author` and `Moderator` test sessions backed by the checked-in JWT fixtures.
 
 If your host already uses the default ports, override these values in the env file before running Compose:
 - `WEB_PORT`

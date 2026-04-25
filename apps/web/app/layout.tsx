@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppProviders } from "../src/components/app-providers";
-import { AuthProvider } from "../src/components/auth";
+import { AuthProvider, LocalTestAuthControls } from "../src/components/auth";
 
 type RootLayoutProps = {
   children: ReactNode;
@@ -23,12 +23,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
               <span className="app-brand__text">cabugi</span>
             </Link>
 
-            <nav className="app-nav" aria-label="Primary">
-              <Link href="/">Problems</Link>
-              <Link href="/drafts/new">Drafts</Link>
-              <Link href="/moderation/problem-drafts">Moderation</Link>
-              <Link href="/submissions">Submissions</Link>
-            </nav>
+            <div className="app-header__actions">
+              <nav className="app-nav" aria-label="Primary">
+                <Link href="/">Problems</Link>
+                <Link href="/drafts/new">Drafts</Link>
+                <Link href="/moderation/problem-drafts">Moderation</Link>
+                <Link href="/submissions">Submissions</Link>
+              </nav>
+
+              <LocalTestAuthControls />
+            </div>
           </div>
         </header>
 

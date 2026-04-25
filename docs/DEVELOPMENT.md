@@ -64,7 +64,16 @@ This path now runs the local init steps automatically inside Compose:
 - `judge-image-prep` pulls the pinned `gcc:14.2.0` and `python:3.13.0-alpine3.20` images through the host Docker socket
 - `seed-starter-problems` creates the hidden-test bucket if needed and seeds the official published starter problems
 
-The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off, so drafts, moderation, submission history, and browser solve submissions still need real Clerk configuration.
+The example env file is useful for packaging and public-stack development. It intentionally leaves browser auth off by default.
+
+If you want interactive local submissions without a real Clerk setup, enable the checked-in local test auth mode in your local env and rebuild the stack:
+
+```bash
+NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true
+LOCAL_TEST_AUTH_ENABLED=true
+```
+
+That mode enables a local browser sign-in control in the header. Use the `Author` session for submissions and other normal authenticated user flows. The `Moderator` session is also available, but moderation actions still require that subject to have a moderator role in PostgreSQL.
 
 If your machine already uses the default host ports, override the exported ports in `infra/full-stack.env.example` before starting Compose:
 - `WEB_PORT`

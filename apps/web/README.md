@@ -16,7 +16,7 @@ This workspace contains the published problem browsing UI, solve workspace, draf
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Clerk publishable key used for frontend authentication and token retrieval.
 - `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED`: test-only local auth adapter used by the browser smoke suite.
 
-Without auth-related environment values, the public problem pages still work but solve, draft, moderation, and submission-history pages stay unavailable in the browser.
+Without auth-related environment values, the public problem pages still work but solve, draft, moderation, and submission-history pages stay unavailable in the browser. Setting `NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true` enables the checked-in local test auth controls for interactive development without real Clerk credentials.
 
 ## Local Run
 From the repository root:
