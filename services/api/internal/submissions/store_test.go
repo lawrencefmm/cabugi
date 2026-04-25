@@ -86,9 +86,9 @@ func TestGetSubmissionByIDReturnsSubmissionForOwner(t *testing.T) {
 	defer mock.Close()
 
 	queuedAt := time.Now().UTC()
-	rows := pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at", "total_tests", "passed_tests"}).
-		AddRow("submission-id", "two-sum", "cpp17", "wrong_answer", queuedAt, 3, 2)
-	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests(.|\n)*WHERE s.id = \$1::uuid AND s.user_id = \$2::uuid`).
+	rows := pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at", "total_tests", "passed_tests", "compile_output_excerpt"}).
+		AddRow("submission-id", "two-sum", "cpp17", "wrong_answer", queuedAt, 3, 2, "")
+	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests, s.compile_output_excerpt(.|\n)*WHERE s.id = \$1::uuid AND s.user_id = \$2::uuid`).
 		WithArgs("submission-id", "00000000-0000-0000-0000-000000000001").
 		WillReturnRows(rows)
 
@@ -129,14 +129,44 @@ func TestGetSubmissionByIDReturnsNotFoundForUnknownID(t *testing.T) {
 	}
 	defer mock.Close()
 
-	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests(.|\n)*WHERE s.id = \$1::uuid AND s.user_id = \$2::uuid`).
+	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests, s.compile_output_excerpt(.|\n)*WHERE s.id = \$1::uuid AND s.user_id = \$2::uuid`).
 		WithArgs("missing-id", "00000000-0000-0000-0000-000000000001").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at", "total_tests", "passed_tests"}))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at", "total_tests", "passed_tests", "compile_output_excerpt"}))
 
 	store := NewPostgresStoreFromQuerier(mock)
 	_, err = store.GetSubmissionByID(context.Background(), "missing-id", "00000000-0000-0000-0000-000000000001")
 	if err != ErrSubmissionNotFound {
 		t.Fatalf("GetSubmissionByID() error = %v, want %v", err, ErrSubmissionNotFound)
+	}
+}
+
+func TestGetSubmissionByIDReturnsCompileOutputExcerptForCompileErrors(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("pgxmock.NewPool() error = %v", err)
+	}
+	defer mock.Close()
+
+	queuedAt := time.Now().UTC()
+	rows := pgxmock.NewRows([]string{"id", "slug", "language", "status", "queued_at", "total_tests", "passed_tests", "compile_output_excerpt"}).
+		AddRow("submission-id", "broken-solution", "cpp17", "compile_error", queuedAt, 0, 0, "main.cpp:1: error: expected ';'")
+	mock.ExpectQuery(`SELECT s.id::text, p.slug, s.language::text, s.status::text, s.queued_at, s.total_tests, s.passed_tests, s.compile_output_excerpt(.|\n)*WHERE s.id = \$1::uuid AND s.user_id = \$2::uuid`).
+		WithArgs("submission-id", "00000000-0000-0000-0000-000000000001").
+		WillReturnRows(rows)
+	mock.ExpectQuery(`SELECT test_index, verdict::text, execution_time_ms, memory_bytes, stdout_excerpt, stderr_excerpt(.|\n)*WHERE submission_id = \$1::uuid(.|\n)*ORDER BY test_index ASC`).
+		WithArgs("submission-id").
+		WillReturnRows(pgxmock.NewRows([]string{"test_index", "verdict", "execution_time_ms", "memory_bytes", "stdout_excerpt", "stderr_excerpt"}))
+
+	store := NewPostgresStoreFromQuerier(mock)
+	submission, err := store.GetSubmissionByID(context.Background(), "submission-id", "00000000-0000-0000-0000-000000000001")
+	if err != nil {
+		t.Fatalf("GetSubmissionByID() error = %v", err)
+	}
+	if submission.CompileOutputExcerpt != "main.cpp:1: error: expected ';'" {
+		t.Fatalf("GetSubmissionByID() compile output = %q, want compile error excerpt", submission.CompileOutputExcerpt)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("mock expectations not met: %v", err)
 	}
 }
 

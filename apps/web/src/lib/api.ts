@@ -73,6 +73,7 @@ export type SubmissionResult = {
 export type SubmissionDetail = Submission & {
   totalTests: number;
   passedTests: number;
+  compileOutputExcerpt: string;
   results: SubmissionResult[];
 };
 

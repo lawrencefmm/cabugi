@@ -25,6 +25,7 @@ type stubStore struct {
 	handleFailureErr error
 	completedID      string
 	completedStatus  string
+	completedCompile string
 	completedResults []CaseResult
 }
 
@@ -88,9 +89,10 @@ func (store *stubStore) HandleJobFailure(_ context.Context, submissionID string,
 	return store.failureAction, store.handleFailureErr
 }
 
-func (store *stubStore) CompleteSubmission(_ context.Context, submissionID string, _ string, status string, results []CaseResult) error {
+func (store *stubStore) CompleteSubmission(_ context.Context, submissionID string, _ string, status string, compileOutputExcerpt string, results []CaseResult) error {
 	store.completedID = submissionID
 	store.completedStatus = status
+	store.completedCompile = compileOutputExcerpt
 	store.completedResults = results
 	return nil
 }
@@ -201,7 +203,7 @@ func TestProcessOneClaimsRunsAndCompletesSubmission(t *testing.T) {
 
 func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
 	store := &stubStore{job: SubmissionJob{SubmissionID: "submission-id", LeaseToken: "lease-token", Language: "cpp17", SourceCode: "broken", BundleKey: "bundle.json", BundleSHA256: "bundle-sha", TimeLimit: time.Second}}
-	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictCompileError}}
+	runner := &stubRunner{result: spike.Result{Verdict: spike.VerdictCompileError, CompileOutput: "main.cpp:1: error: expected ';'"}}
 	processor := NewProcessor(store, &stubLoader{cases: []spike.TestCase{{Input: "1\n", ExpectedOutput: "1\n"}}}, runner, nil, time.Second)
 
 	_, err := processor.ProcessOne(context.Background())
@@ -210,6 +212,9 @@ func TestProcessOneMapsCompileErrorToFinalSubmissionStatus(t *testing.T) {
 	}
 	if store.completedStatus != "compile_error" {
 		t.Fatalf("CompleteSubmission() status = %q, want %q", store.completedStatus, "compile_error")
+	}
+	if store.completedCompile == "" {
+		t.Fatal("CompleteSubmission() should persist compile output excerpts for compile errors")
 	}
 }
 

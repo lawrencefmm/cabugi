@@ -248,12 +248,15 @@ components:
           required:
             - totalTests
             - passedTests
+            - compileOutputExcerpt
             - results
           properties:
             totalTests:
               type: integer
             passedTests:
               type: integer
+            compileOutputExcerpt:
+              type: string
             results:
               type: array
               items:

@@ -975,7 +975,7 @@ func TestGetSubmissionReturnsSubmissionForOwner(t *testing.T) {
 	request.Header.Set("Authorization", "Bearer good-token")
 	recorder := httptest.NewRecorder()
 
-	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{submission: submissions.Detail{ID: "submission-id", ProblemSlug: "two-sum", Language: "cpp17", Status: "wrong_answer", TotalTests: 3, PassedTests: 2, Results: []submissions.Result{{TestIndex: 2, Verdict: "wrong_answer", ExecutionTimeMS: 13}}}}).ServeHTTP(recorder, request)
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{submission: submissions.Detail{ID: "submission-id", ProblemSlug: "two-sum", Language: "cpp17", Status: "wrong_answer", TotalTests: 3, PassedTests: 2, CompileOutputExcerpt: "", Results: []submissions.Result{{TestIndex: 2, Verdict: "wrong_answer", ExecutionTimeMS: 13}}}}).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /v1/submissions/{id} status = %d, want %d", recorder.Code, http.StatusOK)
@@ -990,5 +990,25 @@ func TestGetSubmissionReturnsSubmissionForOwner(t *testing.T) {
 	}
 	if len(response.Results) != 1 || response.Results[0].Verdict != "wrong_answer" {
 		t.Fatalf("GET /v1/submissions/{id} returned unexpected results: %#v", response.Results)
+	}
+}
+
+func TestGetSubmissionReturnsCompileOutputExcerpt(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/submissions/submission-id", nil)
+	request.Header.Set("Authorization", "Bearer good-token")
+	recorder := httptest.NewRecorder()
+
+	NewMux(stubVerifier{principal: auth.Principal{Subject: "user_123"}}, nil, stubUserStore{user: users.User{ID: "user-id", Subject: "user_123", Handle: "user_abcd", DisplayName: "User abcd"}}, &stubSubmissionStore{submission: submissions.Detail{ID: "submission-id", ProblemSlug: "broken-solution", Language: "cpp17", Status: "compile_error", TotalTests: 0, PassedTests: 0, CompileOutputExcerpt: "main.cpp:1: error: expected ';'", Results: []submissions.Result{}}}).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /v1/submissions/{id} status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	var response submissions.Detail
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if response.CompileOutputExcerpt != "main.cpp:1: error: expected ';'" {
+		t.Fatalf("GET /v1/submissions/{id} returned unexpected compile output: %#v", response)
 	}
 }
