@@ -23,6 +23,8 @@
 
 ## Backlog
 
+## Done
+
 ### SEED-02 - Expand official starter problem set
 Description: Add more published official starter problems so new users can explore a broader range of supported problem types immediately.
 
@@ -36,9 +38,11 @@ Acceptance Tests:
 - Relevant verification commands pass.
 
 Notes:
-- Pending.
-
-## Done
+- Completed by expanding `services/api/internal/starterproblems` from two official starter problems to five: `a-plus-b`, `reverse-string`, `count-positives`, `palindrome-check`, and `running-sum`.
+- Added varied starter coverage across arithmetic, counting, string symmetry, and prefix-sum style output, with hidden test bundles generated and checksum-verified for every seeded problem.
+- Tightened `services/api/internal/starterproblems/starterproblems_test.go` so the seed set must include the expanded slug list and every hidden bundle must decode and match its stored SHA-256.
+- Updated `./infra/scripts/verify_api_runtime_smoke.sh` so the API smoke now proves the public problem list returns the expanded seed set and that a new seeded problem detail can be read successfully.
+- Verified `go test ./...` in `services/api` and `./infra/scripts/verify_api_runtime_smoke.sh`.
 
 ### E2E-01 - Add end-to-end workflow smoke tests
 Description: Add end-to-end smoke coverage for the core user and moderation workflows across the real local stack.
