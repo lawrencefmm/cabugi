@@ -23,20 +23,6 @@
 
 ## Backlog
 
-### WEB-UX-01 - Simplify problemset browsing
-Description: Rework the published problem list so it feels like a user-facing problemset instead of an internal catalog, including removing slug as a primary column and improving the scan path around titles and limits.
-
-Expected Result: The home page emphasizes problem titles and solving context first, while still preserving essential metadata such as limits and supported languages.
-
-Acceptance Tests:
-- The published problem list no longer renders slug as a primary table column on `/`.
-- Problem titles remain the primary clickable entry point into `/problems/[slug]`.
-- Time and memory limits remain visible in the list view.
-- Problem list tests cover the revised table structure or metadata rendering.
-
-Notes:
-- Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
-
 ### WEB-AUTHOR-01 - Add authoring preview and readiness cues
 Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
 
@@ -66,6 +52,23 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-UX-01 - Simplify problemset browsing
+Description: Rework the published problem list so it feels like a user-facing problemset instead of an internal catalog, including removing slug as a primary column and improving the scan path around titles and limits.
+
+Expected Result: The home page emphasizes problem titles and solving context first, while still preserving essential metadata such as limits and supported languages.
+
+Acceptance Tests:
+- The published problem list no longer renders slug as a primary table column on `/`.
+- Problem titles remain the primary clickable entry point into `/problems/[slug]`.
+- Time and memory limits remain visible in the list view.
+- Problem list tests cover the revised table structure or metadata rendering.
+
+Notes:
+- Completed by changing the desktop list on `/` to lead with a single `Problem` column where the title link is primary and the slug is demoted to muted secondary metadata.
+- The published problem list now surfaces supported language support directly in both desktop and mobile layouts without requiring backend changes because the current language set is global for v1.
+- The mobile problemset cards now preserve the same scan path by keeping the title prominent and moving limits plus languages into compact stats instead of a slug-first catalog row.
+- Verified with `pnpm --filter web test --run src/components/problem-list-page.test.tsx`, `pnpm --filter web typecheck`, and Chrome MCP checks against the rebuilt local web container on desktop and mobile widths.
 
 ### WEB-POLISH-01 - Improve navigation, retries, and mobile behavior
 Description: Tighten common frontend interaction quality by replacing client-side hard reload links where appropriate, adding retry and recovery affordances, and improving dense views on mobile.

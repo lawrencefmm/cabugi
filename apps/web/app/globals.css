@@ -340,6 +340,20 @@ pre,
   gap: 0.75rem;
 }
 
+.problem-list-entry {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.problem-list-entry__title {
+  display: inline-flex;
+  align-items: center;
+}
+
+.problem-list-entry__slug {
+  margin-top: 0;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

@@ -5,6 +5,8 @@ import { startTransition, useEffect, useEffectEvent, useState } from "react";
 
 import { fetchPublishedProblems, formatMemoryLimit, formatProblemFetchError, formatTimeLimit, type PublishedProblemSummary } from "../lib/api";
 
+const supportedLanguagesLabel = "C++17 / Python";
+
 type ProblemListState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
@@ -60,7 +62,7 @@ export function ProblemListPage() {
       <section className="page-hero">
         <span className="page-kicker">Problemset</span>
         <h1 className="page-title">Published problems</h1>
-        <p className="page-subtitle">Browse the current set, inspect the limits, and open the solve workspace for any published problem.</p>
+        <p className="page-subtitle">Scan titles first, compare the limits and supported languages quickly, then jump straight into a solve workspace.</p>
       </section>
 
       {state.kind === "loading" ? (
@@ -109,23 +111,26 @@ function ProblemListResults({ problems }: { problems: PublishedProblemSummary[] 
         <table className="data-table" aria-label="Published problems">
           <thead>
             <tr>
-              <th scope="col">Slug</th>
-              <th scope="col">Title</th>
+              <th scope="col">Problem</th>
               <th scope="col">Time</th>
               <th scope="col">Memory</th>
+              <th scope="col">Languages</th>
             </tr>
           </thead>
           <tbody>
             {problems.map((problem) => (
               <tr key={problem.slug}>
-                <td className="table-code">{problem.slug}</td>
                 <td>
-                  <Link className="table-link" href={`/problems/${problem.slug}`}>
-                    {problem.title}
-                  </Link>
+                  <div className="problem-list-entry">
+                    <Link className="table-link problem-list-entry__title" href={`/problems/${problem.slug}`}>
+                      {problem.title}
+                    </Link>
+                    <p className="detail-meta mono problem-list-entry__slug">{problem.slug}</p>
+                  </div>
                 </td>
                 <td className="table-code">{formatTimeLimit(problem.timeLimitMs)}</td>
                 <td className="table-code">{formatMemoryLimit(problem.memoryLimitMb)}</td>
+                <td className="table-code">{supportedLanguagesLabel}</td>
               </tr>
             ))}
           </tbody>
@@ -155,6 +160,11 @@ function ProblemListResults({ problems }: { problems: PublishedProblemSummary[] 
               <article className="submission-stat">
                 <p className="submission-stat__label">Memory limit</p>
                 <p className="submission-stat__value">{formatMemoryLimit(problem.memoryLimitMb)}</p>
+              </article>
+
+              <article className="submission-stat">
+                <p className="submission-stat__label">Languages</p>
+                <p className="submission-stat__value">{supportedLanguagesLabel}</p>
               </article>
             </div>
           </article>

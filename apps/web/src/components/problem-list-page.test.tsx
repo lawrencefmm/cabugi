@@ -32,7 +32,11 @@ describe("ProblemListPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading published problems");
     expect(await screen.findByRole("link", { name: "Two Sum" })).toHaveAttribute("href", "/problems/two-sum");
     expect(screen.getByRole("table", { name: "Published problems" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Slug" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Problem" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Languages" })).toBeInTheDocument();
     expect(screen.getAllByText("two-sum").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("C++17 / Python").length).toBeGreaterThan(0);
   });
 
   it("renders an error state when the API fails", async () => {
