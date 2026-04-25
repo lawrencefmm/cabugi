@@ -21,7 +21,7 @@ CI runs the same Dockerfile build paths on pushes and pull requests.
 Run the local application stack from the repository root:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build
+docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
 ```
 
 The runtime definition includes:
@@ -31,13 +31,22 @@ The runtime definition includes:
 - `postgres` on `localhost:5432`
 - `minio` API on `http://127.0.0.1:9000` and console on `http://127.0.0.1:9001`
 
-After the stack is up, seed the official starter problems from another shell:
-
-```bash
-./db/scripts/seed_official_starter_problems.sh
-```
+The Compose startup also runs three one-shot init services automatically:
+- `migrate`: applies checked-in database migrations before the API and judge start
+- `judge-image-prep`: pulls the pinned judge runtime images through the host Docker socket
+- `seed-starter-problems`: seeds the official published starter problems and hidden bundles before the public web flow comes up
 
 The checked-in `infra/full-stack.env.example` values are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default, so authenticated browser flows still need real Clerk values or the checked-in authenticated smoke commands.
+
+If your host already uses the default ports, override these values in the env file before running Compose:
+- `WEB_PORT`
+- `API_PORT`
+- `JUDGE_OBSERVABILITY_PORT`
+- `POSTGRES_PORT`
+- `MINIO_PORT`
+- `MINIO_CONSOLE_PORT`
+
+When you override the published API or web ports, keep `NEXT_PUBLIC_API_BASE_URL` and `WEB_ALLOWED_ORIGINS` aligned with those values. If browser auth is enabled, `CLERK_ALLOWED_PARTIES` should match the published web origin too.
 
 The judge container mounts `/var/run/docker.sock` and uses `/tmp/cabugi-judge-workspaces` as a shared host path so sandbox containers can bind worker scratch directories. Treat Docker socket access as privileged and only use this Compose mode for local development or isolated judge hosts.
 

@@ -19,7 +19,7 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-required_services=(web api judge postgres minio)
+required_services=(migrate judge-image-prep seed-starter-problems web api judge postgres minio)
 for service in "${required_services[@]}"; do
   if ! grep -Eq "^[[:space:]]{2}${service}:$" "${COMPOSE_FILE}"; then
     printf 'compose file is missing service: %s\n' "${service}" >&2
@@ -35,6 +35,7 @@ required_runtime_settings=(
   "OBJECT_STORAGE_BUCKET"
   "OBJECT_STORAGE_SECRET_ACCESS_KEY"
   "JUDGE_OBSERVABILITY_ADDRESS"
+  "service_completed_successfully"
   "/var/run/docker.sock:/var/run/docker.sock"
 )
 
@@ -47,6 +48,11 @@ done
 
 if ! grep -Fq '"start": "next start -H 0.0.0.0"' "${ROOT_DIR}/apps/web/package.json"; then
   printf 'web package is missing production start script\n' >&2
+  exit 1
+fi
+
+if ! grep -Fq '/usr/local/bin/seed-starter-problems' "${ROOT_DIR}/services/api/Dockerfile"; then
+  printf 'api image is missing starter problem seed binary\n' >&2
   exit 1
 fi
 

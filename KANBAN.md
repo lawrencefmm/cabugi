@@ -25,6 +25,25 @@
 
 ## Done
 
+### OPS-02 - Make local container startup one command
+Description: Improve the checked-in local container runtime so `docker compose up --build` prepares dependencies, migrates the database, seeds official starter problems, and starts the runnable stack without extra manual startup steps.
+
+Expected Result: Local container startup becomes a one-command path for public problem browsing and judge-backed runtime verification.
+
+Acceptance Tests:
+- `docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build` starts the local stack without separate manual migration or seed commands.
+- The Compose runtime prepares the pinned judge runtime images before the long-running judge worker starts.
+- The local stack exposes seeded published problems after startup.
+- Developer-facing docs describe the new one-command container workflow and any remaining auth limitations.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by extending `infra/docker-compose.yml` with one-shot `migrate`, `judge-image-prep`, and `seed-starter-problems` services so `docker compose ... up --build` can prepare the local runtime automatically before `api`, `judge`, and `web` start.
+- Updated the API image to include the `seed-starter-problems` binary so the Compose seed service can run without host Go tooling.
+- Added health checks plus `depends_on` conditions so the public web stack waits for database migrations, hidden bundle bucket creation, starter problem seeding, and pinned judge image preparation.
+- Made the exported host ports configurable through `infra/full-stack.env.example` so the one-command startup can still work on machines already using the default local ports.
+- Updated the root and developer-facing docs to make the one-command Compose path the default containerized local startup flow.
+
 ### DOCS-01 - Refresh project documentation and local run guidance
 Description: Refresh the top-level project documentation so the current architecture, feature surface, and local run paths match the repository as it exists today.
 
