@@ -141,7 +141,7 @@ function AuthenticatedSolveWorkspace({ problemSlug }: { problemSlug: string }) {
         <div className="workspace-panel__header">
           <div>
             <h2 className="workspace-panel__title">Solve Workspace</h2>
-            <p className="workspace-panel__subtitle">Loading authentication state.</p>
+            <p className="workspace-panel__subtitle">Checking submission access while your account finishes loading. You can keep reading the statement in the meantime.</p>
           </div>
         </div>
       </section>

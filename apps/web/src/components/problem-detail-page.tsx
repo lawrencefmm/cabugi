@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { startTransition, useEffect, useEffectEvent, useState } from "react";
 
 import { fetchPublishedProblem, formatMemoryLimit, formatProblemFetchError, formatTimeLimit, type PublishedProblemDetail } from "../lib/api";
@@ -18,6 +19,7 @@ type ProblemDetailPageProps = {
 
 export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps) {
   const [state, setState] = useState<ProblemDetailState>({ kind: "loading" });
+  const [reloadToken, setReloadToken] = useState(0);
 
   const loadProblem = useEffectEvent(async (signal: AbortSignal) => {
     try {
@@ -54,7 +56,11 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
     return () => {
       controller.abort();
     };
-  }, [slug]);
+  }, [reloadToken, slug]);
+
+  function retryProblem() {
+    setReloadToken((current) => current + 1);
+  }
 
   if (state.kind === "loading") {
     return (
@@ -72,6 +78,14 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
         <section className="error-state" role="alert">
           <h1 className="error-state__title">Problem unavailable</h1>
           <p className="error-state__text">{state.message}</p>
+          <div className="history-actions">
+            <button className="workspace-button workspace-button--secondary" onClick={retryProblem} type="button">
+              Retry problem
+            </button>
+            <Link className="table-link" href="/">
+              Back to problems
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -82,9 +96,9 @@ export function ProblemDetailPage({ authEnabled, slug }: ProblemDetailPageProps)
   return (
     <main className="app-main">
       <section className="page-hero">
-        <a className="status-note" href="/">
+        <Link className="status-note" href="/">
           Problems / {problem.slug}
-        </a>
+        </Link>
         <span className="page-kicker">Problem</span>
         <h1 className="page-title">{problem.title}</h1>
         <p className="page-subtitle">Read the statement, inspect the limits for this published version, then move directly into the solve workspace.</p>

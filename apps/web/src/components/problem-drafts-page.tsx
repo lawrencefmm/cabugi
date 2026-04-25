@@ -56,6 +56,18 @@ function AuthenticatedProblemDraftsPage() {
 
       {!isLoaded ? (
         <section className="empty-state" role="status" aria-live="polite">
+          <h2 className="empty-state__title">Checking draft access</h2>
+          <p className="empty-state__text">Published problems stay available while your account finishes loading.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {isLoaded && isSignedIn && draftsQuery.isPending ? (
+        <section className="empty-state" role="status" aria-live="polite">
           <h2 className="empty-state__title">Loading drafts</h2>
         </section>
       ) : null}
@@ -78,6 +90,11 @@ function AuthenticatedProblemDraftsPage() {
         <section className="error-state" role="alert">
           <h2 className="error-state__title">Drafts unavailable</h2>
           <p className="error-state__text">Unable to load your drafts right now.</p>
+          <div className="history-actions">
+            <button className="workspace-button workspace-button--secondary" onClick={() => void draftsQuery.refetch()} type="button">
+              Retry drafts
+            </button>
+          </div>
         </section>
       ) : null}
 

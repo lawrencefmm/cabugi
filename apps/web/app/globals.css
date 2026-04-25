@@ -277,6 +277,7 @@ pre,
 .workspace-panel,
 .empty-state,
 .error-state,
+.history-card,
 .submission-result,
 .submission-results-empty,
 .submission-stat,
@@ -291,6 +292,7 @@ pre,
 .problem-panel,
 .problem-sidebar,
 .workspace-panel,
+.history-card,
 .submission-detail {
   padding: 1rem;
 }
@@ -327,6 +329,15 @@ pre,
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.responsive-table {
+  display: block;
+}
+
+.mobile-card-list {
+  display: none;
+  gap: 0.75rem;
 }
 
 .data-table {
@@ -547,6 +558,11 @@ pre,
 
 .workspace-panel__header {
   margin-bottom: 0.85rem;
+}
+
+.history-card__body,
+.history-card__footer {
+  margin-top: 0.85rem;
 }
 
 .workspace-panel__title {
@@ -870,6 +886,14 @@ pre,
   .history-card__footer {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .responsive-table {
+    display: none;
+  }
+
+  .mobile-card-list {
+    display: grid;
   }
 
   .data-table {

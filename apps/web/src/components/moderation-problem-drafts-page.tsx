@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -116,7 +117,13 @@ function AuthenticatedModerationProblemDraftsPage() {
     return (
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
-          <h1 className="empty-state__title">Loading moderation tools</h1>
+          <h1 className="empty-state__title">Checking moderation access</h1>
+          <p className="empty-state__text">Published problems stay available while your account finishes loading.</p>
+          <div className="history-actions">
+            <Link className="table-link" href="/">
+              Browse problems
+            </Link>
+          </div>
         </section>
       </main>
     );
@@ -145,6 +152,7 @@ function AuthenticatedModerationProblemDraftsPage() {
       <main className="app-main">
         <section className="empty-state" role="status" aria-live="polite">
           <h1 className="empty-state__title">Loading moderation queue</h1>
+          <p className="empty-state__text">Moderation data will appear here as soon as your queue is ready.</p>
         </section>
       </main>
     );
@@ -159,6 +167,17 @@ function AuthenticatedModerationProblemDraftsPage() {
           <p className="error-state__text">
             {formatModerationError(moderationQueueQuery.error, "Your account does not have moderator access.")}
           </p>
+
+          <div className="history-actions">
+            {!forbidden ? (
+              <button className="workspace-button workspace-button--secondary" onClick={() => void moderationQueueQuery.refetch()} type="button">
+                Retry moderation
+              </button>
+            ) : null}
+            <Link className="table-link" href="/">
+              Back to problems
+            </Link>
+          </div>
 
           {forbidden && mode === "local_test" ? <LocalModerationSetupPanel localTestProfile={localTestProfile} /> : null}
         </section>
@@ -181,6 +200,11 @@ function AuthenticatedModerationProblemDraftsPage() {
         <section className="empty-state">
           <h2 className="empty-state__title">Nothing to review</h2>
           <p className="empty-state__text">Drafts submitted for review will appear here once authors hand them off to moderators.</p>
+          <div className="history-actions">
+            <button className="workspace-button workspace-button--secondary" onClick={() => void moderationQueueQuery.refetch()} type="button">
+              Check again
+            </button>
+          </div>
         </section>
       ) : (
         <section className="moderation-layout">
@@ -223,6 +247,11 @@ function AuthenticatedModerationProblemDraftsPage() {
               <section className="error-state" role="alert">
                 <h2 className="error-state__title">Draft detail unavailable</h2>
                 <p className="error-state__text">{formatDraftError(selectedDraftQuery.error, "Problem draft not found.")}</p>
+                <div className="history-actions">
+                  <button className="workspace-button workspace-button--secondary" onClick={() => void selectedDraftQuery.refetch()} type="button">
+                    Retry draft detail
+                  </button>
+                </div>
               </section>
             ) : null}
 
