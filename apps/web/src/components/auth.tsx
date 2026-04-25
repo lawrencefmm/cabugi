@@ -1,6 +1,13 @@
 "use client";
 
-import { ClerkProvider, SignInButton as ClerkSignInButton, useAuth as useClerkAuth } from "@clerk/nextjs";
+import {
+  ClerkProvider,
+  SignInButton as ClerkSignInButton,
+  SignUpButton as ClerkSignUpButton,
+  useAuth as useClerkAuth,
+  useClerk,
+  useUser as useClerkUser,
+} from "@clerk/nextjs";
 import { cloneElement, createContext, isValidElement, type MouseEvent, type ReactNode, useContext, useEffect, useState } from "react";
 
 import {
@@ -27,7 +34,7 @@ type AuthProviderProps = {
   publishableKey?: string;
 };
 
-type SignInButtonProps = {
+type AuthButtonProps = {
   children: ReactNode;
   mode?: "modal" | "redirect";
 };
@@ -60,7 +67,7 @@ export function AuthProvider({ children, localTestAuthEnabled = false, publishab
   return <AuthContext.Provider value={disabledAuthState}>{children}</AuthContext.Provider>;
 }
 
-export function SignInButton({ children, mode }: SignInButtonProps) {
+export function SignInButton({ children, mode }: AuthButtonProps) {
   const auth = useAuth();
   if (auth.mode === "clerk") {
     return <ClerkSignInButton mode={mode}>{children}</ClerkSignInButton>;
@@ -80,8 +87,31 @@ export function SignInButton({ children, mode }: SignInButtonProps) {
   return <>{children}</>;
 }
 
+export function SignUpButton({ children, mode }: AuthButtonProps) {
+  const auth = useAuth();
+  if (auth.mode === "clerk") {
+    return <ClerkSignUpButton mode={mode}>{children}</ClerkSignUpButton>;
+  }
+
+  return <>{children}</>;
+}
+
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+export function AppAuthControls() {
+  const auth = useAuth();
+
+  if (auth.mode === "local_test") {
+    return <LocalTestAuthControls />;
+  }
+
+  if (auth.mode === "clerk") {
+    return <ClerkAuthControls />;
+  }
+
+  return null;
 }
 
 export function LocalTestAuthControls() {
@@ -143,6 +173,62 @@ export function LocalTestAuthControls() {
               Sign out
             </button>
           </>
+        )}
+      </div>
+
+      {error ? <p className="app-auth-controls__error">{error}</p> : null}
+    </div>
+  );
+}
+
+function ClerkAuthControls() {
+  const auth = useAuth();
+  const clerk = useClerk();
+  const { user } = useClerkUser();
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const accountState = !auth.isLoaded ? "Loading" : auth.isSignedIn ? formatClerkIdentity(user) : "Signed out";
+
+  async function handleSignOut() {
+    setError(null);
+    setIsPending(true);
+    try {
+      await clerk.signOut();
+    } catch {
+      setError("Clerk sign-out failed.");
+      setIsPending(false);
+      return;
+    }
+
+    setIsPending(false);
+  }
+
+  return (
+    <div className="app-auth-controls" aria-live="polite">
+      <div className="app-auth-controls__status">
+        <span className="app-auth-controls__label">Account</span>
+        <span className="app-auth-controls__value">{accountState}</span>
+      </div>
+
+      <div className="app-auth-controls__actions">
+        {!auth.isSignedIn ? (
+          <>
+            <SignInButton mode="modal">
+              <button className="app-auth-controls__button" type="button">
+                Sign in
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="app-auth-controls__button app-auth-controls__button--secondary" type="button">
+                Create account
+              </button>
+            </SignUpButton>
+          </>
+        ) : (
+          <button className="app-auth-controls__button app-auth-controls__button--secondary" disabled={isPending || !auth.isLoaded} onClick={() => void handleSignOut()} type="button">
+            {isPending ? "Signing out..." : "Sign out"}
+          </button>
         )}
       </div>
 
@@ -240,6 +326,15 @@ function syncLocalTestState(
 ) {
   setToken(readLocalTestAuthToken());
   setProfile(readLocalTestAuthProfile());
+}
+
+function formatClerkIdentity(user: ReturnType<typeof useClerkUser>["user"]) {
+  if (!user) {
+    return "Signed in";
+  }
+
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return fullName || user.username || user.primaryEmailAddress?.emailAddress || "Signed in";
 }
 
 function readLocalTestAuthToken() {
