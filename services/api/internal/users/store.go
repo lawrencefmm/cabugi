@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,6 +36,7 @@ type Store interface {
 type DisabledStore struct{}
 
 type queryer interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
@@ -57,6 +59,18 @@ SELECT EXISTS(
   FROM user_roles
   WHERE user_id = $1::uuid AND role::text = ANY($2::text[])
 )
+`
+
+const countUsersWithRoleSQL = `
+SELECT COUNT(*)
+FROM user_roles
+WHERE role = $1::user_role
+`
+
+const grantRoleSQL = `
+INSERT INTO user_roles (user_id, role)
+VALUES ($1::uuid, $2::user_role)
+ON CONFLICT (user_id, role) DO NOTHING
 `
 
 func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
@@ -98,6 +112,17 @@ func (store *PostgresStore) HasAnyRole(ctx context.Context, userID string, roles
 	var hasRole bool
 	err := store.db.QueryRow(ctx, hasAnyRoleSQL, userID, roleValues).Scan(&hasRole)
 	return hasRole, err
+}
+
+func (store *PostgresStore) CountUsersWithRole(ctx context.Context, role Role) (int, error) {
+	var count int
+	err := store.db.QueryRow(ctx, countUsersWithRoleSQL, role).Scan(&count)
+	return count, err
+}
+
+func (store *PostgresStore) GrantRole(ctx context.Context, userID string, role Role) error {
+	_, err := store.db.Exec(ctx, grantRoleSQL, userID, role)
+	return err
 }
 
 func (store *PostgresStore) Close() {

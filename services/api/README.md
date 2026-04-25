@@ -36,6 +36,23 @@ Available bootstrap routes:
 - `POST /v1/submissions`
 - `GET /v1/submissions/{id}`
 
+## Staff Role Bootstrap
+Bootstrap the first admin from `services/api` when the database has no admin yet:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_local_admin --role admin
+```
+
+Grant moderator or admin roles after bootstrap:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --requester-subject user_local_admin --target-subject user_local_moderator --role moderator
+```
+
+The bootstrap flag is only valid while no admin exists. After that, the command requires `--requester-subject` to belong to an existing admin, so non-admin users cannot grant privileged roles.
+
 ## Clerk Auth Environment
 - `CLERK_ISSUER`: required expected `iss` claim for Clerk session tokens when auth verification is enabled.
 - `CLERK_JWKS_URL`: optional explicit JWKS endpoint for Clerk signing keys. Defaults to `<CLERK_ISSUER>/.well-known/jwks.json` when `CLERK_ISSUER` is set.
