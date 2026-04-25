@@ -37,20 +37,6 @@ Acceptance Tests:
 Notes:
 - Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
 
-### WEB-SUB-01 - Redirect to a live submission page after submit
-Description: Change the solve flow so successful submissions navigate to `/submissions/[id]` and that page live-refreshes until the submission reaches a terminal verdict.
-
-Expected Result: Users submit once and land on a dedicated live status page instead of staying on the problem page with only a small verdict badge.
-
-Acceptance Tests:
-- Submitting from `/problems/[slug]` redirects the browser to `/submissions/[id]` after a `201` response.
-- `/submissions/[id]` polls the existing submission detail endpoint while status is `queued` or `running`.
-- The submission page updates automatically to the final verdict and renders final per-test results without manual reload.
-- Relevant web tests cover the redirect and live-refresh behavior.
-
-Notes:
-- This task is intentionally scoped to redirect plus polling with the current backend contract, not full per-test live progress.
-
 ### WEB-SOLVE-01 - Improve solve workspace feedback and safety
 Description: Improve the solve workspace so it is harder to lose work and easier to move between solving, active submissions, and history.
 
@@ -122,6 +108,23 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-SUB-01 - Redirect to a live submission page after submit
+Description: Change the solve flow so successful submissions navigate to `/submissions/[id]` and that page live-refreshes until the submission reaches a terminal verdict.
+
+Expected Result: Users submit once and land on a dedicated live status page instead of staying on the problem page with only a small verdict badge.
+
+Acceptance Tests:
+- Submitting from `/problems/[slug]` redirects the browser to `/submissions/[id]` after a `201` response.
+- `/submissions/[id]` polls the existing submission detail endpoint while status is `queued` or `running`.
+- The submission page updates automatically to the final verdict and renders final per-test results without manual reload.
+- Relevant web tests cover the redirect and live-refresh behavior.
+
+Notes:
+- Completed by redirecting the solve workspace to `/submissions/[id]` immediately after a successful submission create response instead of keeping live status on the problem page.
+- `apps/web/src/components/submission-summary-page.tsx` now polls the existing submission detail endpoint until the verdict becomes terminal and updates the final verdict plus per-test rows without a manual reload.
+- The submission page now surfaces a live-status callout while judging is still in flight and keeps direct navigation back to the problem and submission history.
+- Verified with `pnpm --filter web test --run src/components/solve-workspace.test.tsx src/components/submission-summary-page.test.tsx`, `pnpm --filter web typecheck`, and `pnpm verify:smoke:e2e`.
 
 ### WEB-LOCAL-01 - Make local moderation usable
 Description: Fix the local moderation developer path so the checked-in local test moderator identity, staff-role bootstrap guidance, and frontend moderation experience line up.
