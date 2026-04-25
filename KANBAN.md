@@ -25,6 +25,24 @@
 
 ## Done
 
+### OPS-03 - Add local startup port preflight
+Description: Add a friendlier local full-stack startup path that catches host port conflicts before Docker Compose fails with a low-level bind error.
+
+Expected Result: Local startup tells developers which published host port is blocked and how to override it, instead of failing with opaque Docker networking output.
+
+Acceptance Tests:
+- A documented checked-in command exists to start the full local Compose stack with the existing env file inputs.
+- The startup helper fails early when a configured host port is already in use and prints actionable override guidance.
+- The helper supports checking the current local env without starting containers so packaging verification can exercise it.
+- Developer-facing docs point users to the helper for the full local Compose path.
+- Relevant verification commands pass.
+
+Notes:
+- Completed by adding `./infra/scripts/up_full_stack.sh`, which prefers untracked local overrides in `infra/full-stack.env`, validates the published host ports before Compose startup, and prints concrete override commands when ports such as `API_PORT` or `WEB_PORT` are already occupied.
+- Added a `--check` mode so the helper can validate the selected env without starting containers, and wired `pnpm verify:runtime` through that path using high-numbered host-port overrides so packaging verification stays independent of whatever the developer already runs locally.
+- Updated `.gitignore`, `infra/full-stack.env.example`, `README.md`, `docs/DEVELOPMENT.md`, and `docs/DEPLOYMENT.md` so the helper is now the documented full-stack entry point and local-only env overrides can live in `infra/full-stack.env`.
+- Verified `pnpm verify:runtime` and an occupied-port preflight run that reports actionable override guidance instead of Docker's raw bind failure.
+
 ### OPS-02 - Make local container startup one command
 Description: Improve the checked-in local container runtime so `docker compose up --build` prepares dependencies, migrates the database, seeds official starter problems, and starts the runnable stack without extra manual startup steps.
 

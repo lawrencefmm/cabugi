@@ -64,10 +64,11 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080 pnpm --filter web dev
 This default browser path gives you the public problem pages immediately. Authenticated browser flows still require real Clerk configuration, because `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is unset by default.
 
 ### One-Command Full Stack Runtime
-Run the checked-in Compose stack from the repository root:
+Run the checked-in full-stack helper from the repository root:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
+./infra/scripts/up_full_stack.sh
+# or: pnpm runtime:up
 ```
 
 That one command now:
@@ -77,7 +78,7 @@ That one command now:
 - seeds the official starter problems
 - starts `api`, `judge`, and `web`
 
-The example env file is intended for local packaging and public problem browsing. It does not enable browser auth by default, and its host-port values can be changed if your machine already uses `3000`, `5432`, `8080`, `8082`, `9000`, or `9001`. If you change the published API or web ports, keep `NEXT_PUBLIC_API_BASE_URL` and `WEB_ALLOWED_ORIGINS` aligned with those overrides.
+The helper uses `infra/full-stack.env` when present, otherwise it falls back to `infra/full-stack.env.example`. It fails early with actionable guidance if your machine already uses `3000`, `5432`, `8080`, `8082`, `9000`, or `9001`. If you change the published API or web ports, keep `NEXT_PUBLIC_API_BASE_URL` and `WEB_ALLOWED_ORIGINS` aligned with those overrides.
 
 ### Authenticated Workflow Verification
 Use the checked-in smoke paths when you want the full authenticated workflow without external auth setup:

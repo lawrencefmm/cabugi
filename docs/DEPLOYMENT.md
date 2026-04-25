@@ -21,7 +21,7 @@ CI runs the same Dockerfile build paths on pushes and pull requests.
 Run the local application stack from the repository root:
 
 ```bash
-docker compose -f infra/docker-compose.yml --env-file infra/full-stack.env.example up --build -d
+./infra/scripts/up_full_stack.sh
 ```
 
 The runtime definition includes:
@@ -36,9 +36,9 @@ The Compose startup also runs three one-shot init services automatically:
 - `judge-image-prep`: pulls the pinned judge runtime images through the host Docker socket
 - `seed-starter-problems`: seeds the official published starter problems and hidden bundles before the public web flow comes up
 
-The checked-in `infra/full-stack.env.example` values are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default, so authenticated browser flows still need real Clerk values or the checked-in authenticated smoke commands.
+The helper uses `infra/full-stack.env` when present and otherwise falls back to the checked-in `infra/full-stack.env.example` values. Those defaults are intended for local runtime packaging and public problem browsing. They do not enable browser auth by default, so authenticated browser flows still need real Clerk values or the checked-in authenticated smoke commands.
 
-If your host already uses the default ports, override these values in the env file before running Compose:
+If your host already uses the default ports, the helper fails before Compose startup and prints override examples for these values:
 - `WEB_PORT`
 - `API_PORT`
 - `JUDGE_OBSERVABILITY_PORT`

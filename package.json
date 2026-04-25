@@ -4,6 +4,7 @@
   "packageManager": "pnpm@10.28.0",
   "scripts": {
     "install:all": "pnpm install --frozen-lockfile",
+    "runtime:up": "./infra/scripts/up_full_stack.sh",
     "test:web": "pnpm --filter web test --run",
     "typecheck:web": "pnpm --filter web typecheck",
     "test:api": "cd services/api && go test ./...",

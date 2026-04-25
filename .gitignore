@@ -12,3 +12,4 @@ db/backups/
 .DS_Store
 .env
 .env.*
+infra/full-stack.env
