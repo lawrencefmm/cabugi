@@ -73,7 +73,25 @@ NEXT_PUBLIC_LOCAL_TEST_AUTH_ENABLED=true
 LOCAL_TEST_AUTH_ENABLED=true
 ```
 
-That mode enables a local browser sign-in control in the header. Use the `Author` session for submissions and other normal authenticated user flows. The `Moderator` session is also available, but moderation actions still require that subject to have a moderator role in PostgreSQL.
+That mode enables a local browser sign-in control in the header. The checked-in sessions map to these subjects:
+- `Author` -> `user_e2e_author`
+- `Moderator` -> `user_e2e_moderator`
+
+Use the `Author` session for submissions and other normal authenticated user flows. Moderation requires the `Moderator` browser session plus a `moderator` staff role in PostgreSQL.
+
+Bootstrap the first local admin once from `services/api`:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin
+```
+
+Then grant the checked-in moderator subject the moderator role:
+
+```bash
+DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator
+```
 
 If your machine already uses the default host ports, override the exported ports in `infra/full-stack.env.example` before starting Compose:
 - `WEB_PORT`
@@ -203,14 +221,14 @@ Staff role bootstrap command from `services/api`:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_local_admin --role admin
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin
 ```
 
 Grant a moderator or another admin after bootstrap:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --requester-subject user_local_admin --target-subject user_local_moderator --role moderator
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator
 ```
 
 Important environment values:

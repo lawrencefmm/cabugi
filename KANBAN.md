@@ -37,20 +37,6 @@ Acceptance Tests:
 Notes:
 - Planned from the frontend UX review after local interactive auth work; this is intended as UX polish, not a visual redesign.
 
-### WEB-LOCAL-01 - Make local moderation usable
-Description: Fix the local moderation developer path so the checked-in local test moderator identity, staff-role bootstrap guidance, and frontend moderation experience line up.
-
-Expected Result: Local moderation no longer feels broken; developers can either moderate successfully after the documented setup or see precise guidance about what local role setup is missing.
-
-Acceptance Tests:
-- Local development docs reference the actual local test auth subjects used by the browser auth controls.
-- A locally granted moderator can load `/moderation/problem-drafts` and apply moderation decisions.
-- A non-moderator still receives a clear forbidden state with actionable local setup guidance.
-- Relevant moderation UI tests and API verification pass.
-
-Notes:
-- The current local mismatch is that browser local test auth uses `user_e2e_moderator`, while the documented grant examples still reference different subjects.
-
 ### WEB-SUB-01 - Redirect to a live submission page after submit
 Description: Change the solve flow so successful submissions navigate to `/submissions/[id]` and that page live-refreshes until the submission reaches a terminal verdict.
 
@@ -136,6 +122,23 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-LOCAL-01 - Make local moderation usable
+Description: Fix the local moderation developer path so the checked-in local test moderator identity, staff-role bootstrap guidance, and frontend moderation experience line up.
+
+Expected Result: Local moderation no longer feels broken; developers can either moderate successfully after the documented setup or see precise guidance about what local role setup is missing.
+
+Acceptance Tests:
+- Local development docs reference the actual local test auth subjects used by the browser auth controls.
+- A locally granted moderator can load `/moderation/problem-drafts` and apply moderation decisions.
+- A non-moderator still receives a clear forbidden state with actionable local setup guidance.
+- Relevant moderation UI tests and API verification pass.
+
+Notes:
+- The current local mismatch is that browser local test auth uses `user_e2e_moderator`, while the documented grant examples still reference different subjects.
+- Local development docs and API docs now reference `user_e2e_author` and `user_e2e_moderator` for the checked-in browser auth controls.
+- The moderation `403` state now renders local-test diagnostics plus exact bootstrap and grant commands instead of only generic forbidden copy.
+- Verified with `pnpm --filter web typecheck`, `pnpm --filter web test --run src/components/moderation-problem-drafts-page.test.tsx`, `go test ./...` in `services/api`, and `pnpm verify:smoke:e2e`.
 
 ### OPS-04 - Add local test auth support for interactive local runs
 Description: Extend the local development runtime so browser submissions and other authenticated flows can work without a real Clerk setup.

@@ -16,6 +16,7 @@ import {
   type ModerationQueueItem,
   type ProblemDraft,
 } from "../lib/api";
+import { localTestAuthProfileLabels, type LocalTestAuthProfile } from "../lib/local-test-auth";
 import { SignInButton, useAuth } from "./auth";
 import { ProblemMarkdown } from "./problem-markdown";
 
@@ -39,7 +40,7 @@ export function ModerationProblemDraftsPage({ authEnabled }: ModerationProblemDr
 }
 
 function AuthenticatedModerationProblemDraftsPage() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn, localTestProfile, mode } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [moderationNotes, setModerationNotes] = useState("");
@@ -158,6 +159,8 @@ function AuthenticatedModerationProblemDraftsPage() {
           <p className="error-state__text">
             {formatModerationError(moderationQueueQuery.error, "Your account does not have moderator access.")}
           </p>
+
+          {forbidden && mode === "local_test" ? <LocalModerationSetupPanel localTestProfile={localTestProfile} /> : null}
         </section>
       </main>
     );
@@ -314,6 +317,72 @@ function ModerationSection({ content, heading }: { content: string; heading: str
   );
 }
 
+function LocalModerationSetupPanel({ localTestProfile }: { localTestProfile: LocalTestAuthProfile | null }) {
+  const activeSubject = formatLocalTestSubject(localTestProfile);
+  const sessionLabel = localTestProfile ? localTestAuthProfileLabels[localTestProfile] : "Unknown";
+
+  return (
+    <section className="local-moderation-help" aria-label="Local moderation setup guidance">
+      <div className="local-moderation-help__callout">
+        <p className="local-moderation-help__eyebrow">Local dev path</p>
+        <p className="local-moderation-help__summary">
+          {localTestProfile === "moderator"
+            ? "The browser is already using the checked-in moderator token. The missing piece is the moderator role in PostgreSQL."
+            : "The browser is not using the local moderator identity yet, or it is still on the author session. Switch to the moderator session in the header, then grant the moderator role in PostgreSQL."}
+        </p>
+      </div>
+
+      <div className="local-moderation-help__meta-grid">
+        <div className="local-moderation-help__meta-card">
+          <p className="local-moderation-help__meta-label">auth_mode</p>
+          <p className="local-moderation-help__meta-value">local_test</p>
+        </div>
+        <div className="local-moderation-help__meta-card">
+          <p className="local-moderation-help__meta-label">session_profile</p>
+          <p className="local-moderation-help__meta-value">{sessionLabel}</p>
+        </div>
+        <div className="local-moderation-help__meta-card">
+          <p className="local-moderation-help__meta-label">active_subject</p>
+          <p className="local-moderation-help__meta-value">{activeSubject}</p>
+        </div>
+        <div className="local-moderation-help__meta-card">
+          <p className="local-moderation-help__meta-label">required_role</p>
+          <p className="local-moderation-help__meta-value">moderator</p>
+        </div>
+      </div>
+
+      <div className="local-moderation-help__steps">
+        <section className="local-moderation-help__step">
+          <h2 className="local-moderation-help__step-title">1. Use the checked-in moderator browser session</h2>
+          <p className="local-moderation-help__step-text">
+            The header controls expose two local test identities: <code>user_e2e_author</code> and <code>user_e2e_moderator</code>. Moderation only succeeds after switching the browser session to <code>Moderator</code>.
+          </p>
+        </section>
+
+        <section className="local-moderation-help__step">
+          <h2 className="local-moderation-help__step-title">2. Bootstrap the first admin once</h2>
+          <p className="local-moderation-help__step-text">
+            Run this from <code>services/api</code> against your local database if no admin exists yet.
+          </p>
+          <pre className="local-moderation-help__command">
+            <code>{localAdminBootstrapCommand}</code>
+          </pre>
+        </section>
+
+        <section className="local-moderation-help__step">
+          <h2 className="local-moderation-help__step-title">3. Grant the moderator role to the browser moderator subject</h2>
+          <p className="local-moderation-help__step-text">
+            This aligns the checked-in moderator browser token with the staff role required by the moderation endpoints.
+          </p>
+          <pre className="local-moderation-help__command">
+            <code>{localModeratorGrantCommand}</code>
+          </pre>
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function DraftStatusLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="draft-status-line">
@@ -353,5 +422,22 @@ function formatDecisionSuccess(status: ProblemDraft["lifecycleStatus"]) {
       return "Draft returned to the author for changes.";
     case "in_review":
       return "Draft remains in review.";
+  }
+}
+
+const localAdminBootstrapCommand = `DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \\
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin`;
+
+const localModeratorGrantCommand = `DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \\
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator`;
+
+function formatLocalTestSubject(profile: LocalTestAuthProfile | null) {
+  switch (profile) {
+    case "author":
+      return "user_e2e_author";
+    case "moderator":
+      return "user_e2e_moderator";
+    default:
+      return "unknown";
   }
 }

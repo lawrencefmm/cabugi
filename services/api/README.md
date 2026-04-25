@@ -41,14 +41,14 @@ Bootstrap the first admin from `services/api` when the database has no admin yet
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_local_admin --role admin
+  go run ./cmd/grant-staff-role --bootstrap-first-admin --target-subject user_e2e_author --role admin
 ```
 
 Grant moderator or admin roles after bootstrap:
 
 ```bash
 DATABASE_URL="postgres://cabugi:cabugi@127.0.0.1:5432/cabugi?sslmode=disable" \
-  go run ./cmd/grant-staff-role --requester-subject user_local_admin --target-subject user_local_moderator --role moderator
+  go run ./cmd/grant-staff-role --requester-subject user_e2e_author --target-subject user_e2e_moderator --role moderator
 ```
 
 The bootstrap flag is only valid while no admin exists. After that, the command requires `--requester-subject` to belong to an existing admin, so non-admin users cannot grant privileged roles.
@@ -60,6 +60,8 @@ The bootstrap flag is only valid while no admin exists. After that, the command 
 - `CLERK_ALLOWED_PARTIES`: optional comma-separated allowed `azp` values such as `http://localhost:3000`.
 - `CLERK_ALLOWED_AUDIENCES`: optional comma-separated allowed `aud` values such as `cabugi-web`.
 - `LOCAL_TEST_AUTH_ENABLED`: when `true`, the API falls back to the checked-in local test issuer, audience, and public key if explicit Clerk verifier settings are not provided.
+
+When `LOCAL_TEST_AUTH_ENABLED=true`, the checked-in browser profiles map to `user_e2e_author` and `user_e2e_moderator`. Grant the moderator role to `user_e2e_moderator` if you want the local moderation routes to succeed.
 
 When auth verification is enabled, configure `CLERK_ISSUER` plus at least one of `CLERK_ALLOWED_PARTIES` or `CLERK_ALLOWED_AUDIENCES`. The API accepts bearer tokens from the `Authorization` header and from the `__session` cookie; when both are present, the header token wins.
 
