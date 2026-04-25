@@ -26,6 +26,7 @@ var (
 const sessionCookieName = "__session"
 
 const defaultJWKSRefreshInterval = 5 * time.Minute
+const tokenClockSkewLeeway = 30 * time.Second
 
 type Principal struct {
 	Subject string
@@ -116,7 +117,7 @@ func (verifier *ClerkVerifier) Verify(ctx context.Context, token string) (Princi
 	claims = jwt.MapClaims{}
 	parsedToken, err := jwt.ParseWithClaims(token, claims, func(*jwt.Token) (any, error) {
 		return publicKey, nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}))
+	}, jwt.WithLeeway(tokenClockSkewLeeway), jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}))
 	if err != nil || !parsedToken.Valid {
 		return Principal{}, ErrInvalidToken
 	}
