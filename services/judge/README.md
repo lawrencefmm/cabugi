@@ -32,7 +32,7 @@ Current local worker behavior:
 - renews the submission job lease while long-running work is still active
 - requeues failed jobs with `last_error` until the configured max-attempt limit is reached
 - marks submissions as `judge_failed` when the worker exhausts retry attempts
-- writes final submission status plus `submission_results`
+- writes final submission status, compile-output excerpts, and `submission_results`
 - emits structured JSON logs for claimed, completed, retried, and terminally failed jobs
 - serves local observability routes on `JUDGE_OBSERVABILITY_ADDRESS`, which defaults to `127.0.0.1:8082`
 
