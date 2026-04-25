@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useDeferredValue, useEffect, useState } from "react";
 
 import {
   createProblemDraft,
@@ -18,6 +18,7 @@ import {
   updateProblemDraft,
 } from "../lib/api";
 import { SignInButton, useAuth } from "./auth";
+import { ProblemMarkdown } from "./problem-markdown";
 
 type ProblemAuthoringPageProps = {
   authEnabled: boolean;
@@ -63,6 +64,7 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
   const [bundleFile, setBundleFile] = useState<File | null>(null);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const isEditing = Boolean(slug);
+  const deferredPreview = useDeferredValue(form);
 
   const draftQuery = useQuery({
     enabled: isLoaded && isSignedIn && isEditing,
@@ -153,6 +155,10 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
 
   const currentDraft = draftQuery.data;
   const canEditDraft = !isEditing || currentDraft?.lifecycleStatus === "draft";
+  const readinessChecks = buildReadinessChecks(form);
+  const readyCheckCount = readinessChecks.filter((check) => check.ready).length;
+  const readyForReview = readinessChecks.every((check) => check.ready);
+  const canSubmitForReview = canEditDraft && readyForReview && !uploadBundleMutation.isPending && !submitForReviewMutation.isPending;
   const actionError =
     uploadBundleMutation.error ?? createDraftMutation.error ?? updateDraftMutation.error ?? submitForReviewMutation.error ?? draftQuery.error ?? null;
 
@@ -377,12 +383,12 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
               </button>
 
               {isEditing ? (
-                <button
-                  className="workspace-button workspace-button--secondary"
-                  disabled={!canEditDraft || uploadBundleMutation.isPending || submitForReviewMutation.isPending}
-                  onClick={() => void handleSubmitForReview()}
-                  type="button"
-                >
+              <button
+                className="workspace-button workspace-button--secondary"
+                disabled={!canSubmitForReview}
+                onClick={() => void handleSubmitForReview()}
+                type="button"
+              >
                   {submitForReviewMutation.isPending ? "Submitting..." : "Submit for review"}
                 </button>
               ) : null}
@@ -416,12 +422,66 @@ function AuthenticatedProblemAuthoringPage({ slug }: { slug?: string }) {
           </div>
 
           <div className="problem-sidebar__section">
-            <h2 className="problem-sidebar__heading">Review Checklist</h2>
+            <h2 className="problem-sidebar__heading">Review Readiness</h2>
             <div className="draft-checklist">
-              <p className="workspace-auth-gate__text">Fill the statement fields, confirm the limits, and upload a validated hidden bundle before submitting for review.</p>
+              <p className="workspace-auth-gate__text">
+                {isEditing
+                  ? readyForReview
+                    ? "Ready to submit for review. Keep saving as needed, then send this draft to moderation when you are satisfied with the preview below."
+                    : `${readyCheckCount} of ${readinessChecks.length} checks complete. Save anytime, then finish the missing items before submitting for review.`
+                  : `${readyCheckCount} of ${readinessChecks.length} checks complete. Create the draft first, then come back to submit it for review once the checklist is green.`}
+              </p>
+
+              <div className="draft-status-line">
+                <span className="draft-status-line__label">Hidden bundle</span>
+                <span className="draft-status-line__value">{form.hiddenTestBundleKey ? "Uploaded and linked" : bundleFile ? `Selected: ${bundleFile.name}` : "Missing"}</span>
+              </div>
+
+              <ul className="draft-readiness-list" aria-label="Draft readiness checks">
+                {readinessChecks.map((check) => (
+                  <li className="draft-readiness-item" key={check.label}>
+                    <div>
+                      <p className="draft-readiness-item__label">{check.label}</p>
+                      <p className="draft-readiness-item__hint">{check.hint}</p>
+                    </div>
+                    <span className={`draft-readiness-badge${check.ready ? " draft-readiness-badge--ready" : ""}`}>{check.ready ? "Ready" : "Missing"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="problem-sidebar__section">
+            <h2 className="problem-sidebar__heading">Hidden Bundle State</h2>
+            <div className="draft-checklist">
+              <div className="draft-status-line">
+                <span className="draft-status-line__label">Bundle key</span>
+                <span className="draft-status-line__value">{form.hiddenTestBundleKey || "Not uploaded yet"}</span>
+              </div>
+              <div className="draft-status-line">
+                <span className="draft-status-line__label">Bundle SHA-256</span>
+                <span className="draft-status-line__value">{form.hiddenTestBundleSha256 || "Waiting for validated upload"}</span>
+              </div>
             </div>
           </div>
         </aside>
+      </section>
+
+      <section aria-label="Draft preview" className="workspace-panel draft-preview-panel">
+        <div className="workspace-panel__header">
+          <div>
+            <h2 className="workspace-panel__title">Live Preview</h2>
+            <p className="workspace-panel__subtitle">This preview updates as you edit so you can review the exact statement structure before sending the draft to moderators.</p>
+          </div>
+        </div>
+
+        <div className="moderation-sections">
+          <PreviewSection content={deferredPreview.statementMarkdown} emptyMessage="Start writing the statement to preview it here." heading="Statement" />
+          <PreviewSection content={deferredPreview.inputMarkdown} emptyMessage="Describe the input format to preview it here." heading="Input" />
+          <PreviewSection content={deferredPreview.outputMarkdown} emptyMessage="Describe the expected output to preview it here." heading="Output" />
+          <PreviewSection content={deferredPreview.constraintsMarkdown} emptyMessage="Add constraints or complexity notes to preview them here." heading="Constraints" />
+          <PreviewSection content={deferredPreview.notesMarkdown} emptyMessage="Optional implementation notes or clarifications will appear here." heading="Notes" />
+        </div>
       </section>
     </main>
   );
@@ -468,6 +528,15 @@ function DraftStatus({ status }: { status: ProblemDraft["lifecycleStatus"] }) {
   return <span className={`draft-status draft-status--${status}`}>{formatDraftStatus(status)}</span>;
 }
 
+function PreviewSection({ content, emptyMessage, heading }: { content: string; emptyMessage: string; heading: string }) {
+  return (
+    <section className="moderation-section">
+      <h3 className="problem-section__heading">{heading}</h3>
+      {content.trim() ? <ProblemMarkdown content={content} /> : <p className="workspace-auth-gate__text">{emptyMessage}</p>}
+    </section>
+  );
+}
+
 function draftToFormState(draft: ProblemDraft): DraftFormState {
   return {
     slug: draft.slug,
@@ -505,4 +574,44 @@ function formatDraftStatus(status: ProblemDraft["lifecycleStatus"]) {
     case "archived":
       return "Archived";
   }
+}
+
+function buildReadinessChecks(form: DraftFormState) {
+  return [
+    {
+      label: "Slug",
+      hint: "Set a stable URL-friendly slug for the draft.",
+      ready: form.slug.trim() !== "",
+    },
+    {
+      label: "Title",
+      hint: "Use the public-facing problem title shown in the problemset.",
+      ready: form.title.trim() !== "",
+    },
+    {
+      label: "Statement",
+      hint: "Explain the task clearly enough to preview the main statement.",
+      ready: form.statementMarkdown.trim() !== "",
+    },
+    {
+      label: "Input and output",
+      hint: "Describe both sides of the contract before review.",
+      ready: form.inputMarkdown.trim() !== "" && form.outputMarkdown.trim() !== "",
+    },
+    {
+      label: "Constraints",
+      hint: "Surface the key numeric or complexity limits moderators should validate.",
+      ready: form.constraintsMarkdown.trim() !== "",
+    },
+    {
+      label: "Execution limits",
+      hint: "Time and memory limits must both stay positive.",
+      ready: form.timeLimitMs > 0 && form.memoryLimitMb > 0,
+    },
+    {
+      label: "Hidden test bundle uploaded",
+      hint: "A validated hidden bundle is required before moderation can start.",
+      ready: (form.hiddenTestBundleKey ?? "").trim() !== "" && (form.hiddenTestBundleSha256 ?? "").trim() !== "",
+    },
+  ];
 }

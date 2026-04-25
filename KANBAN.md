@@ -23,20 +23,6 @@
 
 ## Backlog
 
-### WEB-AUTHOR-01 - Add authoring preview and readiness cues
-Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
-
-Expected Result: Authors can preview statements before moderation, understand missing requirements earlier, and submit for review with more confidence.
-
-Acceptance Tests:
-- Draft authoring pages expose live or near-live preview for the statement sections.
-- Hidden test bundle state remains visible while editing.
-- The UI surfaces clear readiness cues before enabling or encouraging submit-for-review.
-- Relevant authoring tests cover the new preview and validation affordances.
-
-Notes:
-- The current authoring screen already has the data needed for a stronger UX but offers little preview or structured readiness guidance.
-
 ### SUB-BE-01 - Add incremental judge progress
 Description: Extend the submission pipeline so the backend can expose partial judging progress, such as current test progress or partial case results, before a submission fully completes.
 
@@ -69,6 +55,23 @@ Notes:
 - The published problem list now surfaces supported language support directly in both desktop and mobile layouts without requiring backend changes because the current language set is global for v1.
 - The mobile problemset cards now preserve the same scan path by keeping the title prominent and moving limits plus languages into compact stats instead of a slug-first catalog row.
 - Verified with `pnpm --filter web test --run src/components/problem-list-page.test.tsx`, `pnpm --filter web typecheck`, and Chrome MCP checks against the rebuilt local web container on desktop and mobile widths.
+
+### WEB-AUTHOR-01 - Add authoring preview and readiness cues
+Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
+
+Expected Result: Authors can preview statements before moderation, understand missing requirements earlier, and submit for review with more confidence.
+
+Acceptance Tests:
+- Draft authoring pages expose live or near-live preview for the statement sections.
+- Hidden test bundle state remains visible while editing.
+- The UI surfaces clear readiness cues before enabling or encouraging submit-for-review.
+- Relevant authoring tests cover the new preview and validation affordances.
+
+Notes:
+- Completed by adding a deferred live preview panel for statement, input, output, constraints, and notes directly on the authoring page so authors can review the rendered markdown while editing.
+- The draft sidebar now surfaces explicit readiness guidance, a checklist of required review inputs, and persistent hidden-bundle status so submit-for-review no longer relies only on a backend rejection to communicate missing work.
+- Submit-for-review now stays disabled until the draft has the core statement sections, positive limits, and validated hidden bundle metadata needed for moderation handoff.
+- Verified with `pnpm --filter web test --run src/components/problem-authoring-page.test.tsx`, `pnpm --filter web test --run`, `pnpm --filter web typecheck`, and Chrome MCP checks in temporary local-test auth mode confirming the readiness count and live preview update on `/drafts/new` before restoring the Clerk env.
 
 ### WEB-POLISH-01 - Improve navigation, retries, and mobile behavior
 Description: Tighten common frontend interaction quality by replacing client-side hard reload links where appropriate, adding retry and recovery affordances, and improving dense views on mobile.
