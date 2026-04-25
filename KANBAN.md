@@ -50,6 +50,7 @@ Acceptance Tests:
 
 Notes:
 - This likely needs both frontend and backend work because the current app has create/edit routes but no drafts index flow.
+- Confirmed on the live runtime: the primary header still links `Drafts` directly to `/drafts/new`, so there is no browse-or-resume entry point for existing drafts from the main shell.
 
 ### WEB-AUTHOR-01 - Add authoring preview and readiness cues
 Description: Improve the draft authoring experience with live markdown preview, clearer validation cues, and visible readiness checks before submit-for-review.
@@ -74,10 +75,13 @@ Acceptance Tests:
 - Internal navigation in client-rendered views uses `next/link` or equivalent client transitions where appropriate.
 - Major error or empty states offer retry or next-step actions instead of dead ends.
 - Problem list, submissions, and moderation views remain usable on small screens without relying only on wide desktop tables.
+- Protected routes do not strand cold loads on generic `Loading ...` shells when a clearer sign-in gate or next step is available.
 - Relevant web tests cover the updated navigation and at least one improved retry state.
 
 Notes:
 - This task is meant to capture broad UX consistency work that does not fit neatly into a single route-specific feature.
+- Observed on the live Clerk-configured runtime: `/drafts/new`, `/moderation/problem-drafts`, `/submissions`, and `/problems/[slug]` all cold-load through very generic loading states from the shell, which makes the app feel unfinished before client auth or data resolves.
+- Confirmed in-browser: those routes do eventually reach functional sign-in gates, but the transition from shell load -> generic loading copy -> actual auth prompt is noticeably clunky and should be tightened.
 
 ### SUB-BE-01 - Add incremental judge progress
 Description: Extend the submission pipeline so the backend can expose partial judging progress, such as current test progress or partial case results, before a submission fully completes.
@@ -94,6 +98,24 @@ Notes:
 - This is intentionally lower priority than redirect-plus-polling because it requires backend and judge changes, not just frontend UX work.
 
 ## Done
+
+### WEB-AUTH-02 - Add real Clerk auth controls to the app shell
+Description: Expose real Clerk sign-in, sign-up, and signed-in account controls in the global header so authentication is discoverable without relying only on route-level auth gates.
+
+Expected Result: When Clerk mode is enabled, signed-out users can start authentication directly from the header and signed-in users can see account state plus an obvious sign-out or account-management entry.
+
+Acceptance Tests:
+- With `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` configured and local-test auth disabled, the app shell shows `Sign in` and `Create account` entry points while signed out.
+- Starting auth from the header opens the configured Clerk flow and exposes the Clerk-managed providers already enabled for the instance.
+- After sign-in, the header renders a signed-in account state with a clear account or sign-out action.
+- Local-test auth mode still renders the existing local test auth controls instead of the Clerk header controls.
+- Relevant auth UI tests cover both Clerk-mode and local-test-mode header behavior.
+
+Notes:
+- Completed by replacing the header’s mode-specific gap with a shared auth control surface that switches cleanly between disabled, local-test, and Clerk auth modes.
+- Clerk mode now exposes `Sign in` and `Create account` directly in the app shell, while signed-in Clerk sessions render compact account state plus an explicit `Sign out` action.
+- Verified in-browser that the header controls open the expected Clerk sign-in and sign-up modal flows and surface the configured GitHub, Google, email-or-username, and sign-up options.
+- Verified with `pnpm --filter web test --run src/components/auth.test.tsx`, `pnpm --filter web test --run`, `pnpm --filter web typecheck`, and live browser checks against the Clerk-configured local stack.
 
 ### WEB-SUB-01 - Redirect to a live submission page after submit
 Description: Change the solve flow so successful submissions navigate to `/submissions/[id]` and that page live-refreshes until the submission reaches a terminal verdict.

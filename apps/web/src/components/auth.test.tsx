@@ -1,17 +1,39 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 
-import { AuthProvider, LocalTestAuthControls, SignInButton, useAuth } from "./auth";
+import { AuthProvider, AppAuthControls, LocalTestAuthControls, SignInButton, useAuth } from "./auth";
 import { localTestAuthCookieName, localTestAuthProfileCookieName } from "../lib/local-test-auth";
+
+let mockClerkAuthState: {
+  getToken: () => Promise<string | null>;
+  isLoaded: boolean;
+  isSignedIn: boolean;
+} = {
+  getToken: async () => null,
+  isLoaded: true,
+  isSignedIn: false,
+};
+
+let mockClerkUserState: {
+  user: {
+    firstName: string | null;
+    lastName: string | null;
+    username: string | null;
+    primaryEmailAddress: { emailAddress: string } | null;
+  } | null;
+} = {
+  user: null,
+};
+
+const signOutMock = vi.fn(async () => undefined);
 
 vi.mock("@clerk/nextjs", () => ({
   ClerkProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   SignInButton: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useAuth: () => ({
-    getToken: async () => null,
-    isLoaded: true,
-    isSignedIn: false,
-  }),
+  SignUpButton: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useAuth: () => mockClerkAuthState,
+  useClerk: () => ({ signOut: signOutMock }),
+  useUser: () => mockClerkUserState,
 }));
 
 function AuthStateProbe() {
@@ -24,6 +46,13 @@ describe("AuthProvider", () => {
   afterEach(() => {
     document.cookie = `${localTestAuthCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
     document.cookie = `${localTestAuthProfileCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    mockClerkAuthState = {
+      getToken: async () => null,
+      isLoaded: true,
+      isSignedIn: false,
+    };
+    mockClerkUserState = { user: null };
+    signOutMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -110,5 +139,47 @@ describe("AuthProvider", () => {
       expect(screen.getByText("Moderator session")).toBeInTheDocument();
     });
     expect(document.cookie).toContain(`${localTestAuthProfileCookieName}=moderator`);
+  });
+
+  it("shows sign in and create account in the header for signed-out Clerk mode", () => {
+    render(
+      <AuthProvider publishableKey="pk_test_example">
+        <AppAuthControls />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByText("Account")).toBeInTheDocument();
+    expect(screen.getByText("Signed out")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
+  });
+
+  it("shows signed-in Clerk account state and supports sign out", async () => {
+    mockClerkAuthState = {
+      getToken: async () => "clerk-token",
+      isLoaded: true,
+      isSignedIn: true,
+    };
+    mockClerkUserState = {
+      user: {
+        firstName: "Dev",
+        lastName: "User",
+        username: "devuser",
+        primaryEmailAddress: { emailAddress: "dev@example.com" },
+      },
+    };
+
+    render(
+      <AuthProvider publishableKey="pk_test_example">
+        <AppAuthControls />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByText("Dev User")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(signOutMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

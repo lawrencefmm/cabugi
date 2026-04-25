@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AppProviders } from "../src/components/app-providers";
-import { AuthProvider, LocalTestAuthControls } from "../src/components/auth";
+import { AppAuthControls, AuthProvider } from "../src/components/auth";
 
 type RootLayoutProps = {
   children: ReactNode;
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
                 <Link href="/submissions">Submissions</Link>
               </nav>
 
-              <LocalTestAuthControls />
+              <AppAuthControls />
             </div>
           </div>
         </header>
